@@ -7,7 +7,6 @@ import type { ObfuscatorOptions, TransformContext, TransformName } from 'src/opt
 import { dotToBracket } from 'src/preparation/dot-to-bracket'
 import { expandDestructuring } from 'src/preparation/expand-destructuring'
 import { expandTemplateLiterals } from 'src/preparation/expand-template-literals'
-import { rewriteClassFields } from 'src/preparation/rewrite-class-fields'
 import { splitSequenceExpressions } from 'src/preparation/split-sequence-expressions'
 import { splitVariableDeclarations } from 'src/preparation/split-variable-declarations'
 import { stringifyObjectKeys } from 'src/preparation/stringify-object-keys'
@@ -61,13 +60,12 @@ type TransformFn = (ast: File, ctx: TransformContext) => boolean
 type Phase = readonly [name: string, fn: TransformFn]
 type ConfigurablePhase = readonly [name: TransformName, fn: TransformFn]
 
-// Mangling must see quoted access and class fields before preparation erases
-// those shapes. It is opt-in because outside code may use the same properties.
+// Mangling must see quoted access before preparation erases that distinction.
+// It is opt-in because outside code may use the same properties.
 const BEFORE_PREPARATION: readonly ConfigurablePhase[] = [['mangleProperties', mangleProperties]]
 
 // Shape-normalizing passes. Always run; never exposed in `options.transforms`.
 const PREPARATION: readonly Phase[] = [
-  ['rewriteClassFields', asBoolean(rewriteClassFields)],
   ['expandDestructuring', asBoolean(expandDestructuring)],
   ['wrapSingleStatements', asBoolean(wrapSingleStatements)],
   ['splitSequenceExpressions', asBoolean(splitSequenceExpressions)],

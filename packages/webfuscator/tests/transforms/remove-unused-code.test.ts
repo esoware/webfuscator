@@ -1,8 +1,5 @@
-import generate from '@babel/generator'
-import { parse } from '@babel/parser'
 import { expect, test } from 'vitest'
 
-import { rewriteClassFields } from 'src/preparation/rewrite-class-fields'
 import { removeUnusedCode } from 'src/transforms/remove-unused-code'
 
 import { defineCases, run, trace } from '../helpers'
@@ -430,16 +427,12 @@ test('removeUnusedCode keeps an Annex-B function declared in a switch case (A02-
   )
 })
 
-test('removeUnusedCode keeps a class referenced only through a rewriteClassFields insertion (A02-25)', () => {
+test('removeUnusedCode keeps a class with public static fields (A02-25)', () => {
   for (const source of [
     'class U { static s = 1; }\nlog("after");',
     'class U { static a = log("a"); static b = log("b"); }\nlog("after");',
   ]) {
-    const ast = parse(source, { sourceType: 'unambiguous' })
-    // Preparation republishes the static-field reference through `insertAfter`.
-    rewriteClassFields(ast)
-    removeUnusedCode(ast)
-    const out = generate(ast, { comments: false }).code
+    const out = run(source, removeUnusedCode)
     expect(out).toContain('class U')
     expect(trace(out)).toEqual(trace(source))
   }

@@ -17,7 +17,7 @@ import { StringGenerator } from 'src/utils/string-generator'
  * that this pipeline must leave unchanged.
  *
  * This pass runs before shape preparation, while Babel still distinguishes
- * `obj.name` from `obj["name"]` and class fields still carry their source keys.
+ * `obj.name` from `obj["name"]`.
  *
  * @example
  * // ◀️ before

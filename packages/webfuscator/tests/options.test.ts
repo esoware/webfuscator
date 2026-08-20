@@ -25,6 +25,22 @@ test('obfuscate keeps preparation enabled when transforms are omitted', () => {
   expect(out).toContain('object["property"]')
 })
 
+test('obfuscate leaves class fields intact during preparation', () => {
+  const source = `class Box { value = 1; static count = 2; }
+log(new Box().value, Box.count);`
+  const out = obfuscateWithDefaults(source)
+  const evaluate = (code: string): unknown[] => {
+    const calls: unknown[] = []
+    evalProgram(code, { log: (...values: unknown[]) => calls.push(values) })
+    return calls
+  }
+
+  expect(evaluate(out)).toEqual(evaluate(source))
+  expect(out).toContain('value = 1')
+  expect(out).toContain('static count = 2')
+  expect(out).not.toContain('Object.defineProperty')
+})
+
 test('obfuscate minify selects Babel minified output without changing behavior', () => {
   const src = `function add(a, b) { return a + b; } log(add(2, 3));`
   const formatted = obfuscateWithDefaults(src)
