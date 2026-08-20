@@ -2,7 +2,7 @@
 
 `webfuscator` is a Babel-based JavaScript obfuscator. It parses a JavaScript source string, applies configurable transforms, and returns JavaScript source.
 
-[Read the documentation](./docs/index.mdx) for the quickstart, configuration guides, API details, and a reference page for every transform.
+[Read the documentation](https://webfuscator.mintlify.app/) for the quickstart, configuration guides, API details, and a reference page for every transform.
 
 ## Install
 
@@ -36,13 +36,13 @@ Configurable transforms are disabled by default; preparation passes always run.
 
 ## Documentation
 
-- [Quickstart](./docs/getting-started/quickstart.mdx)
-- [JavaScript API](./docs/reference/api.mdx)
-- [Configure transforms](./docs/guides/configure-transforms.mdx)
-- [Obfuscator options](./docs/reference/options.mdx)
-- [Property mangling](./docs/reference/property-mangling-options.mdx)
-- [String generator modes](./docs/reference/string-generator-modes.mdx)
-- [Report a bug](./docs/troubleshooting/report-a-bug.mdx)
+- [Quickstart](https://webfuscator.mintlify.app/getting-started/quickstart)
+- [JavaScript API](https://webfuscator.mintlify.app/reference/api)
+- [Configure transforms](https://webfuscator.mintlify.app/guides/configure-transforms)
+- [Obfuscator options](https://webfuscator.mintlify.app/reference/options)
+- [Property mangling](https://webfuscator.mintlify.app/reference/property-mangling-options)
+- [String generator modes](https://webfuscator.mintlify.app/reference/string-generator-modes)
+- [Report a bug](https://webfuscator.mintlify.app/troubleshooting/report-a-bug)
 
 ## Development
 
