@@ -22,7 +22,8 @@
     "url": "git+https://github.com/esoware/webfuscator.git"
   },
   "files": [
-    "dist"
+    "dist",
+    "src"
   ],
   "type": "module",
   "main": "dist/index.js",
@@ -34,6 +35,7 @@
     }
   },
   "scripts": {
+    "prepublishOnly": "pnpm check",
     "prepare": "pnpm run build",
     "build": "node --eval \"require('node:fs').rmSync('dist', { force: true, recursive: true })\" && tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
     "lint": "oxlint src tests",
