@@ -48,7 +48,7 @@
   },
   "overrides": [
     {
-      "files": ["tests/**"],
+      "files": ["packages/webfuscator/tests/**"],
       "rules": {
         "no-new-func": "off",
         "id-length": "off",
@@ -63,5 +63,5 @@
       }
     }
   ],
-  "ignorePatterns": ["dist/", "node_modules/", "tests/fixtures/"]
+  "ignorePatterns": ["dist/", "node_modules/", "packages/webfuscator/tests/fixtures/"]
 }

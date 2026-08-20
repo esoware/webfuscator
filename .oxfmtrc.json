@@ -23,5 +23,5 @@
     "sortSideEffects": false
   },
   "sortPackageJson": true,
-  "ignorePatterns": ["dist/", "node_modules/", "tests/fixtures/"]
+  "ignorePatterns": ["dist/", "node_modules/", "packages/webfuscator/tests/fixtures/"]
 }

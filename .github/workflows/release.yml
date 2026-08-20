@@ -35,9 +35,12 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          package_version="$(node -p "require('./package.json').version")"
+          package_version="$(node -p "require('./packages/webfuscator/package.json').version")"
           test "$RELEASE_TAG" = "v$package_version"
+      - name: Prepare package files
+        run: cp README.md LICENSE DISCLOSURE packages/webfuscator/
       - name: Stage package
+        working-directory: packages/webfuscator
         env:
           NPM_DIST_TAG: ${{ github.event.release.prerelease && 'next' || 'latest' }}
         run: npm stage publish --access public --foreground-scripts --tag "$NPM_DIST_TAG"

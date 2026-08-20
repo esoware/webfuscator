@@ -3,7 +3,8 @@ import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repositoryRoot = fileURLToPath(new URL('..', import.meta.url))
-const transformsDirectory = join(repositoryRoot, 'src', 'transforms')
+const webfuscatorDirectory = join(repositoryRoot, 'packages', 'webfuscator')
+const transformsDirectory = join(webfuscatorDirectory, 'src', 'transforms')
 const outputDirectory = join(repositoryRoot, 'docs', 'reference', 'transforms')
 const checkOnly = process.argv.includes('--check')
 
@@ -45,7 +46,7 @@ const titles = {
 const configurableStringModeTransforms = new Set(['renameIdentifiers', 'specialsToStrings'])
 
 function configuredTransformNames() {
-  const optionsSource = readFileSync(join(repositoryRoot, 'src', 'options.ts'), 'utf8')
+  const optionsSource = readFileSync(join(webfuscatorDirectory, 'src', 'options.ts'), 'utf8')
   const declaration = optionsSource.match(
     /export type TransformName =(?<members>[\s\S]*?)\n\n\/\/ An override enables/u,
   )
@@ -179,8 +180,8 @@ function renderPage(transform) {
     throw new Error(`Add a documentation title for ${transformName}`)
   }
 
-  const sourceUrl = `https://github.com/esoware/webfuscator/blob/main/src/transforms/${fileName}`
-  const testUrl = `https://github.com/esoware/webfuscator/blob/main/tests/transforms/${fileName.replace(/\.ts$/u, '.test.ts')}`
+  const sourceUrl = `https://github.com/esoware/webfuscator/blob/main/packages/webfuscator/src/transforms/${fileName}`
+  const testUrl = `https://github.com/esoware/webfuscator/blob/main/packages/webfuscator/tests/transforms/${fileName.replace(/\.ts$/u, '.test.ts')}`
   return `---
 title: ${JSON.stringify(title)}
 description: ${JSON.stringify(pageDescription(behavior))}
@@ -230,7 +231,7 @@ const exportedNames = transforms.map(({ transformName }) => transformName).toSor
 
 if (configuredNames.join('\n') !== exportedNames.join('\n')) {
   throw new Error(
-    `TransformName and src/transforms differ:\nconfigured: ${configuredNames.join(', ')}\nexported: ${exportedNames.join(', ')}`,
+    `TransformName and packages/webfuscator/src/transforms differ:\nconfigured: ${configuredNames.join(', ')}\nexported: ${exportedNames.join(', ')}`,
   )
 }
 

@@ -1,3 +1,7 @@
+packages:
+  - docs
+  - packages/*
+
 allowBuilds:
   '@scarf/scarf': false
   keytar: false

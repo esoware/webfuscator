@@ -1,82 +1,25 @@
 {
-  "name": "webfuscator",
-  "version": "0.9.5",
-  "description": "JavaScript obfuscator built on Babel",
-  "keywords": [
-    "babel",
-    "code-protection",
-    "javascript",
-    "mangler",
-    "minifier",
-    "obfuscation",
-    "obfuscator"
-  ],
-  "homepage": "https://github.com/esoware/webfuscator#readme",
-  "bugs": {
-    "url": "https://github.com/esoware/webfuscator/issues"
-  },
-  "license": "MIT",
-  "author": "Esoware",
-  "contentPolicy": {
-    "class": "dual-use"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/esoware/webfuscator.git"
-  },
-  "files": [
-    "DISCLOSURE",
-    "dist",
-    "src"
-  ],
-  "publishConfig": {
-    "access": "public"
-  },
-  "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    }
-  },
+  "name": "@webfuscator/monorepo",
+  "private": true,
   "scripts": {
-    "prepublishOnly": "pnpm check",
-    "prepare": "pnpm run build",
-    "build": "node --eval \"require('node:fs').rmSync('dist', { force: true, recursive: true })\" && tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
-    "lint": "oxlint scripts src tests",
-    "lint:fix": "oxlint --fix scripts src tests",
-    "format": "oxfmt \"scripts/**/*.mjs\" \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "format:check": "oxfmt --check \"scripts/**/*.mjs\" \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "typecheck": "tsc --noEmit",
+    "build": "pnpm --recursive --if-present run build",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run knip && pnpm run test",
+    "docs:check": "pnpm --filter @webfuscator/docs run check",
+    "docs:dev": "pnpm --filter @webfuscator/docs run dev",
+    "docs:format": "pnpm --filter @webfuscator/docs run format",
+    "docs:generate": "pnpm --filter @webfuscator/docs run generate",
+    "format": "oxfmt \"scripts/**/*.mjs\" \"packages/webfuscator/src/**/*.ts\" \"packages/webfuscator/tests/**/*.ts\"",
+    "format:check": "oxfmt --check \"scripts/**/*.mjs\" \"packages/webfuscator/src/**/*.ts\" \"packages/webfuscator/tests/**/*.ts\"",
     "knip": "knip",
-    "test": "vitest run",
-    "docs:generate": "node scripts/generate-transform-docs.mjs",
-    "docs:generated-check": "node scripts/generate-transform-docs.mjs --check",
-    "docs:dev": "pnpm run docs:generate && cd docs && mint --telemetry=false dev --no-open",
-    "docs:format": "cd docs && mint --telemetry=false format && cd .. && node scripts/generate-transform-docs.mjs",
-    "docs:validate": "cd docs && mint --telemetry=false validate",
-    "docs:links": "cd docs && mint --telemetry=false broken-links --check-anchors --check-redirects --check-snippets",
-    "docs:a11y": "cd docs && mint --telemetry=false a11y",
-    "docs:check": "pnpm run docs:generated-check && pnpm run docs:validate && pnpm run docs:links && pnpm run docs:a11y",
-    "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run knip && pnpm run test"
-  },
-  "dependencies": {
-    "@babel/generator": "^8.0.0",
-    "@babel/parser": "^8.0.4",
-    "@babel/traverse": "^8.0.4",
-    "@babel/types": "^8.0.4"
+    "lint": "oxlint scripts packages/webfuscator/src packages/webfuscator/tests",
+    "lint:fix": "oxlint --fix scripts packages/webfuscator/src packages/webfuscator/tests",
+    "test": "pnpm --recursive --if-present run test",
+    "typecheck": "pnpm --recursive --if-present run typecheck"
   },
   "devDependencies": {
-    "@types/node": "^26.2.0",
     "knip": "^6.32.2",
-    "mint": "4.2.810",
     "oxfmt": "^0.64.0",
-    "oxlint": "^1.79.0",
-    "tsc-alias": "^1.9.2",
-    "typescript": "^7.0.2",
-    "vitest": "^4.1.11"
+    "oxlint": "^1.79.0"
   },
   "engines": {
     "node": "^22.18.0 || >=24.11.0"
