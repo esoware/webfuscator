@@ -1,0 +1,67 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "import", "promise"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error",
+    "style": "error",
+    "pedantic": "error",
+    "restriction": "off",
+    "nursery": "error"
+  },
+  "rules": {
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "capitalized-comments": ["error", "always", { "ignoreConsecutiveComments": true }],
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    "func-style": ["error", "declaration", { "allowArrowFunctions": true }],
+    "id-length": ["error", { "exceptions": ["a", "b", "c", "d", "e", "i", "j", "k", "t", "x", "y", "z"], "checkGeneric": false }],
+    "sort-imports": ["error", { "ignoreDeclarationSort": true, "allowSeparatedGroups": true }],
+    "no-duplicate-imports": ["error", { "allowSeparateTypeImports": true }],
+    "import/no-named-as-default": "off",
+    "unicorn/switch-case-braces": ["error", "avoid"],
+
+    "import/no-nodejs-modules": "off",
+    "no-magic-numbers": "off",
+    "one-var": "off",
+    "no-ternary": "off",
+    "no-continue": "off",
+    "no-undef": "off",
+    "sort-keys": "off",
+    "init-declarations": "off",
+    "max-statements": "off",
+    "max-lines": "off",
+    "max-lines-per-function": "off",
+    "max-params": "off",
+    "max-depth": "off",
+    "import/max-dependencies": "off",
+    "import/no-named-export": "off",
+    "import/prefer-default-export": "off",
+    "import/no-namespace": "off",
+    "import/group-exports": "off",
+    "import/exports-last": "off",
+    "unicorn/no-null": "off",
+    "unicorn/max-nested-calls": "off",
+    "unicorn/prefer-math-trunc": "off",
+    "unicorn/number-literal-case": "off",
+    "promise/prefer-await-to-callbacks": "off"
+  },
+  "overrides": [
+    {
+      "files": ["tests/**"],
+      "rules": {
+        "no-new-func": "off",
+        "id-length": "off",
+        "require-unicode-regexp": "off",
+        "prefer-named-capture-group": "off",
+        "prefer-destructuring": "off",
+        "no-template-curly-in-string": "off",
+        "no-useless-escape": "off",
+        "unicorn/consistent-function-scoping": "off",
+        "unicorn/numeric-separators-style": "off",
+        "unicorn/no-useless-undefined": "off"
+      }
+    }
+  ],
+  "ignorePatterns": ["dist/", "node_modules/", "tests/fixtures/"]
+}

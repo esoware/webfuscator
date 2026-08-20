@@ -1,0 +1,7 @@
+node_modules/
+dist/
+own/
+tests/fixtures/output/
+*.tsbuildinfo
+.DS_Store
+package-lock.json

@@ -1,0 +1,67 @@
+{
+  "name": "webfuscator",
+  "version": "0.9.4",
+  "description": "JavaScript obfuscator built on Babel",
+  "keywords": [
+    "babel",
+    "code-protection",
+    "javascript",
+    "mangler",
+    "minifier",
+    "obfuscation",
+    "obfuscator"
+  ],
+  "homepage": "https://github.com/esoware/webfuscator#readme",
+  "bugs": {
+    "url": "https://github.com/esoware/webfuscator/issues"
+  },
+  "license": "MIT",
+  "author": "Esoware",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/esoware/webfuscator.git"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "prepare": "pnpm run build",
+    "build": "node --eval \"require('node:fs').rmSync('dist', { force: true, recursive: true })\" && tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
+    "lint": "oxlint src tests",
+    "lint:fix": "oxlint --fix src tests",
+    "format": "oxfmt \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "format:check": "oxfmt --check \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "knip": "knip",
+    "test": "vitest run",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run knip && pnpm run test"
+  },
+  "dependencies": {
+    "@babel/generator": "^8.0.0",
+    "@babel/parser": "^8.0.4",
+    "@babel/traverse": "^8.0.4",
+    "@babel/types": "^8.0.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "knip": "^6.32.2",
+    "oxfmt": "^0.64.0",
+    "oxlint": "^1.79.0",
+    "tsc-alias": "^1.9.2",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  },
+  "engines": {
+    "node": "^22.18.0 || >=24.11.0"
+  },
+  "packageManager": "pnpm@11.22.0"
+}
