@@ -24,6 +24,14 @@ npm install webfuscator
 ```js
 import { obfuscate } from 'webfuscator'
 
+const source = `
+function greet(name) {
+  console.log('Hello, ' + name)
+}
+
+greet('world')
+`
+
 const code = obfuscate(source, {
   stringGeneratorMode: 'mangled', // Other modes: hexadecimal, randomized, zeroWidth, number
   seed: 0,
