@@ -3,10 +3,14 @@
   "theme": "mint",
   "name": "webfuscator",
   "description": "Install, configure, and understand the webfuscator JavaScript obfuscator.",
+  "logo": {
+    "light": "/logo/wordmark-light.svg",
+    "dark": "/logo/wordmark.svg"
+  },
   "colors": {
-    "primary": "#0550AE",
-    "light": "#54AEFF",
-    "dark": "#1F6FEB"
+    "primary": "#1D4ED8",
+    "light": "#60A5FA",
+    "dark": "#2563EB"
   },
   "icons": {
     "library": "lucide"
@@ -14,7 +18,7 @@
   "background": {
     "color": {
       "light": "#FFFFFF",
-      "dark": "#0D1117"
+      "dark": "#0F0F0F"
     }
   },
   "navigation": {
