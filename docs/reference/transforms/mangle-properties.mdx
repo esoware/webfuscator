@@ -27,6 +27,9 @@ Renames statically known public properties through one program-wide mapping.
 Property selection follows Terser, with extra collision checks for names
 that must remain unchanged.
 
+This pass runs before shape preparation, while Babel still distinguishes
+`obj.name` from `obj["name"]`.
+
 ## Before and after
 
 <CodeGroup>
