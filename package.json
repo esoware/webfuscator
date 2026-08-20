@@ -17,14 +17,21 @@
   },
   "license": "MIT",
   "author": "Esoware",
+  "contentPolicy": {
+    "class": "dual-use"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/esoware/webfuscator.git"
   },
   "files": [
+    "DISCLOSURE",
     "dist",
     "src"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
