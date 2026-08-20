@@ -187,17 +187,16 @@ export function obfuscate(code: string, options: ObfuscatorOptions = {}): string
     run(log, name, () => fn(ast, ctxFor(name, options, baseCtx)))
   }
 
-  return run(log, 'generate', () => generate(ast, { shouldPrintComment }).code)
+  return run(
+    log,
+    'generate',
+    () => generate(ast, { minified: options.minify ?? false, shouldPrintComment }).code,
+  )
 }
 
 function isEnabled(name: TransformName, options: ObfuscatorOptions): boolean {
-  if (name === 'mangleProperties') {
-    return (
-      options.transforms?.mangleProperties !== undefined &&
-      options.transforms.mangleProperties !== false
-    )
-  }
-  return options.transforms?.[name] !== false
+  const entry = options.transforms?.[name]
+  return entry !== undefined && entry !== false
 }
 
 // Boolean entries inherit the base. An override replaces its string mode.

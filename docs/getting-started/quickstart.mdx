@@ -1,0 +1,111 @@
+---
+title: Quickstart
+description: Install webfuscator and obfuscate a JavaScript file from a Node.js build script.
+keywords: ["install","getting started","first obfuscation"]
+---
+
+This tutorial takes a JavaScript file, obfuscates it, and runs the generated file to confirm that its result did not change.
+
+<Note>
+  `webfuscator` exposes a JavaScript API, not a command-line interface. The build script below handles file reads and writes.
+</Note>
+
+## Prerequisites
+
+- Node.js `^22.18.0 || >=24.11.0`
+- An ESM project or an `.mjs` build script
+
+<Steps>
+  <Step title="Install webfuscator">
+    Add the package as a development dependency.
+
+    <CodeGroup>
+
+    ```sh npm
+    npm install --save-dev webfuscator
+    ```
+
+    ```sh pnpm
+    pnpm add --save-dev webfuscator
+    ```
+
+    </CodeGroup>
+  </Step>
+  <Step title="Create a JavaScript input">
+    Save this program as `src/input.js`.
+
+    ```js src/input.js lines
+    export default function greet(name) {
+      const message = `Hello, ${name}!`
+      return message
+    }
+    ```
+  </Step>
+  <Step title="Create the build script">
+    Save this script as `obfuscate.mjs`. It reads the input, calls `obfuscate`, and writes the returned source.
+
+    ```js obfuscate.mjs highlight={8-12} lines
+    import { mkdir, readFile, writeFile } from 'node:fs/promises'
+    
+    import { obfuscate } from 'webfuscator'
+    
+    const inputPath = 'src/input.js'
+    const outputPath = 'build/input.js'
+    const source = await readFile(inputPath, 'utf8')
+    const output = obfuscate(source, {
+      minify: true,
+      seed: 42,
+      transforms: { renameIdentifiers: true },
+    })
+    
+    await mkdir('build', { recursive: true })
+    await writeFile(outputPath, output)
+    ```
+  </Step>
+  <Step title="Build and run the result">
+    Run the build script, then execute the generated JavaScript.
+
+    ```sh Terminal
+    node obfuscate.mjs
+    node --input-type=module --eval "const { default: greet } = await import('./build/input.js'); console.log(greet('world'))"
+    ```
+
+    The generated program prints the same value as the input:
+
+    ```text Output
+    Hello, world!
+    ```
+  </Step>
+</Steps>
+
+<Check>
+  You now have a repeatable obfuscation step. Running it again with the same input, options, package version, and Node.js version produces the same file.
+</Check>
+
+## Add it to your package scripts
+
+```json package.json highlight={3}
+{
+  "scripts": {
+    "obfuscate": "node obfuscate.mjs"
+  }
+}
+```
+
+Run the script with your package manager after your compiler or bundler emits plain JavaScript.
+
+<Warning>
+  `webfuscator` does not parse TypeScript or JSX and does not emit source maps. Compile syntax extensions first, then obfuscate the JavaScript output.
+</Warning>
+
+## Next steps
+
+<Columns cols={2}>
+  <Card title="Configure transforms" icon="sliders-horizontal" href="/guides/configure-transforms">
+    Decide which removal, lowering, naming, and literal passes belong in your build.
+  </Card>
+
+  <Card title="Review every option" icon="settings-2" href="/reference/options">
+    Check accepted types, defaults, and transform-specific configuration.
+  </Card>
+</Columns>

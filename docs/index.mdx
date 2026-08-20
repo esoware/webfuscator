@@ -1,0 +1,82 @@
+---
+title: webfuscator
+description: A behavior-preserving JavaScript obfuscator built on Babel.
+mode: wide
+keywords: ["JavaScript obfuscator","Babel obfuscation","code transformation"]
+---
+
+`webfuscator` turns a JavaScript source string into harder-to-read JavaScript. It runs synchronously, performs no file I/O, and returns source code.
+
+<Badge color="blue" stroke icon="box">ESM only</Badge> <Badge color="green" stroke icon="repeat-2">Seeded output</Badge> <Badge color="purple" stroke icon="braces">TypeScript declarations</Badge>
+
+<Columns cols={3}>
+  <Card title="Run your first obfuscation" icon="rocket" href="/getting-started/quickstart">
+    Install the package and transform a working JavaScript file.
+  </Card>
+
+  <Card title="Choose your transforms" icon="sliders-horizontal" href="/guides/configure-transforms">
+    Enable or disable passes, select a naming mode, and configure property mangling.
+  </Card>
+
+  <Card title="Read the API reference" icon="code-xml" href="/reference/api">
+    Check the function signature, supported syntax, output, and error behavior.
+  </Card>
+</Columns>
+
+## Use it in a build script
+
+Pass JavaScript to `obfuscate`, then write the returned string wherever your build expects it.
+
+```js obfuscate.mjs highlight={5} lines
+import { obfuscate } from 'webfuscator'
+
+const source = `function square(value) { return value * value }`
+
+const output = obfuscate(source, {
+  minify: true,
+  seed: 42,
+  transforms: { renameIdentifiers: true },
+})
+```
+
+## Know what the pipeline does
+
+<Columns cols={3}>
+  <Card title="Parses JavaScript" icon="code">
+    Babel accepts scripts and ECMAScript modules with unambiguous source detection. Compile TypeScript, JSX, and other syntax extensions first.
+  </Card>
+
+  <Card title="Runs conservative rewrites" icon="route">
+    Each transform checks its safety conditions and leaves unsupported syntax unchanged.
+  </Card>
+
+  <Card title="Prints source" icon="file-output">
+    The API returns JavaScript only. It does not return an AST or generate a source map.
+  </Card>
+</Columns>
+
+The same source, options, package version, and Node.js version produce the same output. Change `seed` when you want a different built-in randomized sequence.
+
+<Info>
+  Obfuscation does not hide client-side secrets or create a security boundary. Use `webfuscator` only on software you own or are authorized to modify. Read the project's [responsible-use policy](https://github.com/esoware/webfuscator/blob/main/DISCLOSURE).
+</Info>
+
+## Explore the reference
+
+<Columns cols={2}>
+  <Card title="Obfuscator options" icon="settings-2" horizontal href="/reference/options">
+    Defaults, transform switches, naming modes, seeds, and verbose output.
+  </Card>
+
+  <Card title="Property mangling" icon="key-round" horizontal href="/reference/property-mangling-options">
+    Rename selected properties without losing control of public names.
+  </Card>
+
+  <Card title="String generator modes" icon="text-cursor-input" horizontal href="/reference/string-generator-modes">
+    Compare mangled, hexadecimal, randomized, zero-width, and numbered names.
+  </Card>
+
+  <Card title="Transform reference" icon="workflow" horizontal href="/reference/transforms/rename-identifiers.mdx">
+    See what each pass changes, what it refuses, and a before-and-after example.
+  </Card>
+</Columns>

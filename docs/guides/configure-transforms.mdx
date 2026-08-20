@@ -1,0 +1,86 @@
+---
+title: Configure transforms
+description: "Choose transforms, naming styles, seeds, and property-mangling boundaries."
+keywords: ["transforms","configuration","mangleProperties"]
+---
+
+Configurable transforms are disabled by default; enable individual passes through the `transforms` map.
+
+<Note>
+  Internal preparation passes always normalize AST shapes before configurable transforms run. They are not exposed in `options.transforms`.
+</Note>
+
+## Toggle one transform
+
+Use `true` to enable an ordinary transform.
+
+```js obfuscate.mjs
+obfuscate(source, {
+  transforms: {
+    numbersToStrings: true,
+  },
+})
+```
+
+The [options reference](/reference/options#transforms) lists all transform keys and links to the safety rules for each pass.
+
+## Choose generated name styles
+
+Set `stringGeneratorMode` once to control generated identifiers, labels, property names, and string contents.
+
+```js obfuscate.mjs highlight={3}
+const output = obfuscate(source, {
+  seed: 17,
+  stringGeneratorMode: 'hexadecimal',
+})
+```
+
+`renameIdentifiers` and `specialsToStrings` can override the top-level mode:
+
+```js obfuscate.mjs highlight={5-7}
+const output = obfuscate(source, {
+  stringGeneratorMode: 'mangled',
+  transforms: {
+    renameIdentifiers: {
+      stringGeneratorMode: 'hexadecimal',
+    },
+  },
+})
+```
+
+See [string generator modes](/reference/string-generator-modes) for output samples and tradeoffs.
+
+## Use seeds for repeatable output
+
+`seed` controls the built-in randomized choices. Keep it fixed for stable build artifacts, or change it deliberately when you want a new sequence.
+
+<Info>
+  Reproducibility assumes the same input, options, `webfuscator` version, and Node.js version. A seed is not a cryptographic key.
+</Info>
+
+## Treat property mangling as a boundary decision
+
+Property names can be read by code outside the source string. That makes unrestricted mangling unsafe across package, browser, and multi-file boundaries.
+
+```js obfuscate.mjs highlight={4-7}
+const output = obfuscate(source, {
+  transforms: {
+    mangleProperties: {
+      regex: /_$/,
+      reserved: ['public_api_'],
+    },
+  },
+})
+```
+
+This configuration selects names ending in `_` and then excludes `public_api_`. For multi-file builds, share a cache or obfuscate the complete property boundary together.
+
+<Card title="Plan property mangling" icon="key-round" horizontal href="/reference/property-mangling-options">
+  Compare regex, annotation, cache, and quoted-property strategies before enabling the transform.
+</Card>
+
+## Verify the built artifact
+
+Run tests against the generated file, not only the unobfuscated input. Cover exported calls, dynamic imports, reflection, serialization, framework hooks, and any code that crosses the obfuscated boundary.
+
+Use `verbose: true` when you need stage timings. It writes progress to standard error and does not change the returned source.

@@ -1,6 +1,6 @@
 # webfuscator
 
-`webfuscator` is a Babel-based JavaScript obfuscator. `obfuscate(code, options)` parses source, runs an ordered transform pipeline, and generates JavaScript.
+`webfuscator` is a Babel-based JavaScript obfuscator. `obfuscate(code, options)` parses source, always runs preparation, runs only explicitly enabled transforms, and generates formatted JavaScript unless `minify` is enabled.
 
 **Never change what the input program does.** Every rewrite must preserve observable behavior for every legal JavaScript program. Stripped comments are the only exception. `shouldPrintComment` in `src/obfuscator.ts` lists the comments that survive. If a transform cannot prove a rewrite safe, leave the code alone. A missed rewrite is fine. Changed behavior or an exception on legal JavaScript is a bug.
 

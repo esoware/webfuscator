@@ -1,0 +1,126 @@
+---
+title: Obfuscator options
+description: "Reference for output formatting, transforms, name generation, logging, and deterministic seeds."
+keywords: ["ObfuscatorOptions","minify","transforms","seed","verbose"]
+---
+
+Pass an `ObfuscatorOptions` object as the second argument to `obfuscate`. Every field is optional.
+
+```ts ObfuscatorOptions
+interface ObfuscatorOptions {
+  minify?: boolean
+  verbose?: boolean
+  transforms?: TransformsMap
+  stringGeneratorMode?: StringGeneratorMode | readonly StringGeneratorMode[]
+  seed?: number
+}
+```
+
+## `minify`
+
+Type: `boolean`<br />Default: `false`
+
+Passes Babel's `minified` flag to the generator, removing optional whitespace and line breaks from the returned JavaScript.
+
+## `verbose`
+
+Type: `boolean`<br />Default: `false`
+
+Prints the name and elapsed milliseconds of each executed stage to standard error. It does not change the returned source.
+
+## `transforms`
+
+Type: object<br />Default: `{}`
+
+All configurable transforms are disabled by default; set a key to `true` or an options object to enable it.
+
+`renameIdentifiers` and `specialsToStrings` also accept `{ stringGeneratorMode }`. `mangleProperties` accepts its [property options](/reference/property-mangling-options).
+
+```js Enable selected transforms
+const output = obfuscate(source, {
+  transforms: {
+    foldConstants: true,
+    numbersToStrings: true,
+  },
+})
+```
+
+### Removal
+
+| Key | Reference |
+| --- | --- |
+| `dropConsole` | [Drop console calls](./transforms/drop-console.mdx) |
+| `dropDebugger` | [Drop debugger statements](./transforms/drop-debugger.mdx) |
+| `removeUnreachableCode` | [Remove unreachable code](./transforms/remove-unreachable-code.mdx) |
+| `removeUnusedCode` | [Remove unused code](./transforms/remove-unused-code.mdx) |
+| `removeAnonymousFunctionNames` | [Remove anonymous function names](./transforms/remove-anonymous-function-names.mdx) |
+
+### Simplification and inlining
+
+| Key | Reference |
+| --- | --- |
+| `argumentsToParameters` | [Arguments to parameters](./transforms/arguments-to-parameters.mdx) |
+| `foldConstants` | [Fold constants](./transforms/fold-constants.mdx) |
+| `foldBuiltinMethods` | [Fold built-in methods](./transforms/fold-builtin-methods.mdx) |
+| `extractObjectProperties` | [Extract object properties](./transforms/extract-object-properties.mdx) |
+| `inlineFunctions` | [Inline functions](./transforms/inline-functions.mdx) |
+| `collapseSingleUseTemps` | [Collapse single-use temporaries](./transforms/collapse-single-use-temps.mdx) |
+
+### Declarations and functions
+
+| Key | Reference |
+| --- | --- |
+| `constToLet` | [Const to let](./transforms/const-to-let.mdx) |
+| `constLetToVar` | [Const and let to var](./transforms/const-let-to-var.mdx) |
+| `objectMethodToProperty` | [Object methods to properties](./transforms/object-method-to-property.mdx) |
+| `arrowToFunction` | [Arrow to function](./transforms/arrow-to-function.mdx) |
+| `functionDeclarationToExpression` | [Function declarations to expressions](./transforms/function-declaration-to-expression.mdx) |
+| `packDeclarationsIntoParameters` | [Pack declarations into parameters](./transforms/pack-declarations-into-parameters.mdx) |
+
+### Control flow
+
+| Key | Reference |
+| --- | --- |
+| `switchToIf` | [Switch to if](./transforms/switch-to-if.mdx) |
+| `forToWhile` | [For to while](./transforms/for-to-while.mdx) |
+| `doWhileToWhile` | [Do-while to while](./transforms/do-while-to-while.mdx) |
+| `optionalChainingToTernary` | [Optional chaining to ternaries](./transforms/optional-chaining-to-ternary.mdx) |
+| `nullishCoalescingToTernary` | [Nullish coalescing to ternaries](./transforms/nullish-coalescing-to-ternary.mdx) |
+| `logicalToTernary` | [Logical expressions to ternaries](./transforms/logical-to-ternary.mdx) |
+| `ternaryToIf` | [Ternaries to if statements](./transforms/ternary-to-if.mdx) |
+
+### Expressions
+
+| Key | Reference |
+| --- | --- |
+| `updateToAssignment` | [Updates to assignments](./transforms/update-to-assignment.mdx) |
+| `expandBinaryAssignment` | [Expand binary assignments](./transforms/expand-binary-assignment.mdx) |
+| `expandLogicalAssignment` | [Expand logical assignments](./transforms/expand-logical-assignment.mdx) |
+| `yodifyConditions` | [Yodify conditions](./transforms/yodify-conditions.mdx) |
+
+### Names and literals
+
+| Key | Reference |
+| --- | --- |
+| `specialsToStrings` | [Special values to strings](./transforms/specials-to-strings.mdx) |
+| `numbersToStrings` | [Numbers to strings](./transforms/numbers-to-strings.mdx) |
+| `mangleProperties` | [Mangle properties](./transforms/mangle-properties.mdx) |
+| `renameIdentifiers` | [Rename identifiers](./transforms/rename-identifiers.mdx) |
+
+## `stringGeneratorMode`
+
+Type: `'mangled' | 'hexadecimal' | 'randomized' | 'zeroWidth' | 'number' | readonly StringGeneratorMode[]`<br />Default: `'mangled'`
+
+Sets the default style for generated identifiers, labels, property names, and string contents. An array mixes its modes with the seeded random source. An empty array is invalid.
+
+See [String generator modes](/reference/string-generator-modes).
+
+## `seed`
+
+Type: `number`<br />Default: `0`
+
+Seeds built-in randomized choices. The same seed and other inputs produce the same output for fixed package and Node.js versions. This random source is not cryptographic.
+
+<Card title="Configure transforms" icon="sliders-horizontal" horizontal href="/guides/configure-transforms">
+  Choose a naming style, toggle individual passes, and configure property mangling.
+</Card>

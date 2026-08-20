@@ -1,0 +1,57 @@
+---
+title: Report a bug
+description: "Create a small, reproducible report for changed behavior, parser errors, or invalid output."
+keywords: ["bug report","reproduction","GitHub issue"]
+---
+
+Before filing a bug, reduce the input to the smallest legal JavaScript program that still reproduces it. Small cases make transform and evaluation-order problems much easier to isolate.
+
+<Steps>
+  <Step title="Reduce the input">
+    Remove application code and external dependencies until only the failing syntax and its observable result remain.
+  </Step>
+  <Step title="Include the complete options">
+    Copy the exact object passed to `obfuscate`, including the seed and every transform override.
+  </Step>
+  <Step title="Record the environment">
+    Include the `webfuscator` version, Node.js version, and operating system.
+  </Step>
+  <Step title="Compare observable behavior">
+    Show the original and transformed return values, thrown error classes, mutations, or external calls. An output substring assertion alone does not prove a behavior bug.
+  </Step>
+  <Step title="Attach a runnable harness">
+    Put the input, options, transformation, and comparison in one file when possible.
+  </Step>
+</Steps>
+
+## Reproduction template
+
+```js reproduce.mjs lines
+import assert from 'node:assert/strict'
+
+import { obfuscate } from 'webfuscator'
+
+const input = `
+function run() {
+  return 1
+}
+`
+const options = {
+  seed: 0,
+}
+
+const evaluate = (source) => new Function(`${source}; return run()`)()
+const output = obfuscate(input, options)
+
+assert.deepEqual(evaluate(output), evaluate(input))
+```
+
+Adjust the evaluator to capture the behavior that changed. If the program should throw, compare the error classes and relevant properties.
+
+<Tip>
+  Replace private source and external dependencies with a synthetic case. Never post credentials, customer data, or proprietary bundles.
+</Tip>
+
+<Card title="Open a GitHub issue" icon="github" horizontal href="https://github.com/esoware/webfuscator/issues">
+  Include the reduced input, full options, environment, expected result, actual result, and runnable harness.
+</Card>

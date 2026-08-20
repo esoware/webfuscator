@@ -1,0 +1,88 @@
+---
+title: JavaScript API
+description: "Reference for the obfuscate function, its input, output, errors, and supported syntax."
+sidebarTitle: JavaScript API
+keywords: ["obfuscate","API","function signature","comments"]
+---
+
+The package exports one runtime function, `obfuscate`, plus TypeScript types for its options.
+
+```ts Signature
+function obfuscate(code: string, options?: ObfuscatorOptions): string
+```
+
+## Parameters
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `code` | `string` | Required | One JavaScript script or ECMAScript module. |
+| `options` | `ObfuscatorOptions` | `{}` | Output formatting, transform switches, naming configuration, a seed, and verbose logging. |
+
+See the complete [options reference](/reference/options).
+
+## Return value
+
+`obfuscate` returns a JavaScript source string. The call is synchronous and performs no file I/O.
+
+The function does not return an AST or source map. If your build reads and writes files, that logic belongs around the API call.
+
+## Supported input
+
+Babel parses the input with `sourceType: 'unambiguous'`, so both scripts and ECMAScript modules are accepted. Compile TypeScript, JSX, decorators, and other syntax extensions to JavaScript before calling `obfuscate`.
+
+<Warning>
+  The generator preserves `sourceMappingURL` comments but does not update the referenced map. Remove or regenerate stale maps in your build.
+</Warning>
+
+## Errors
+
+`obfuscate` throws when Babel cannot parse the input. A transform can also throw for invalid runtime configuration, such as a property-name generator that never returns an available name.
+
+The API does not catch or wrap these errors.
+
+## Comment handling
+
+Ordinary comments are removed. The generator retains comments that match one of these forms:
+
+| Comment | Example |
+| --- | --- |
+| Bang comment | `/*! copyright */` |
+| License marker | `/** @license MIT */` |
+| Preserve marker | `/** @preserve fingerprint */` |
+| Source URL directive | `//# sourceURL=app.js` |
+| Source map directive | `//# sourceMappingURL=app.js.map` |
+
+## Exported TypeScript types
+
+| Type | Purpose |
+| --- | --- |
+| `ObfuscatorOptions` | The optional second argument to `obfuscate`. |
+| `ManglePropertiesOptions` | The object accepted by `transforms.mangleProperties`. |
+| `PropertyNameGenerator` | The `(index: number) => string` callback used by `nameGenerator`. |
+
+The package exports these types from its root entry point. You do not need an internal import path.
+
+## Example
+
+```js obfuscate.mjs highlight={6-8} lines
+import { readFile } from 'node:fs/promises'
+
+import { obfuscate } from 'webfuscator'
+
+const source = await readFile('input.js', 'utf8')
+const output = obfuscate(source, {
+  minify: true,
+  seed: 7,
+  transforms: { renameIdentifiers: true },
+})
+```
+
+<Columns cols={2}>
+  <Card title="Obfuscator options" icon="settings-2" href="/reference/options">
+    Review every top-level option and configurable transform.
+  </Card>
+
+  <Card title="Quickstart" icon="rocket" href="/getting-started/quickstart">
+    Put the API into a file-based build script and run the result.
+  </Card>
+</Columns>

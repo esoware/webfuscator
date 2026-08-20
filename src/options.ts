@@ -88,12 +88,13 @@ type TransformsMap = Partial<Record<SimpleTransform, boolean>> & {
 }
 
 export interface ObfuscatorOptions {
+  /** Print Babel's minified output instead of its standard formatted output. */
+  minify?: boolean
   /** Logs each pipeline step and its elapsed milliseconds to stderr. */
   verbose?: boolean
   /**
-   * Per-transform toggles and string-generator overrides. `mangleProperties` is
-   * opt-in because property names can cross the program boundary. Other omitted
-   * transforms default to enabled.
+   * Per-transform toggles and string-generator overrides. Omitted transforms
+   * are disabled. Preparation passes always run and are not configurable.
    */
   transforms?: TransformsMap
   /**

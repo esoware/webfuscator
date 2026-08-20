@@ -1,0 +1,185 @@
+---
+title: Property-mangling options
+description: "Select, reserve, cache, and generate property names without crossing an unsafe boundary."
+sidebarTitle: Property mangling
+keywords: ["ManglePropertiesOptions","property mangling","reserved","cache"]
+---
+
+Enable property mangling with `transforms.mangleProperties`. Passing `true` selects every eligible non-built-in property. An options object lets you restrict that selection.
+
+```js obfuscate.mjs highlight={5-9} lines
+import { obfuscate } from 'webfuscator'
+
+const output = obfuscate(source, {
+  transforms: {
+    mangleProperties: {
+      regex: /_$/,
+      reserved: ['public_api_'],
+    },
+  },
+})
+```
+
+<Warning>
+  Property uses can live outside the input string. A caller, another bundle, JSON payload, template, or framework can still depend on the original name. Restrict mangling to names whose complete boundary you control.
+</Warning>
+
+## Choose a selection strategy
+
+<Tabs>
+  <Tab title="Naming rule">
+    Use `regex` for a private naming convention. This example selects names ending in `_` and reserves one public exception.
+
+    ```js Regex selection
+    mangleProperties: {
+      regex: /_$/,
+      reserved: ['public_api_'],
+    }
+    ```
+  </Tab>
+  <Tab title="Annotations">
+    Use `onlyAnnotated` when you want selection at individual declaration sites. `/*@__KEY__*/` marks a standalone string as a use of that property.
+
+    ```js Annotated input
+    const state = {
+      /*@__MANGLE_PROP__*/ internalValue: 1,
+    }
+    
+    read(/*@__KEY__*/ 'internalValue')
+    ```
+  </Tab>
+  <Tab title="Reviewed cache">
+    Use `onlyCache` to allow only source names already present in a reviewed map.
+
+    ```js Cache selection
+    const cache = new Map([
+      ['internalValue', 'a'],
+    ])
+    
+    const options = {
+      cache,
+      onlyCache: true,
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Roll it out safely
+
+<Steps>
+  <Step title="Define the boundary">
+    Identify every file, caller, serialized value, and runtime lookup that can read the selected properties.
+  </Step>
+  <Step title="Select a narrow set">
+    Start with a private naming rule, explicit annotations, or a reviewed cache. Do not begin with `mangleProperties: true` across a public interface.
+  </Step>
+  <Step title="Reserve external names">
+    Add framework hooks, serialized keys, public methods, and reflective lookups to `reserved`.
+  </Step>
+  <Step title="Share mappings across files">
+    Reuse one `Map<string, string>` through `cache` when separately obfuscated files exchange selected properties.
+  </Step>
+  <Step title="Test the generated boundary">
+    Run integration tests against the obfuscated artifacts, including consumers that are not part of the input string.
+  </Step>
+</Steps>
+
+## `builtins`
+
+Type: `boolean`<br />Default: `false`
+
+Reserves known JavaScript and DOM property names when `false`.
+
+<Danger>
+  Setting `builtins: true` can rename runtime or browser APIs such as collection methods and DOM properties. Use it only when those names cannot refer to platform objects.
+</Danger>
+
+## `cache`
+
+Type: `Map<string, string>`<br />Default: a new map for the call
+
+Reuses mappings across calls and receives new mappings. Keys and values must be strings. Outputs must be unique and cannot be `__proto__`, `constructor`, or `prototype`.
+
+```js Shared cache
+const propertyCache = new Map()
+
+const first = obfuscate(firstSource, {
+  transforms: { mangleProperties: { cache: propertyCache, regex: /_$/ } },
+})
+
+const second = obfuscate(secondSource, {
+  transforms: { mangleProperties: { cache: propertyCache, regex: /_$/ } },
+})
+```
+
+## `debug`
+
+Type: `boolean | string`<br />Default: `false`
+
+Keeps the source name visible. `true` produces `_$source$_`. A value such as `debug: 'DEV'` produces `_$source$DEV_`. Collisions fall back to the configured generator.
+
+## `keepQuoted`
+
+Type: `boolean | 'strict'`<br />Default: `false`
+
+| Value | Behavior |
+| --- | --- |
+| `false` | Quoted and unquoted occurrences share the mangled mapping. |
+| `true` | Every statically known quoted name is reserved globally. |
+| `'strict'` | Each quoted occurrence stays unchanged, but unquoted occurrences of the same source name can be mangled. |
+
+## `nameGenerator`
+
+Type: `(index: number) => string`<br />Default: the configured string generator
+
+Receives a zero-based ordinal for each candidate and takes precedence over `stringGeneratorMode`. It must eventually return an available, nonnumeric string. The transform throws after 100,000 rejected candidates.
+
+## `onlyAnnotated`
+
+Type: `boolean`<br />Default: `false`
+
+Limits mangling to names marked with `/*@__MANGLE_PROP__*/` or `/*#__MANGLE_PROP__*/`. Mark standalone property strings with `/*@__KEY__*/` or `/*#__KEY__*/`. Annotations bypass `regex`, but not `reserved`.
+
+## `onlyCache`
+
+Type: `boolean`<br />Default: `false`
+
+Limits selection to source names already in `cache`.
+
+## `regex`
+
+Type: `RegExp | string`<br />Default: all eligible names
+
+Selects matching names. Strings are compiled with `new RegExp(value)`. The transform resets `lastIndex` before each test. Numeric names are never selected.
+
+## `reserved`
+
+Type: `readonly string[]`<br />Default: `[]`
+
+Excludes source names and prevents the generator from emitting them. It takes precedence over `regex`, annotations, and cache selection.
+
+## `stringGeneratorMode`
+
+Type: a [string generator mode](/reference/string-generator-modes)<br />Default: the top-level mode
+
+Overrides the top-level mode for property names. `nameGenerator` takes precedence.
+
+## `undeclared`
+
+Type: `boolean`<br />Default: `false`
+
+Includes unquoted accesses rooted at undeclared identifiers. Bracket-string accesses are candidates either way.
+
+## Names that always stay unchanged
+
+The transform retains private class names, class constructor syntax, object-literal `__proto__` setters, and names that would collide with retained properties.
+
+<Columns cols={2}>
+  <Card title="Mangle-properties transform" icon="workflow" href="/reference/transforms/mangle-properties.mdx">
+    See the transform's behavior and a before-and-after example.
+  </Card>
+
+  <Card title="Configure transforms" icon="sliders-horizontal" href="/guides/configure-transforms">
+    Fit property mangling into a complete `ObfuscatorOptions` object.
+  </Card>
+</Columns>

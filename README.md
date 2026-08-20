@@ -1,90 +1,63 @@
 # webfuscator
 
-`webfuscator` is a Babel-based JavaScript obfuscator. It parses source code, applies an ordered transform pipeline, and returns JavaScript.
+`webfuscator` is a Babel-based JavaScript obfuscator. It parses a JavaScript source string, applies configurable transforms, and returns JavaScript source.
 
-## Features
-
-- Renames variables, functions, and labels
-- Mangles selected property names
-- Inlines functions and folds constants
-- Rewrites loops, conditionals, and switch statements
-- Turns numbers and other literals into string-based expressions
-- Removes dead code
-- Generates short, hexadecimal, random, keyword-like, or numbered names
-- Seeds built-in randomization for reproducible output
+[Read the documentation](./docs/index.mdx) for the quickstart, configuration guides, API details, and a reference page for every transform.
 
 ## Install
 
 ```sh
-npm install webfuscator
+npm install --save-dev webfuscator
 ```
+
+The package is ESM-only, includes TypeScript declarations, and requires Node.js `^22.18.0 || >=24.11.0`.
 
 ## Usage
 
 ```js
 import { obfuscate } from 'webfuscator'
 
-const source = `
-function greet(name) {
-  console.log('Hello, ' + name)
-}
+const source = `export default function square(value) {
+  return value * value
+}`
 
-greet('world')
-`
-
-const code = obfuscate(source, {
-  stringGeneratorMode: 'mangled', // Other modes: hexadecimal, randomized, zeroWidth, number
+const output = obfuscate(source, {
+  minify: true,
   seed: 0,
-  transforms: { dropConsole: false }, // Disable individual transforms by name
-})
-```
-
-`obfuscate(code, options?)` takes source code as a string and returns transformed source code. The package includes TypeScript declarations, requires Node.js `^22.18.0 || >=24.11.0`, and supports ESM only.
-
-### Property mangling
-
-Property mangling is off by default. The transform cannot find property uses
-outside its input, so unrestricted mangling can break callers. Use `regex` to
-limit mangling to private application properties, such as names ending in `_`:
-
-```js
-const propertyCache = new Map()
-
-const code = obfuscate(source, {
   transforms: {
-    mangleProperties: {
-      regex: /_$/,
-      reserved: ['public_api_'],
-      cache: propertyCache,
-    },
+    renameIdentifiers: true,
   },
 })
 ```
 
-The options match Terser's property mangler, with camel-case names:
+`obfuscate(code, options?)` is synchronous. It does not execute the input or write files.
 
-- `regex` selects property names. `reserved` excludes names from that selection.
-- `builtins` defaults to `false`, which protects Terser's JavaScript and DOM
-  property set. Setting it to `true` may rename runtime or browser APIs.
-- `cache` is a mutable `Map<string, string>` that reuses mappings across separate
-  inputs. `onlyCache` limits mangling to keys already in that map.
-- `nameGenerator(index)` receives a zero-based ordinal and returns the next name.
-  Without it, the transform uses its own `stringGeneratorMode` or the top-level
-  mode.
-- `debug: true` emits names in the form `_$source$_`. A string value becomes the
-  suffix.
-- `keepQuoted: true` reserves quoted property names everywhere. `'strict'` keeps
-  quoted occurrences unchanged but allows unquoted occurrences of the same name
-  to be mangled.
-- `onlyAnnotated` limits mangling to names marked with
-  `/*@__MANGLE_PROP__*/`. `/*@__KEY__*/` marks a string literal as a use of the
-  selected property name. Either annotation may use `#` instead of `@`.
-- `undeclared` includes unquoted member accesses rooted at identifiers that are
-  not declared in the input. Bracket-string accesses are considered either way.
+Configurable transforms are disabled by default; preparation passes always run.
 
-## Issues and pull requests
+## Documentation
 
-Both are open. For bugs, include the input and options you used.
+- [Quickstart](./docs/getting-started/quickstart.mdx)
+- [JavaScript API](./docs/reference/api.mdx)
+- [Configure transforms](./docs/guides/configure-transforms.mdx)
+- [Obfuscator options](./docs/reference/options.mdx)
+- [Property mangling](./docs/reference/property-mangling-options.mdx)
+- [String generator modes](./docs/reference/string-generator-modes.mdx)
+- [Report a bug](./docs/troubleshooting/report-a-bug.mdx)
+
+## Development
+
+```sh
+pnpm install
+pnpm test
+pnpm check
+pnpm docs:check
+```
+
+Read [AGENTS.md](./AGENTS.md) before changing transforms or analysis code.
+
+## Responsible use
+
+Use `webfuscator` only on software you own or are authorized to modify. Read [DISCLOSURE](./DISCLOSURE) for the project's dual-use policy.
 
 ## License
 

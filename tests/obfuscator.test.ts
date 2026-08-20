@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { obfuscate } from 'src/index'
+import { obfuscateWithTransformPipeline as obfuscate } from './obfuscator-helpers'
 
 function evalProgram(code: string, harness?: Record<string, unknown>): unknown {
   const keys = harness ? Object.keys(harness) : []

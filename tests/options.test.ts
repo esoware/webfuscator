@@ -1,7 +1,9 @@
 import { expect, test } from 'vitest'
 
-import { obfuscate } from 'src/index'
+import { obfuscate as obfuscateWithDefaults } from 'src/index'
 import type { ObfuscatorOptions } from 'src/index'
+
+import { obfuscateWithTransformPipeline as obfuscate } from './obfuscator-helpers'
 
 function evalProgram(code: string, harness?: Record<string, unknown>): unknown {
   const keys = harness ? Object.keys(harness) : []
@@ -9,11 +11,37 @@ function evalProgram(code: string, harness?: Record<string, unknown>): unknown {
   return new Function(...keys, code).call(null, ...values)
 }
 
-test('obfuscate omitting transforms runs every default-enabled transform', () => {
+test('obfuscate omitting transforms runs no configurable transforms', () => {
   const src = `function helper(x) { return x + 1; } log(helper(5));`
-  const defaultOut = obfuscate(src)
-  const explicitOut = obfuscate(src, { transforms: {} })
+  const defaultOut = obfuscateWithDefaults(src)
+  const explicitOut = obfuscateWithDefaults(src, { transforms: {} })
   expect(defaultOut).toBe(explicitOut)
+  expect(defaultOut).toContain('function helper')
+})
+
+test('obfuscate keeps preparation enabled when transforms are omitted', () => {
+  const out = obfuscateWithDefaults(`const value = object.property;`)
+  expect(out).toContain('const value')
+  expect(out).toContain('object["property"]')
+})
+
+test('obfuscate minify selects Babel minified output without changing behavior', () => {
+  const src = `function add(a, b) { return a + b; } log(add(2, 3));`
+  const formatted = obfuscateWithDefaults(src)
+  const explicitFormatted = obfuscateWithDefaults(src, { minify: false })
+  const minified = obfuscateWithDefaults(src, { minify: true })
+  const evaluate = (code: string): unknown[] => {
+    const calls: unknown[] = []
+    evalProgram(code, { log: (value: unknown) => calls.push(value) })
+    return calls
+  }
+
+  expect(explicitFormatted).toBe(formatted)
+  expect(formatted).toContain('\n')
+  expect(minified).not.toContain('\n')
+  expect(minified.length).toBeLessThan(formatted.length)
+  expect(evaluate(formatted)).toEqual([5])
+  expect(evaluate(minified)).toEqual([5])
 })
 
 test('obfuscate with dropConsole disabled keeps console.* statements', () => {
