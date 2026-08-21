@@ -1,6 +1,6 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="wordmark-dark.svg" />
-  <img src="wordmark-light.svg" alt="webfuscator" width="254" />
+  <img src="/assets/wordmark-dark.svg" alt="webfuscator" width="254" />
 </picture>
 
 `webfuscator` is a Babel-based JavaScript obfuscator. It parses a JavaScript source string, applies configurable transforms, and returns JavaScript source.
