@@ -4,7 +4,18 @@
 
 The npm package lives in `packages/webfuscator/`. Documentation lives in `docs/`. Repository tooling and cross-project scripts stay at the root.
 
-**Never change what the input program does.** Every rewrite must preserve observable behavior for every legal JavaScript program. Stripped comments are the only exception. `shouldPrintComment` in `packages/webfuscator/src/obfuscator.ts` lists the comments that survive. If a transform cannot prove a rewrite safe, leave the code alone. A missed rewrite is fine. Changed behavior or an exception on legal JavaScript is a bug.
+## Behavior contracts
+
+Every pass honors one of these four contracts. Most honor the first. A pass that wants another must justify why the first is physically impossible, not merely inconvenient.
+
+1. **Behavior-preserving.** The default. For every legal JavaScript program the rewrite either preserves observable behavior exactly or does not happen. If a pass cannot prove a rewrite safe, it leaves the code alone. A missed rewrite is fine. A rewrite that changes behavior is a bug. Stripped comments are the only preserved-behavior exception; `shouldPrintComment` in `packages/webfuscator/src/obfuscator.ts` lists the comments that survive.
+2. **Effect-removing.** The pass exists to delete one named observable effect and preserve everything else. It removes only that effect and bails when it cannot isolate it. `dropConsole` and `dropDebugger` are the only two. Off by default.
+3. **Boundary-dependent.** Correctness depends on a fact outside the input that the AST cannot show, so the pass cannot prove the rewrite safe on its own. It refuses every hazard it can see and gives the caller the controls to scope the rest. The caller owns the boundary promise. `mangleProperties` is the only one. Off by default.
+4. **Opt-in behavior change.** An off-by-default option that deliberately changes semantics when set. The default preserves behavior; the option documents the change. `pack`'s `escapeStrict` is the only one.
+
+One rule holds across all four. A pass never silently changes observable behavior. It proves a rewrite safe and applies it, proves it unsafe and declines, or is an off-by-default feature whose named change the caller chose.
+
+Throwing is for invalid caller configuration and for the one construct `pack` cannot represent. `mangleProperties` throws on a malformed `cache` or `nameGenerator`, `StringGenerator` on an empty mode list, and `pack` on a program that uses `export` statements, which cannot exist inside a `Function` body. Otherwise a hard case is a skip, not an exception.
 
 ## Commands
 
@@ -29,6 +40,7 @@ The phase tables in `packages/webfuscator/src/obfuscator.ts` define which passes
 - Synthesize every identifier and label with `scope.generateUid('purpose')` on the owning scope. No transform carries its own counter or prefix scheme.
 - Track changes through `traverseForChanges` and `ChangeState` in `packages/webfuscator/src/utils/change-tracking.ts`. A pass with its own traversal loop keeps state in an object that extends `ChangeState`.
 - Give every new pass in `packages/webfuscator/src/transforms/` or `packages/webfuscator/src/preparation/` a mirror test at the same path under `packages/webfuscator/tests/`. If the pass is configurable, add it to `TransformName` in `packages/webfuscator/src/options.ts`.
+- Default a new configurable pass to the behavior-preserving contract. A pass on any other contract needs the justification above, an off-by-default toggle, and a caveat callout in `scripts/generate-transform-docs.mjs` so its page flags the change.
 - Most helpers in `packages/webfuscator/src/utils/` and `packages/webfuscator/src/analysis/` get coverage from their transforms. The rewrite safety predicates in `packages/webfuscator/src/analysis/purity.ts`, `packages/webfuscator/src/analysis/constant.ts`, and `packages/webfuscator/src/analysis/document-order.ts` need direct mirror tests. So do the value builders in `packages/webfuscator/src/utils/literal.ts` and `packages/webfuscator/src/utils/string-generator.ts`. Transitive tests miss too many of their branches, and a wrong answer can change program behavior.
 - `packages/webfuscator/src/index.ts` exports the public API and nothing else.
 

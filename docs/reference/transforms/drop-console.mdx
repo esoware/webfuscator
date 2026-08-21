@@ -26,6 +26,10 @@ locally shadowed. Matches dot, bracket, and optional-chain forms.
 Leaves indirect uses alone (`console.log.call(...)`, assignments,
 `await console.log(...)`).
 
+<Note>
+  Dropping `console.*(...)` output is the point, so this changes behavior. It deletes the statement only when the arguments and any computed key are side-effect-free, so it never drops observable work. If any of them could do observable work, or `console` is shadowed or reassigned, it leaves the call alone.
+</Note>
+
 ## Before and after
 
 <CodeGroup>

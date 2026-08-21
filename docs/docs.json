@@ -99,6 +99,10 @@
               "reference/transforms/mangle-properties",
               "reference/transforms/rename-identifiers"
             ]
+          },
+          {
+            "group": "Packing",
+            "pages": ["reference/transforms/pack"]
           }
         ]
       },

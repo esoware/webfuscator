@@ -30,6 +30,10 @@ that must remain unchanged.
 This pass runs before shape preparation, while Babel still distinguishes
 `obj.name` from `obj["name"]`.
 
+<Warning>
+  A renamed property can still be read from outside the input: another bundle, a JSON payload, a template, the DOM, or reflection. The obfuscator cannot see those uses, so this is safe only for names whose full boundary you control. Scope the selection with `regex`, `reserved`, annotations, or a reviewed `cache`.
+</Warning>
+
 ## Before and after
 
 <CodeGroup>

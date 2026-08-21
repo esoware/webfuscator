@@ -36,7 +36,13 @@ Babel parses the input with `sourceType: 'unambiguous'`, so both scripts and ECM
 
 ## Errors
 
-`obfuscate` throws when Babel cannot parse the input. A transform can also throw for invalid runtime configuration, such as a property-name generator that never returns an available name.
+`obfuscate` throws in three cases:
+
+- Babel cannot parse `code`.
+- A transform receives invalid configuration. `mangleProperties` validates its `cache` (entries must be strings, and outputs must be unique and cannot be `__proto__`, `constructor`, or `prototype`) and its `nameGenerator` (it must return an available, nonnumeric string). An empty `stringGeneratorMode` array is also rejected.
+- `pack` is enabled on a program that uses `export` statements. Export syntax cannot exist inside a `Function` body, so pack refuses it rather than emit output that fails to parse.
+
+Apart from that export case, no transform throws because a rewrite was hard. It leaves syntax it cannot prove safe unchanged and moves on. Enabling a transform that changes behavior by design still makes the output differ from the input: `dropConsole`, `dropDebugger`, `mangleProperties`, or `pack`.
 
 The API does not catch or wrap these errors.
 

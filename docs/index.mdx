@@ -1,6 +1,6 @@
 ---
 title: webfuscator
-description: A behavior-preserving JavaScript obfuscator built on Babel.
+description: A JavaScript obfuscator built on Babel.
 mode: wide
 keywords: ["JavaScript obfuscator","Babel obfuscation","code transformation"]
 ---
@@ -46,8 +46,8 @@ const output = obfuscate(source, {
     Babel accepts scripts and ECMAScript modules with unambiguous source detection. Compile TypeScript, JSX, and other syntax extensions first.
   </Card>
 
-  <Card title="Runs conservative rewrites" icon="route">
-    Each transform checks its safety conditions and leaves unsupported syntax unchanged.
+  <Card title="Rewrites what it can prove safe" icon="route">
+    Most passes preserve behavior and skip what they cannot prove safe. A few remove an effect or rename across a boundary you set, and those pages say so.
   </Card>
 
   <Card title="Prints source" icon="file-output">
@@ -77,6 +77,6 @@ The same source, options, package version, and Node.js version produce the same 
   </Card>
 
   <Card title="Transform reference" icon="workflow" horizontal href="/reference/transforms/rename-identifiers.mdx">
-    See what each pass changes, what it refuses, and a before-and-after example.
+    See what each pass changes, with a before-and-after example.
   </Card>
 </Columns>

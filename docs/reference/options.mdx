@@ -34,7 +34,7 @@ Type: object<br />Default: `{}`
 
 All configurable transforms are disabled by default; set a key to `true` or an options object to enable it.
 
-`renameIdentifiers` and `specialsToStrings` also accept `{ stringGeneratorMode }`. `mangleProperties` accepts its [property options](/reference/property-mangling-options).
+`renameIdentifiers` and `specialsToStrings` also accept `{ stringGeneratorMode }`. `pack` accepts `{ escapeStrict, stringGeneratorMode }`. `mangleProperties` accepts its [property options](/reference/property-mangling-options).
 
 ```js Enable selected transforms
 const output = obfuscate(source, {
@@ -106,6 +106,12 @@ const output = obfuscate(source, {
 | `numbersToStrings` | [Numbers to strings](./transforms/numbers-to-strings.mdx) |
 | `mangleProperties` | [Mangle properties](./transforms/mangle-properties.mdx) |
 | `renameIdentifiers` | [Rename identifiers](./transforms/rename-identifiers.mdx) |
+
+### Packing
+
+| Key | Reference |
+| --- | --- |
+| `pack` | [Pack into a Function constructor](./transforms/pack.mdx) |
 
 ## `stringGeneratorMode`
 

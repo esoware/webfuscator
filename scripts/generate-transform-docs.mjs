@@ -31,6 +31,7 @@ const titles = {
   numbersToStrings: 'Numbers to strings',
   objectMethodToProperty: 'Object methods to properties',
   optionalChainingToTernary: 'Optional chaining to ternaries',
+  pack: 'Pack into a Function constructor',
   packDeclarationsIntoParameters: 'Pack declarations into parameters',
   removeAnonymousFunctionNames: 'Remove anonymous function names',
   removeUnreachableCode: 'Remove unreachable code',
@@ -136,6 +137,10 @@ function configurationNote(transformName) {
     return `Pass [property-mangling options](/reference/property-mangling-options) instead of \`true\` when you need to limit which properties it changes.`
   }
 
+  if (transformName === 'pack') {
+    return `Pass \`{ escapeStrict, stringGeneratorMode }\` instead of \`true\`. Set \`escapeStrict\` to run the packed body in sloppy mode even when the source is strict, which deliberately changes behavior.`
+  }
+
   if (configurableStringModeTransforms.has(transformName)) {
     return `Pass \`{ stringGeneratorMode }\` instead of \`true\` to override its generated string style.`
   }
@@ -156,6 +161,36 @@ const output = obfuscate(source, {
   },
 })
 \`\`\`${note ? `\n\n${note}` : ''}`
+}
+
+// Only the passes that change behavior, or whose safety depends on the caller,
+// get a callout. The behavior-preserving majority gets none.
+function behaviorCallout(transformName) {
+  if (transformName === 'dropConsole') {
+    return `<Note>
+  Dropping \`console.*(...)\` output is the point, so this changes behavior. It deletes the statement only when the arguments and any computed key are side-effect-free, so it never drops observable work. If any of them could do observable work, or \`console\` is shadowed or reassigned, it leaves the call alone.
+</Note>`
+  }
+
+  if (transformName === 'dropDebugger') {
+    return `<Note>
+  Removing every \`debugger\` statement is the point, so this changes behavior.
+</Note>`
+  }
+
+  if (transformName === 'mangleProperties') {
+    return `<Warning>
+  A renamed property can still be read from outside the input: another bundle, a JSON payload, a template, the DOM, or reflection. The obfuscator cannot see those uses, so this is safe only for names whose full boundary you control. Scope the selection with \`regex\`, \`reserved\`, annotations, or a reviewed \`cache\`.
+</Warning>`
+  }
+
+  if (transformName === 'pack') {
+    return `<Warning>
+  \`pack\` throws on \`export\` statements, which cannot exist inside a \`Function\` body. It packs everything else as written. Code that needs \`import.meta\`, top-level await, dynamic \`import()\`, or a top-level \`arguments\` will not run once packed. And in a script, top-level \`var\` and function declarations stop publishing as global-object properties like \`globalThis.x\`.
+</Warning>`
+  }
+
+  return null
 }
 
 function optionBadge(transformName) {
@@ -182,6 +217,7 @@ function renderPage(transform) {
 
   const sourceUrl = `https://github.com/esoware/webfuscator/blob/main/packages/webfuscator/src/transforms/${fileName}`
   const testUrl = `https://github.com/esoware/webfuscator/blob/main/packages/webfuscator/tests/transforms/${fileName.replace(/\.ts$/u, '.test.ts')}`
+  const callout = behaviorCallout(transformName)
   return `---
 title: ${JSON.stringify(title)}
 description: ${JSON.stringify(pageDescription(behavior))}
@@ -197,7 +233,7 @@ ${configurationBlock(transformName)}
 
 ${behavior}
 
-## Before and after
+${callout ? `${callout}\n\n` : ''}## Before and after
 
 <CodeGroup>
 
