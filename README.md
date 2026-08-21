@@ -1,8 +1,3 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="wordmark-dark.svg" />
-  <img src="/assets/wordmark-dark.svg" alt="webfuscator" width="254" />
-</picture>
-
 `webfuscator` is a Babel-based JavaScript obfuscator. It parses a JavaScript source string, applies configurable transforms, and returns JavaScript source.
 
 [Read the documentation](https://webfuscator.mintlify.app/) for the quickstart, configuration guides, API details, and a reference page for every transform.
