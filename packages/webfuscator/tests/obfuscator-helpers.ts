@@ -24,6 +24,7 @@ const TRANSFORM_PIPELINE = {
   numbersToStrings: true,
   objectMethodToProperty: true,
   optionalChainingToTernary: true,
+  pack: false,
   packDeclarationsIntoParameters: true,
   removeAnonymousFunctionNames: true,
   removeUnreachableCode: true,

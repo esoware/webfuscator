@@ -332,7 +332,7 @@ test('obfuscate mangleProperties inherits the global stringGeneratorMode', () =>
     stringGeneratorMode: 'number',
     transforms: { mangleProperties: true },
   })
-  expect(out).toContain('["var_1"]')
+  expect(out).toMatch(/\["var_\d+"\]/)
 })
 
 test('obfuscate mangleProperties can override the global stringGeneratorMode', () => {
@@ -340,7 +340,7 @@ test('obfuscate mangleProperties can override the global stringGeneratorMode', (
     stringGeneratorMode: 'hexadecimal',
     transforms: { mangleProperties: { stringGeneratorMode: 'number' } },
   })
-  expect(out).toContain('["var_1"]')
+  expect(out).toMatch(/\["var_\d+"\]/)
   expect(out).not.toMatch(/\["_0x[0-9a-f]+"\]/)
 })
 

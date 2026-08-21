@@ -1,5 +1,8 @@
+import { parse } from '@babel/parser'
+import * as t from '@babel/types'
 import { expect, test } from 'vitest'
 
+import { obfuscate } from 'src/index'
 import { optionalChainingToTernary } from 'src/transforms/optional-chaining-to-ternary'
 
 import { defineCases, run, trace } from '../helpers'
@@ -199,4 +202,53 @@ test('optionalChainingToTernary leaves a with-shadowed read intact (A07-16)', ()
   optionalPreserves(`var a;
 var o = { get a() { log('get'); return { b: 1 }; } };
 with (o) { log(a?.b); }`)
+})
+
+// A node reachable from two parents is visited twice. A later in-place rewrite
+// such as `renameIdentifiers` then applies itself twice to the same node.
+function nodesReachableTwice(code: string): string[] {
+  const ast = parse(code, { sourceType: 'unambiguous' })
+  optionalChainingToTernary(ast)
+  const seen = new Set<t.Node>()
+  const shared: string[] = []
+  t.traverseFast(ast, (node) => {
+    if (seen.has(node)) {
+      shared.push(node.type)
+      return
+    }
+    seen.add(node)
+  })
+  return shared
+}
+
+test('optionalChainingToTernary gives the null check its own receiver node', () => {
+  expect(nodesReachableTwice(`var box;\nvar x = box?.flag;`)).toEqual([])
+})
+
+test('optionalChainingToTernary gives each short circuit of a chain its own node', () => {
+  expect(nodesReachableTwice(`var a;\nvar x = a?.b?.c;`)).toEqual([])
+})
+
+// A static receiver is cloned, so its identifier appears twice after lowering
+// (the null check and the member access). A later rename must reach both clones.
+// The receiver has a distinctive source name that never appears as a property or
+// string, so if any clone escaped the rename its old name would survive in the
+// output. This does not depend on which name the renamer allocates.
+test('optionalChainingToTernary lets a rename reach every clone of a static receiver', () => {
+  const src = `function read(box) {
+  var receiverBinding = box.data;
+  if (receiverBinding?.flag === true) {
+    return 'hit';
+  }
+  return 'miss';
+}
+log(read({ data: { flag: true } }));
+log(read({ data: { flag: false } }));
+log(read({ data: null }));`
+  const out = obfuscate(src, {
+    transforms: { optionalChainingToTernary: true, renameIdentifiers: true },
+  })
+  expect(out).not.toContain('?.')
+  expect(out).not.toContain('receiverBinding')
+  expect(trace(out)).toEqual(trace(src))
 })

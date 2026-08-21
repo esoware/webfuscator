@@ -125,5 +125,11 @@ function ownScopeHasDirectEval(owner: t.Node): boolean {
 }
 
 export function isDirectEvalCall(node: t.Node): boolean {
-  return t.isCallExpression(node) && t.isIdentifier(node.callee) && node.callee.name === 'eval'
+  // `eval?.(...)` is an OptionalCallExpression yet still a direct eval, so both
+  // call node shapes count.
+  return (
+    (t.isCallExpression(node) || t.isOptionalCallExpression(node)) &&
+    t.isIdentifier(node.callee) &&
+    node.callee.name === 'eval'
+  )
 }

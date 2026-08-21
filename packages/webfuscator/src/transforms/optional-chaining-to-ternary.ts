@@ -175,7 +175,10 @@ function transformChain(path: OptionalPath): boolean {
     let check: t.Expression
 
     if (path.scope.isStatic(chain)) {
-      check = chain
+      // The receiver stays in the member expression, so the check needs its own
+      // node. One node under two parents is visited twice, and a later in-place
+      // rewrite such as renameIdentifiers then applies itself twice to it.
+      check = t.cloneNode(chain)
     } else {
       const tmp = path.scope.generateUidIdentifierBasedOnNode(chain)
       path.scope.push({ id: t.cloneNode(tmp) })
@@ -212,7 +215,7 @@ function transformChain(path: OptionalPath): boolean {
       alternate = t.unaryExpression('delete', alternate)
     }
 
-    const newTernary = t.conditionalExpression(condition, shortCircuit, alternate)
+    const newTernary = t.conditionalExpression(condition, t.cloneNode(shortCircuit), alternate)
     const replaced: NodePath<t.ConditionalExpression> = replacementPath.replaceWith(newTernary)[0]
     replacementPath = replaced.get('alternate')
   }

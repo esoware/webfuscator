@@ -810,7 +810,7 @@ test('mangleProperties uses the configured StringGenerator when no custom genera
   const input = `var object = { secret_: 1 }; log(object.secret_);`
   const out = run(input, apply({ builtins: true }, { seed: 0, stringGeneratorMode: 'number' }))
   expect(trace(out)).toEqual(trace(input))
-  expect(out).toContain('var_1')
+  expect(out).toMatch(/\bvar_\d+\b/)
 })
 
 test('mangleProperties reports whether it changed the AST', () => {

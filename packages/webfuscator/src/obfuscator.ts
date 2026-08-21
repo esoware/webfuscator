@@ -33,6 +33,7 @@ import { nullishCoalescingToTernary } from 'src/transforms/nullish-coalescing-to
 import { numbersToStrings } from 'src/transforms/numbers-to-strings'
 import { objectMethodToProperty } from 'src/transforms/object-method-to-property'
 import { optionalChainingToTernary } from 'src/transforms/optional-chaining-to-ternary'
+import { pack } from 'src/transforms/pack'
 import { packDeclarationsIntoParameters } from 'src/transforms/pack-declarations-into-parameters'
 import { removeAnonymousFunctionNames } from 'src/transforms/remove-anonymous-function-names'
 import { removeUnreachableCode } from 'src/transforms/remove-unreachable-code'
@@ -135,6 +136,11 @@ const POST_PROCESS: readonly ConfigurablePhase[] = [
 // Renaming runs last because later transforms depend on recognizable bindings.
 const RENAME: readonly ConfigurablePhase[] = [['renameIdentifiers', renameIdentifiers]]
 
+// Packing serializes the finished program to a string and rebuilds it through
+// the Function constructor. It must see final names and shapes, so it runs after
+// every other rewrite, including renaming.
+const PACK: readonly ConfigurablePhase[] = [['pack', pack]]
+
 /** Parses, transforms, and prints JavaScript without mutating external state. */
 export function obfuscate(code: string, options: ObfuscatorOptions = {}): string {
   const log = options.verbose ? makeLogger() : null
@@ -185,6 +191,13 @@ export function obfuscate(code: string, options: ObfuscatorOptions = {}): string
     run(log, name, () => fn(ast, ctxFor(name, options, baseCtx)))
   }
 
+  for (const [name, fn] of PACK) {
+    if (!isEnabled(name, options)) {
+      continue
+    }
+    run(log, name, () => fn(ast, ctxFor(name, options, baseCtx)))
+  }
+
   return run(
     log,
     'generate',
@@ -210,6 +223,9 @@ function ctxFor(
   }
   if (name === 'mangleProperties' && entry && typeof entry === 'object') {
     return { ...context, mangleProperties: entry }
+  }
+  if (name === 'pack' && entry && typeof entry === 'object') {
+    return { ...context, pack: entry }
   }
   return context
 }

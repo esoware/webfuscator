@@ -37,6 +37,7 @@ export type TransformName =
   | 'numbersToStrings'
   | 'mangleProperties'
   | 'renameIdentifiers'
+  | 'pack'
 
 // An override enables the transform and replaces its string-generator mode.
 type TransformEntry = boolean | { stringGeneratorMode?: StringGeneratorModeOption }
@@ -76,13 +77,25 @@ export interface ManglePropertiesOptions {
   undeclared?: boolean
 }
 
+/** Options for the `Function`-constructor packing transform. */
+export interface PackOptions {
+  /**
+   * Skip the strict-mode directive so the packed body runs sloppy even when the
+   * source is strict. This deliberately changes behavior. Default `false`.
+   */
+  escapeStrict?: boolean
+  /** Override the default string-generator mode for the names pack creates. */
+  stringGeneratorMode?: StringGeneratorModeOption
+}
+
 type SimpleTransform = Exclude<
   TransformName,
-  'mangleProperties' | 'renameIdentifiers' | 'specialsToStrings'
+  'mangleProperties' | 'pack' | 'renameIdentifiers' | 'specialsToStrings'
 >
 
 type TransformsMap = Partial<Record<SimpleTransform, boolean>> & {
   mangleProperties?: boolean | ManglePropertiesOptions
+  pack?: boolean | PackOptions
   renameIdentifiers?: TransformEntry
   specialsToStrings?: TransformEntry
 }
@@ -110,6 +123,7 @@ export interface ObfuscatorOptions {
 // Resolved per-call defaults handed to every transform.
 export interface TransformContext {
   mangleProperties?: ManglePropertiesOptions
+  pack?: PackOptions
   seed: number
   stringGeneratorMode: StringGeneratorModeOption
 }
