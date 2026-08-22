@@ -2,9 +2,8 @@ import { parse } from '@babel/parser'
 import type { File } from '@babel/types'
 import { expect, test } from 'vitest'
 
-import type { ManglePropertiesOptions, TransformContext } from 'src/options'
-import { mangleProperties } from 'src/transforms/mangle-properties'
-
+import type { ManglePropertiesOptions, TransformContext } from '../../src/options'
+import { mangleProperties } from '../../src/transforms/mangle-properties'
 import { defineCases, run, trace } from '../helpers'
 
 const BASE_CONTEXT: TransformContext = { seed: 0, stringGeneratorMode: 'mangled' }
@@ -811,6 +810,29 @@ test('mangleProperties uses the configured StringGenerator when no custom genera
   const out = run(input, apply({ builtins: true }, { seed: 0, stringGeneratorMode: 'number' }))
   expect(trace(out)).toEqual(trace(input))
   expect(out).toMatch(/\bvar_\d+\b/)
+})
+
+// `growable` and `maxByteLength` belong to `SharedArrayBuffer`, `prepareStackTrace`
+// to `Error` on V8. Nothing here knows whether the target has them, so all three
+// stay reserved.
+const hostPropertyProgram = `var host = { growable: 1, maxByteLength: 2, prepareStackTrace: 3, own_: 4 };
+log(host.growable + host.maxByteLength + host.prepareStackTrace + host.own_);`
+
+test('mangleProperties reserves names a platform object may own', () => {
+  const out = transform(hostPropertyProgram)
+  expect(out).toContain('growable')
+  expect(out).toContain('maxByteLength')
+  expect(out).toContain('prepareStackTrace')
+  expect(out).not.toContain('own_')
+  expect(trace(out)).toEqual(trace(hostPropertyProgram))
+})
+
+test('mangleProperties builtins releases the platform names the default reserves', () => {
+  const out = transform(hostPropertyProgram, { builtins: true })
+  expect(out).not.toContain('growable')
+  expect(out).not.toContain('maxByteLength')
+  expect(out).not.toContain('prepareStackTrace')
+  expect(trace(out)).toEqual(trace(hostPropertyProgram))
 })
 
 test('mangleProperties reports whether it changed the AST', () => {

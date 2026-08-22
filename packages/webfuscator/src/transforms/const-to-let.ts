@@ -1,10 +1,10 @@
 import type { Visitor } from '@babel/traverse'
 import type { File } from '@babel/types'
 
-import { enclosingScopeHasDirectEval } from 'src/utils/ast'
-import { traverseForChanges } from 'src/utils/change-tracking'
-import type { ChangeState } from 'src/utils/change-tracking'
-import { hasConstantViolation } from 'src/utils/paths'
+import { enclosingScopeHasDirectEval } from '../utils/ast'
+import { traverseForChanges } from '../utils/change-tracking'
+import type { ChangeState } from '../utils/change-tracking'
+import { hasConstantViolation } from '../utils/paths'
 
 /**
  * Changes `const` to `let` when no write can observe the lost TypeError. Direct

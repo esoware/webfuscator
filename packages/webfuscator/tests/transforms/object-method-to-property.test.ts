@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { objectMethodToProperty } from 'src/transforms/object-method-to-property'
-
+import { objectMethodToProperty } from '../../src/transforms/object-method-to-property'
 import { defineCases, run } from '../helpers'
 
 const cases = defineCases('object-method-to-property', objectMethodToProperty, {

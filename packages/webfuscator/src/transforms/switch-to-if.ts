@@ -2,11 +2,11 @@ import type { NodePath, Scope, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { isPure } from 'src/analysis/purity'
-import { traverseForChanges } from 'src/utils/change-tracking'
-import type { ChangeState } from 'src/utils/change-tracking'
-import { isPrimitiveLiteral } from 'src/utils/literal'
-import { generateLoopLabel } from 'src/utils/loop-lowering'
+import { isPure } from '../analysis/purity'
+import { traverseForChanges } from '../utils/change-tracking'
+import type { ChangeState } from '../utils/change-tracking'
+import { isPrimitiveLiteral } from '../utils/literal'
+import { generateLoopLabel } from '../utils/loop-lowering'
 
 /**
  * Lowers `switch` to an `if` chain or, when cases fall through, a labeled block
@@ -46,7 +46,7 @@ const visitor: Visitor<ChangeState> = {
 }
 
 function transformSwitch(path: NodePath<t.SwitchStatement>): boolean {
-  const { node } = path
+  const node = path.node
   // Separate `if` blocks cannot preserve cross-case lexical scope or Annex B
   // function hoisting.
   if (hasBlockScopedDeclaration(node)) {
@@ -114,7 +114,7 @@ function canLowerToIfElseChain(node: t.SwitchStatement): boolean {
 }
 
 function caseEligibleForIfElseChain(caseClause: t.SwitchCase, isLast: boolean): boolean {
-  const { consequent } = caseClause
+  const consequent = caseClause.consequent
   if (consequent.length === 0) {
     return isLast
   }
@@ -189,8 +189,8 @@ function buildBody(consequent: t.Statement[]): t.BlockStatement {
 }
 
 function lowerToIfElseChain(path: NodePath<t.SwitchStatement>): void {
-  const { node } = path
-  const { scope } = path
+  const node = path.node
+  const scope = path.scope
 
   let discriminantExpr: t.Expression
   const preStmts: t.Statement[] = []
@@ -244,8 +244,8 @@ function lowerToIfElseChain(path: NodePath<t.SwitchStatement>): void {
 }
 
 function lowerToLabeledBlock(path: NodePath<t.SwitchStatement>): void {
-  const { node } = path
-  const { scope } = path
+  const node = path.node
+  const scope = path.scope
 
   // `scope.generateUid` alone can collide with enclosing or nested labels.
   const labelName = generateLoopLabel(path, 'switch')
@@ -314,7 +314,7 @@ function lowerToLabeledBlock(path: NodePath<t.SwitchStatement>): void {
 
   const labeledBlock = t.labeledStatement(t.identifier(labelName), t.blockStatement(statements))
 
-  const [labeledPath] = path.replaceWith(labeledBlock)
+  const labeledPath = path.replaceWith(labeledBlock)[0]
   rewriteUnlabeledBreaks(labeledPath, labelName)
 }
 

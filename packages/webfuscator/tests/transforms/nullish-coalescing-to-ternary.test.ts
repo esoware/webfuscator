@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { nullishCoalescingToTernary } from 'src/transforms/nullish-coalescing-to-ternary'
-
+import { nullishCoalescingToTernary } from '../../src/transforms/nullish-coalescing-to-ternary'
 import { defineCases, run, trace } from '../helpers'
 
 const cases = defineCases('nullish-coalescing-to-ternary', nullishCoalescingToTernary, {

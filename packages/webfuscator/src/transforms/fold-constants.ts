@@ -2,12 +2,12 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { evaluateConstant } from 'src/analysis/constant'
-import { isPure } from 'src/analysis/purity'
-import { traverseForChanges } from 'src/utils/change-tracking'
-import type { ChangeState } from 'src/utils/change-tracking'
-import { valueToLiteral } from 'src/utils/literal'
-import { isCalleeOrTagOf } from 'src/utils/paths'
+import { evaluateConstant } from '../analysis/constant'
+import { isPure } from '../analysis/purity'
+import { traverseForChanges } from '../utils/change-tracking'
+import type { ChangeState } from '../utils/change-tracking'
+import { valueToLiteral } from '../utils/literal'
+import { isCalleeOrTagOf } from '../utils/paths'
 
 /**
  * Folds pure constant expressions to literals via `evaluateConstant`.
@@ -243,7 +243,7 @@ function tryReassociateSubtract(path: NodePath<t.BinaryExpression>): boolean {
   let node: t.BinaryExpression = path.node
   while (true) {
     subtractees.unshift(node.right)
-    const { left } = node
+    const left = node.left
     if (t.isBinaryExpression(left) && left.operator === '-') {
       node = left
       continue
@@ -359,7 +359,7 @@ function combineConstants(
   if (consts.length === 0) {
     return null
   }
-  const { kind } = consts[0]!
+  const kind = consts[0]!.kind
   for (const c of consts) {
     if (c.kind !== kind) {
       return null

@@ -1,8 +1,7 @@
 import type { File } from '@babel/types'
 import { expect, test } from 'vitest'
 
-import { removeUnreachableCode } from 'src/transforms/remove-unreachable-code'
-
+import { removeUnreachableCode } from '../../src/transforms/remove-unreachable-code'
 import { defineCases, run, trace } from '../helpers'
 
 const cases = defineCases('remove-unreachable-code', removeUnreachableCode, {

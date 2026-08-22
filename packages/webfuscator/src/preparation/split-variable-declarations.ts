@@ -32,7 +32,7 @@ const visitor = {
     if (path.node.declarations.length <= 1) {
       return
     }
-    const { kind } = path.node
+    const kind = path.node.kind
     const replacements = path.node.declarations.map((decl) => t.variableDeclaration(kind, [decl]))
     path.replaceWithMultiple(replacements)
   },

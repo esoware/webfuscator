@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { functionDeclarationToExpression } from 'src/transforms/function-declaration-to-expression'
-
+import { functionDeclarationToExpression } from '../../src/transforms/function-declaration-to-expression'
 import { defineCases, run } from '../helpers'
 
 const cases = defineCases('function-declaration-to-expression', functionDeclarationToExpression, {

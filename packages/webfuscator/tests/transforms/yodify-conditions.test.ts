@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { yodifyConditions } from 'src/transforms/yodify-conditions'
-
+import { yodifyConditions } from '../../src/transforms/yodify-conditions'
 import { defineCases, run, trace } from '../helpers'
 
 const cases = defineCases('yodify-conditions', yodifyConditions, {

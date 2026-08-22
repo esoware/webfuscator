@@ -2,9 +2,9 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { isInsideWith } from 'src/utils/ast'
-import { traverseForChanges } from 'src/utils/change-tracking'
-import type { ChangeState } from 'src/utils/change-tracking'
+import { isInsideWith } from '../utils/ast'
+import { traverseForChanges } from '../utils/change-tracking'
+import type { ChangeState } from '../utils/change-tracking'
 
 /**
  * Rewrites `||=`/`&&=`/`??=` as `LHS op (LHS = RHS)`. Member objects and
@@ -38,7 +38,9 @@ const visitor: Visitor<ChangeState> = {
 }
 
 function lowerLogicalAssignment(path: NodePath<t.AssignmentExpression>): boolean {
-  const { operator, left, right } = path.node
+  const operator = path.node.operator
+  const left = path.node.left
+  const right = path.node.right
   if (operator.length < 2) {
     return false
   }
@@ -54,7 +56,7 @@ function lowerLogicalAssignment(path: NodePath<t.AssignmentExpression>): boolean
     if (isInsideWith(path)) {
       return false
     }
-    const { object } = left
+    const object = left.object
     if (t.isExpression(object)) {
       const memo = path.scope.maybeGenerateMemoised(object)
       if (memo) {
@@ -64,7 +66,7 @@ function lowerLogicalAssignment(path: NodePath<t.AssignmentExpression>): boolean
     }
 
     if (left.computed) {
-      const { property } = left
+      const property = left.property
       if (t.isExpression(property)) {
         const memoProp = path.scope.maybeGenerateMemoised(property)
         if (memoProp) {

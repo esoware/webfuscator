@@ -3,9 +3,9 @@ import type { NodePath, Scope, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { initializerReaches } from 'src/analysis/document-order'
-import { enclosingScopeHasDirectEval, isInsideWith } from 'src/utils/ast'
-import { hasConstantViolation } from 'src/utils/paths'
+import { initializerReaches } from '../analysis/document-order'
+import { enclosingScopeHasDirectEval, isInsideWith } from '../utils/ast'
+import { hasConstantViolation } from '../utils/paths'
 
 /**
  * Lifts safe lexical declarations to function-scoped `var`, renaming collisions
@@ -29,7 +29,7 @@ export function constLetToVar(ast: File): boolean {
   const state = { changed: false }
   traverse(ast, {
     VariableDeclaration(path) {
-      const { kind } = path.node
+      const kind = path.node.kind
       if (kind !== 'let' && kind !== 'const') {
         return
       }
@@ -64,7 +64,7 @@ export function constLetToVar(ast: File): boolean {
     },
 
     ClassDeclaration(path) {
-      const { id } = path.node
+      const id = path.node.id
       if (!id) {
         return
       }
@@ -72,7 +72,7 @@ export function constLetToVar(ast: File): boolean {
         return
       }
 
-      const { scope } = path.parentPath
+      const scope = path.parentPath.scope
       if (!isVarScope(scope) && scope.parent!.hasBinding(id.name, { noUids: true })) {
         path.scope.rename(id.name)
         state.changed = true

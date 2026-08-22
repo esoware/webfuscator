@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { ternaryToIf } from 'src/transforms/ternary-to-if'
-
+import { ternaryToIf } from '../../src/transforms/ternary-to-if'
 import { defineCases, run, trace } from '../helpers'
 
 const cases = defineCases('ternary-to-if', ternaryToIf, {

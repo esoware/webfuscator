@@ -2,11 +2,11 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { isInsideWith } from 'src/utils/ast'
-import { traverseForChanges } from 'src/utils/change-tracking'
-import type { ChangeState } from 'src/utils/change-tracking'
-import { isConditionalGate, reorderableToStatement } from 'src/utils/evaluation-order'
-import { isStandaloneDeclaration } from 'src/utils/paths'
+import { isInsideWith } from '../utils/ast'
+import { traverseForChanges } from '../utils/change-tracking'
+import type { ChangeState } from '../utils/change-tracking'
+import { isConditionalGate, reorderableToStatement } from '../utils/evaluation-order'
+import { isStandaloneDeclaration } from '../utils/paths'
 
 /**
  * Lowers conditional expressions to `if` statements. Expression values use a
@@ -67,7 +67,9 @@ function lowerConditional(path: NodePath<t.ConditionalExpression>): boolean {
     return false
   }
 
-  const { test, consequent, alternate } = path.node
+  const test = path.node.test
+  const consequent = path.node.consequent
+  const alternate = path.node.alternate
 
   if (parent.isExpressionStatement() && parent.node.expression === path.node) {
     parent.replaceWith(
@@ -163,7 +165,7 @@ function lowerConditional(path: NodePath<t.ConditionalExpression>): boolean {
     return false
   }
 
-  const { scope } = path
+  const scope = path.scope
   const tmpId = scope.generateUidIdentifier('ternaryResult')
   scope.push({ id: t.cloneNode(tmpId) })
 
@@ -293,8 +295,9 @@ function lowerEnclosingLogical(path: NodePath, stmtPath: NodePath): boolean {
   if (!logical || logical.removed || !logical.container) {
     return false
   }
-  const { node } = logical
-  const { left, right } = node
+  const node = logical.node
+  const left = node.left
+  const right = node.right
   let test: t.Expression
   let valueRef: t.Expression
   if (t.isIdentifier(left) && logical.scope.hasBinding(left.name)) {

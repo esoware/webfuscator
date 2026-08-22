@@ -2,8 +2,8 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { traverseForChanges } from 'src/utils/change-tracking'
-import type { ChangeState } from 'src/utils/change-tracking'
+import { traverseForChanges } from '../utils/change-tracking'
+import type { ChangeState } from '../utils/change-tracking'
 
 /**
  * Rewrites safe function declarations as `var` initializers. The function value
@@ -36,11 +36,11 @@ export function functionDeclarationToExpression(ast: File): boolean {
 
 const visitor: Visitor<ChangeState> = {
   FunctionDeclaration(path, state) {
-    const { id } = path.node
+    const id = path.node.id
     if (!id || !isConvertible(path, id)) {
       return
     }
-    const { node } = path
+    const node = path.node
     const fn = t.functionExpression(null, node.params, node.body, node.generator, node.async)
     path.replaceWith(t.variableDeclaration('var', [t.variableDeclarator(t.cloneNode(id), fn)]))
     state.changed = true
@@ -66,7 +66,7 @@ function isConvertible(path: NodePath<t.FunctionDeclaration>, id: t.Identifier):
     return false
   }
 
-  const { body } = parent.node as t.Program | t.BlockStatement
+  const body = (parent.node as t.Program | t.BlockStatement).body
   const index = path.key as number
   for (let i = 0; i < index; i++) {
     if (!isInertStatement(body[i]!)) {

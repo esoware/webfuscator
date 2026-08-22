@@ -1,7 +1,7 @@
 import type { NodePath } from '@babel/traverse'
 import * as t from '@babel/types'
 
-import { isPure } from 'src/analysis/purity'
+import { isPure } from '../analysis/purity'
 
 // Moving a gated node can change whether it runs.
 export function isConditionalGate(parent: NodePath, cur: NodePath): boolean {

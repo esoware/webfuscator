@@ -2,9 +2,9 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { isInsideWith } from 'src/utils/ast'
-import { traverseForChanges } from 'src/utils/change-tracking'
-import type { ChangeState } from 'src/utils/change-tracking'
+import { isInsideWith } from '../utils/ast'
+import { traverseForChanges } from '../utils/change-tracking'
+import type { ChangeState } from '../utils/change-tracking'
 
 /**
  * Rewrites optional chains as nested ternaries. Side-effectful receivers are
@@ -129,7 +129,7 @@ function transformChain(path: OptionalPath): boolean {
 
   let cur: NodePath = path
   while (cur.isOptionalMemberExpression() || cur.isOptionalCallExpression()) {
-    const { node } = cur
+    const node = cur.node
     if (node.optional) {
       optionals.push(node as unknown as t.MemberExpression | t.CallExpression)
     }
@@ -193,7 +193,7 @@ function transformChain(path: OptionalPath): boolean {
     // A cached member call needs its original receiver as `this`.
     if (isCall && t.isMemberExpression(chain)) {
       const callNode = node as t.CallExpression
-      const { object } = chain
+      const object = chain.object
       if (!t.isSuper(object)) {
         let context: t.Expression
         const memoized = path.scope.maybeGenerateMemoised(object)

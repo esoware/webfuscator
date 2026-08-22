@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { arrowToFunction } from 'src/transforms/arrow-to-function'
-
+import { arrowToFunction } from '../../src/transforms/arrow-to-function'
 import { defineCases, run, trace } from '../helpers'
 
 const cases = defineCases('arrow-to-function', arrowToFunction, {

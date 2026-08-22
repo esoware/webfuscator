@@ -2,8 +2,8 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { traverseForChanges } from 'src/utils/change-tracking'
-import type { ChangeState } from 'src/utils/change-tracking'
+import { traverseForChanges } from '../utils/change-tracking'
+import type { ChangeState } from '../utils/change-tracking'
 
 /**
  * Rewrites numeric literals as strings coerced with unary plus. Under `+`, `-`,
@@ -34,7 +34,7 @@ const visitor: Visitor<ChangeState> = {
       return
     }
     const str = t.stringLiteral(String(path.node.value))
-    const { parent } = path
+    const parent = path.parent
     if (
       t.isUnaryExpression(parent) &&
       parent.argument === path.node &&
@@ -50,7 +50,7 @@ const visitor: Visitor<ChangeState> = {
 }
 
 function isNonComputedKey(path: NodePath<t.NumericLiteral>): boolean {
-  const { parentPath } = path
+  const parentPath = path.parentPath
   if (!parentPath) {
     return false
   }

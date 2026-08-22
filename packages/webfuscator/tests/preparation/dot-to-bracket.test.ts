@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { dotToBracket } from 'src/preparation/dot-to-bracket'
-
+import { dotToBracket } from '../../src/preparation/dot-to-bracket'
 import { defineCases, run } from '../helpers'
 
 const cases = defineCases('dot-to-bracket', dotToBracket, {

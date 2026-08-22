@@ -1,7 +1,6 @@
 import { afterEach, expect, test } from 'vitest'
 
-import { foldBuiltinMethods } from 'src/transforms/fold-builtin-methods'
-
+import { foldBuiltinMethods } from '../../src/transforms/fold-builtin-methods'
 import { defineCases, run, trace } from '../helpers'
 
 // Restore intrinsics after tests that patch them inside evaluated code.

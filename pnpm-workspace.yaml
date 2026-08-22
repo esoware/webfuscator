@@ -1,9 +1,14 @@
 packages:
-  - docs
+  - apps/*
   - packages/*
+
+catalog:
+  typescript: ^7.0.2
+  '@types/node': ^26.2.0
 
 allowBuilds:
   '@scarf/scarf': false
+  esbuild: true
   keytar: false
   puppeteer: false
   sharp: true

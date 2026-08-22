@@ -2,7 +2,7 @@
 
 `webfuscator` is a Babel-based JavaScript obfuscator. `obfuscate(code, options)` parses source, always runs preparation, runs only explicitly enabled transforms, and generates formatted JavaScript unless `minify` is enabled.
 
-The npm package lives in `packages/webfuscator/`. Documentation lives in `docs/`. Repository tooling and cross-project scripts stay at the root.
+Published packages live in `packages/`, so the npm package is `packages/webfuscator/`. Everything that deploys without being published lives in `apps/`: the documentation site in `apps/docs/` and the playground in `apps/playground/`. Each workspace owns the scripts it runs. The repository root holds configuration only.
 
 ## Behavior contracts
 
@@ -29,9 +29,9 @@ Use pnpm for installs and scripts. Tests use `vitest`. AST work uses `@babel/par
 
 Keep `knip` at zero. Delete dead code instead of exporting it.
 
-`packages/webfuscator/vitest.config.ts` maps the `src/*` alias and raises the worker stack with `--stack-size`. The deep-nesting tests need the larger stack because `@babel/parser` exhausts Node's default while parsing them.
+`packages/webfuscator/vitest.config.ts` raises the worker stack with `--stack-size`. The deep-nesting tests need the larger stack because `@babel/parser` exhausts Node's default while parsing them.
 
-`build` removes `packages/webfuscator/dist` through Node's filesystem API so the script works in both Windows and POSIX shells.
+`build` removes `packages/webfuscator/dist` through Node's filesystem API so the script works in both Windows and POSIX shells. It then compiles, runs `tsc-alias`, and runs `packages/webfuscator/scripts/verify-dist.mjs`. Keep all three. `tsc` copies relative specifiers into its output unchanged, `tsc-alias` adds the extensions Node needs, and the verifier imports the built entry point and fails the build if any specifier is still extensionless. Nothing else reads `dist`, so dropping the verifier is how a broken build reaches npm.
 
 ## Pipeline and transforms
 
@@ -40,7 +40,7 @@ The phase tables in `packages/webfuscator/src/obfuscator.ts` define which passes
 - Synthesize every identifier and label with `scope.generateUid('purpose')` on the owning scope. No transform carries its own counter or prefix scheme.
 - Track changes through `traverseForChanges` and `ChangeState` in `packages/webfuscator/src/utils/change-tracking.ts`. A pass with its own traversal loop keeps state in an object that extends `ChangeState`.
 - Give every new pass in `packages/webfuscator/src/transforms/` or `packages/webfuscator/src/preparation/` a mirror test at the same path under `packages/webfuscator/tests/`. If the pass is configurable, add it to `TransformName` in `packages/webfuscator/src/options.ts`.
-- Default a new configurable pass to the behavior-preserving contract. A pass on any other contract needs the justification above, an off-by-default toggle, and a caveat callout in `scripts/generate-transform-docs.mjs` so its page flags the change.
+- Default a new configurable pass to the behavior-preserving contract. A pass on any other contract needs the justification above, an off-by-default toggle, and a caveat callout in `apps/docs/scripts/generate-transforms.mjs` so its page flags the change.
 - Most helpers in `packages/webfuscator/src/utils/` and `packages/webfuscator/src/analysis/` get coverage from their transforms. The rewrite safety predicates in `packages/webfuscator/src/analysis/purity.ts`, `packages/webfuscator/src/analysis/constant.ts`, and `packages/webfuscator/src/analysis/document-order.ts` need direct mirror tests. So do the value builders in `packages/webfuscator/src/utils/literal.ts` and `packages/webfuscator/src/utils/string-generator.ts`. Transitive tests miss too many of their branches, and a wrong answer can change program behavior.
 - `packages/webfuscator/src/index.ts` exports the public API and nothing else.
 
@@ -52,8 +52,8 @@ The phase tables in `packages/webfuscator/src/obfuscator.ts` define which passes
 - Wait for a second real caller before extracting a helper. Three similar lines are better than an abstraction with one use.
 - Put shared AST and path predicates in `packages/webfuscator/src/utils/`. Put shared evaluation logic in `packages/webfuscator/src/analysis/`. Import from those modules, never from one transform into another.
 - Prefer Babel's typed walkers. Use `traverse` with a typed `Visitor` and `path.isFoo()` when you need scope. Use `t.traverseFast` when you need to skip subtrees or short-circuit without traversal overhead. Use manual recursion only as a last resort.
-- Separate imports into `node:*`, third-party, and first-party groups, in that order. Sort each group alphabetically. `vitest` belongs in the third-party group. Within first-party imports, put `src/*` aliases before test-relative imports.
-- Put a value import before its matching `import type`. Keep `type` out of named specifier lists. Use the `src/*` alias for imports that cross more than one directory.
+- Separate imports into `node:*`, third-party, and first-party groups, in that order. Sort each group alphabetically. `vitest` belongs in the third-party group.
+- Put a value import before its matching `import type`. Keep `type` out of named specifier lists. Use native relative paths for all intra-package imports; no path aliases anywhere in the repository.
 
 ## Comments
 

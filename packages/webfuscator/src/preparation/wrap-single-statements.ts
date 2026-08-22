@@ -36,7 +36,7 @@ export function wrapSingleStatements(ast: File): void {
 
 const visitor = {
   IfStatement(path: { node: t.IfStatement }) {
-    const { node } = path
+    const node = path.node
     if (!t.isBlockStatement(node.consequent)) {
       node.consequent = t.blockStatement([node.consequent])
     }
@@ -48,7 +48,7 @@ const visitor = {
     wrapLoopBody(path.node)
   },
   ArrowFunctionExpression(path: { node: t.ArrowFunctionExpression }) {
-    const { node } = path
+    const node = path.node
     if (!t.isBlockStatement(node.body)) {
       node.body = t.blockStatement([t.returnStatement(node.body)])
       node.expression = false

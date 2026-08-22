@@ -2,10 +2,10 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { isInsideWith } from 'src/utils/ast'
-import { traverseForChanges } from 'src/utils/change-tracking'
-import type { ChangeState } from 'src/utils/change-tracking'
-import { lowerLogicalWriteStatement } from 'src/utils/logical-lowering'
+import { isInsideWith } from '../utils/ast'
+import { traverseForChanges } from '../utils/change-tracking'
+import type { ChangeState } from '../utils/change-tracking'
+import { lowerLogicalWriteStatement } from '../utils/logical-lowering'
 
 /**
  * Rewrites `a ?? b` as a guarded assignment or `a != null ? a : b`. A
@@ -35,7 +35,7 @@ const visitor: Visitor<ChangeState> = {
 }
 
 function lowerNullishCoalescing(path: NodePath<t.LogicalExpression>): boolean {
-  const { node } = path
+  const node = path.node
   if (node.operator !== '??') {
     return false
   }
@@ -48,7 +48,7 @@ function lowerNullishCoalescing(path: NodePath<t.LogicalExpression>): boolean {
     return true
   }
 
-  const { scope } = path
+  const scope = path.scope
   let test: t.Expression
   let consequent: t.Expression
 

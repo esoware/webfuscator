@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { expandBinaryAssignment } from 'src/transforms/expand-binary-assignment'
-
+import { expandBinaryAssignment } from '../../src/transforms/expand-binary-assignment'
 import { defineCases, run, trace } from '../helpers'
 
 const cases = defineCases('expand-binary-assignment', expandBinaryAssignment, {

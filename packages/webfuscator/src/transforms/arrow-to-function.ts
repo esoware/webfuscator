@@ -2,9 +2,9 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { enclosingScopeHasDirectEval, isInsideWith } from 'src/utils/ast'
-import { traverseForChanges } from 'src/utils/change-tracking'
-import type { ChangeState } from 'src/utils/change-tracking'
+import { enclosingScopeHasDirectEval, isInsideWith } from '../utils/ast'
+import { traverseForChanges } from '../utils/change-tracking'
+import type { ChangeState } from '../utils/change-tracking'
 
 /**
  * Lowers arrows with Babel's capture-aware `arrowFunctionToExpression`. Arrows

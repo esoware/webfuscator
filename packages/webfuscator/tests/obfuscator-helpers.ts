@@ -1,5 +1,5 @@
-import { obfuscate } from 'src/index'
-import type { ObfuscatorOptions } from 'src/index'
+import { obfuscate } from '../src/index'
+import type { ObfuscatorOptions } from '../src/index'
 
 const TRANSFORM_PIPELINE = {
   argumentsToParameters: true,

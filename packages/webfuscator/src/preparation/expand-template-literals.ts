@@ -3,7 +3,7 @@ import type { Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { isInDirectivePrologue } from 'src/utils/ast'
+import { isInDirectivePrologue } from '../utils/ast'
 
 /**
  * Rewrites safe template literals as string concatenation. Tagged templates
@@ -31,12 +31,13 @@ export function expandTemplateLiterals(ast: File): void {
 
 const visitor: Visitor = {
   TemplateLiteral(path) {
-    const { parent } = path
+    const parent = path.parent
     if (t.isTaggedTemplateExpression(parent) && parent.quasi === path.node) {
       return
     }
 
-    const { quasis, expressions } = path.node
+    const quasis = path.node.quasis
+    const expressions = path.node.expressions
 
     if (expressions.length === 0) {
       // Rewriting a leading template as a string would create a directive.

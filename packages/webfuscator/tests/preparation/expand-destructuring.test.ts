@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { expandDestructuring } from 'src/preparation/expand-destructuring'
-
+import { expandDestructuring } from '../../src/preparation/expand-destructuring'
 import { defineCases, run, trace } from '../helpers'
 
 const cases = defineCases('expand-destructuring', expandDestructuring, {

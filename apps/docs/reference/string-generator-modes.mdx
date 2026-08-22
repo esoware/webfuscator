@@ -1,0 +1,70 @@
+---
+title: String generator modes
+description: "Compare the five styles used for generated identifiers, labels, properties, and strings."
+keywords: ["stringGeneratorMode","mangled","hexadecimal","zeroWidth"]
+---
+
+`stringGeneratorMode` controls the shape of generated identifiers, labels, property names, and string contents. Set it globally or override it for `renameIdentifiers`, `specialsToStrings`, or `mangleProperties`.
+
+<Badge color="green" stroke icon="circle-check">mangled is the default</Badge>
+
+## Compare modes
+
+| Mode | Example | Behavior |
+| --- | --- | --- |
+| `mangled` | `a`, `b`, `c` | Emits shortest-first names from a seeded, shuffled identifier alphabet. |
+| `hexadecimal` | `_0x4a91f` | Emits `_0x` plus four to seven lowercase hexadecimal digits. |
+| `randomized` | `gK4qa` | Emits four to seven seeded identifier characters. The first character is never a digit. |
+| `zeroWidth` | A padded reserved word | Pads reserved words with U\+200C ZERO WIDTH NON-JOINER. |
+| `number` | `var_1` | Emits monotonic names such as `var_1`, `var_2`, and `var_3`. |
+
+<Warning>
+  Some editors, minifiers, linters, and security tools handle `zeroWidth` identifiers poorly. Test every downstream tool before using this mode.
+</Warning>
+
+## Select one mode
+
+```js obfuscate.mjs highlight={3}
+const output = obfuscate(source, {
+  seed: 0,
+  stringGeneratorMode: 'hexadecimal',
+})
+```
+
+The seed makes built-in randomized choices repeatable. It is not a cryptographic key.
+
+## Override a transform
+
+`renameIdentifiers` and `specialsToStrings` accept an object with their own `stringGeneratorMode`. Property mangling accepts the same field inside its [property options](/reference/property-mangling-options).
+
+```js obfuscate.mjs highlight={4-6}
+const output = obfuscate(source, {
+  stringGeneratorMode: 'mangled',
+  transforms: {
+    renameIdentifiers: { stringGeneratorMode: 'number' },
+  },
+})
+```
+
+## Mix modes
+
+Pass a nonempty array to sample modes uniformly. Repeating a mode increases its weight.
+
+```js obfuscate.mjs highlight={3-7}
+const output = obfuscate(source, {
+  seed: 12,
+  stringGeneratorMode: ['mangled', 'hexadecimal', 'randomized'],
+})
+```
+
+An empty array throws when a generator is created.
+
+<Columns cols={2}>
+  <Card title="Obfuscator options" icon="settings-2" href="/reference/options">
+    See how the global mode fits into `ObfuscatorOptions`.
+  </Card>
+
+  <Card title="Rename identifiers" icon="replace-all" href="/reference/transforms/rename-identifiers.mdx">
+    See generated names applied to bindings and labels.
+  </Card>
+</Columns>

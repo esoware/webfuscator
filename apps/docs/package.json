@@ -1,0 +1,18 @@
+{
+  "name": "@webfuscator/docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "a11y": "mint --telemetry=false a11y",
+    "check": "pnpm run generated-check && pnpm run validate && pnpm run links && pnpm run a11y",
+    "dev": "pnpm run generate && mint --telemetry=false dev --no-open",
+    "format": "mint --telemetry=false format && pnpm run generate",
+    "generate": "node ./scripts/generate-transforms.mjs",
+    "generated-check": "node ./scripts/generate-transforms.mjs --check",
+    "links": "mint --telemetry=false broken-links --check-anchors --check-redirects --check-snippets",
+    "validate": "mint --telemetry=false validate"
+  },
+  "devDependencies": {
+    "mint": "4.2.810"
+  }
+}

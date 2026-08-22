@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { removeAnonymousFunctionNames } from 'src/transforms/remove-anonymous-function-names'
-
+import { removeAnonymousFunctionNames } from '../../src/transforms/remove-anonymous-function-names'
 import { defineCases, run } from '../helpers'
 
 const cases = defineCases('remove-anonymous-function-names', removeAnonymousFunctionNames, {

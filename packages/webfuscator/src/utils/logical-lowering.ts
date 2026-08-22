@@ -1,8 +1,8 @@
 import type { NodePath } from '@babel/traverse'
 import * as t from '@babel/types'
 
-import { isSideEffectFree } from 'src/analysis/purity'
-import { isStandaloneDeclaration } from 'src/utils/paths'
+import { isSideEffectFree } from '../analysis/purity'
+import { isStandaloneDeclaration } from './paths'
 
 // Lowers a short-circuit expression assigned to a bare identifier:
 //
@@ -15,7 +15,7 @@ export function lowerLogicalWriteStatement(
   path: NodePath<t.LogicalExpression>,
   fallbackTest: (target: t.Identifier) => t.Expression,
 ): boolean {
-  const { node } = path
+  const node = path.node
   const parent = path.parentPath
   if (!parent) {
     return false

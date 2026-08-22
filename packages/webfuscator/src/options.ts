@@ -1,4 +1,4 @@
-import type { StringGeneratorModeOption } from 'src/utils/string-generator'
+import type { StringGeneratorModeOption } from './utils/string-generator'
 
 /**
  * Exported transform entry points. Preparation passes are always enabled and

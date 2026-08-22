@@ -4,11 +4,11 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import type { TransformContext } from 'src/options'
-import { isInsideWith } from 'src/utils/ast'
-import { isCalleeOrTagOf, isInStrictContext, referencesOrWritesVariable } from 'src/utils/paths'
-import { mulberry32 } from 'src/utils/random'
-import { StringGenerator } from 'src/utils/string-generator'
+import type { TransformContext } from '../options'
+import { isInsideWith } from '../utils/ast'
+import { isCalleeOrTagOf, isInStrictContext, referencesOrWritesVariable } from '../utils/paths'
+import { mulberry32 } from '../utils/random'
+import { StringGenerator } from '../utils/string-generator'
 
 /**
  * Serializes the whole program to a string and rebuilds it at runtime through
@@ -110,7 +110,7 @@ function packProgram(programPath: NodePath<t.Program>, ctx: TransformContext): b
     t.memberExpression(t.identifier(objectName), t.stringLiteral(property), true)
 
   const isRoutable = (path: NodePath<t.Identifier>): boolean => {
-    const { name } = path.node
+    const name = path.node.name
     // The wrapper parameter stays as written. `arguments` and `eval` are never
     // routed: `arguments` binds to its own function's object, and leaving `eval`
     // bare keeps a direct eval reading the body scope rather than the global one.
@@ -147,7 +147,7 @@ function packProgram(programPath: NodePath<t.Program>, ctx: TransformContext): b
       if (isBareDeleteArgument(path) || !isRoutable(path)) {
         return
       }
-      const { name } = path.node
+      const name = path.node.name
       if (isWriteReference(path)) {
         settable.add(name)
       }
@@ -163,7 +163,7 @@ function packProgram(programPath: NodePath<t.Program>, ctx: TransformContext): b
 
   // The script completion value is its trailing expression; returning it keeps
   // `eval` of the packed output producing the same value.
-  const { body } = programNode
+  const body = programNode.body
   const lastStatement = body.at(-1)
   if (lastStatement && t.isExpressionStatement(lastStatement)) {
     body[body.length - 1] = t.returnStatement(lastStatement.expression)
@@ -252,7 +252,7 @@ function isWriteReference(path: NodePath<t.Identifier>): boolean {
   if (!parent) {
     return false
   }
-  const { node } = path
+  const node = path.node
   if (parent.isAssignmentExpression() && parent.node.left === node) {
     return true
   }
@@ -295,9 +295,8 @@ interface AccessorObjectSpec {
 }
 
 function buildAccessorObject(spec: AccessorObjectSpec): t.ObjectExpression {
-  const { readProperties, setterParam, settable, strict, typeofProperties } = spec
   const properties: t.ObjectMethod[] = []
-  for (const [name, property] of readProperties) {
+  for (const [name, property] of spec.readProperties) {
     properties.push(
       t.objectMethod(
         'get',
@@ -306,23 +305,28 @@ function buildAccessorObject(spec: AccessorObjectSpec): t.ObjectExpression {
         t.blockStatement([t.returnStatement(t.identifier(name))]),
       ),
     )
-    if (settable.has(name)) {
+    if (spec.settable.has(name)) {
       const setterBody = t.blockStatement([
         t.expressionStatement(
-          t.assignmentExpression('=', t.identifier(name), t.identifier(setterParam)),
+          t.assignmentExpression('=', t.identifier(name), t.identifier(spec.setterParam)),
         ),
       ])
       // A strict script becomes a sloppy output script, so the setter stays
       // strict to keep an undeclared-global write throwing.
-      if (strict) {
+      if (spec.strict) {
         setterBody.directives.push(t.directive(t.directiveLiteral('use strict')))
       }
       properties.push(
-        t.objectMethod('set', t.stringLiteral(property), [t.identifier(setterParam)], setterBody),
+        t.objectMethod(
+          'set',
+          t.stringLiteral(property),
+          [t.identifier(spec.setterParam)],
+          setterBody,
+        ),
       )
     }
   }
-  for (const [name, property] of typeofProperties) {
+  for (const [name, property] of spec.typeofProperties) {
     properties.push(
       t.objectMethod(
         'get',

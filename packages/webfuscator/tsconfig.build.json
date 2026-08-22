@@ -6,7 +6,10 @@
     "noEmitOnError": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"],
+
+  // Node cannot resolve an extensionless ESM specifier and tsc emits relative
+  // imports verbatim, so this adds the extensions and `src` keeps writing plain
+  // relative paths. `scripts/verify-dist.mjs` fails the build if any survive.
   "tsc-alias": {
     "resolveFullPaths": true
   }

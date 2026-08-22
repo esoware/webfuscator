@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 
-import { mulberry32 } from 'src/utils/random'
-import { StringGenerator } from 'src/utils/string-generator'
+import { mulberry32 } from '../../src/utils/random'
+import { StringGenerator } from '../../src/utils/string-generator'
 
 test('mangled mode: same seed produces the same sequence', () => {
   const a = new StringGenerator('mangled', mulberry32(0))

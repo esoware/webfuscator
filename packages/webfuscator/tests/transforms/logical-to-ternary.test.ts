@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { logicalToTernary } from 'src/transforms/logical-to-ternary'
-
+import { logicalToTernary } from '../../src/transforms/logical-to-ternary'
 import { defineCases, run, trace } from '../helpers'
 
 const cases = defineCases('logical-to-ternary', logicalToTernary, {

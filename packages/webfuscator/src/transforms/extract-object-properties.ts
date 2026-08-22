@@ -2,11 +2,11 @@ import type { Binding, NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { initializerReaches } from 'src/analysis/document-order'
-import { isInsideWith, isProtoKey } from 'src/utils/ast'
-import { traverseForChanges } from 'src/utils/change-tracking'
-import type { ChangeState } from 'src/utils/change-tracking'
-import { isCalleeOrTagOf } from 'src/utils/paths'
+import { initializerReaches } from '../analysis/document-order'
+import { isInsideWith, isProtoKey } from '../utils/ast'
+import { traverseForChanges } from '../utils/change-tracking'
+import type { ChangeState } from '../utils/change-tracking'
+import { isCalleeOrTagOf } from '../utils/paths'
 
 /**
  * Replaces a constant object or array wrapper with one binding per entry when
@@ -48,7 +48,7 @@ function tryExtractDeclaration(path: NodePath<t.VariableDeclaration>): boolean {
   if (path.key === 'init' && path.parentPath?.isForStatement() && path.node.kind !== 'var') {
     return false
   }
-  const [declaratorPath] = path.get('declarations')
+  const declaratorPath = path.get('declarations')[0]
   if (!declaratorPath) {
     return false
   }
@@ -239,7 +239,7 @@ function performExtraction(
     replacements.push({ memberPath: parent, key })
   }
 
-  const { scope } = path
+  const scope = path.scope
   const usedNames = new Set<string>()
   const keyToName = new Map<string, string>()
   for (const { key } of entries) {
@@ -257,9 +257,9 @@ function performExtraction(
     keyToName.set(key, chosen)
   }
 
-  const newDecls = entries.map(({ key, value }) =>
+  const newDecls = entries.map((entry) =>
     t.variableDeclaration(path.node.kind, [
-      t.variableDeclarator(t.identifier(keyToName.get(key)!), value),
+      t.variableDeclarator(t.identifier(keyToName.get(entry.key)!), entry.value),
     ]),
   )
 
@@ -271,7 +271,7 @@ function performExtraction(
   // Publish rewritten references for the next fixed-point iteration.
   for (const { memberPath, key } of replacements) {
     const name = keyToName.get(key)!
-    const [newRefPath] = memberPath.replaceWith(t.identifier(name))
+    const newRefPath = memberPath.replaceWith(t.identifier(name))[0]
     if (newRefPath) {
       const refBinding = newRefPath.scope.getBinding(name)
       if (refBinding) {
@@ -288,7 +288,7 @@ function performExtraction(
 }
 
 function staticPropertyKey(prop: t.ObjectProperty): string | null {
-  const { key } = prop
+  const key = prop.key
   if (!prop.computed && t.isIdentifier(key)) {
     return key.name
   }
@@ -359,7 +359,7 @@ function isWriteTargetMember(memberPath: NodePath<t.MemberExpression>): boolean 
 }
 
 function functionRefsThis(path: NodePath): boolean {
-  const { node } = path
+  const node = path.node
   if (!t.isFunctionExpression(node) && !t.isFunctionDeclaration(node)) {
     return false
   }

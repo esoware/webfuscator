@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { removeUnusedCode } from 'src/transforms/remove-unused-code'
-
+import { removeUnusedCode } from '../../src/transforms/remove-unused-code'
 import { defineCases, run, trace } from '../helpers'
 
 const cases = defineCases('remove-unused-code', removeUnusedCode, {

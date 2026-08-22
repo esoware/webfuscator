@@ -1,13 +1,13 @@
 import type { Binding, NodePath, Scope } from '@babel/traverse'
 import * as t from '@babel/types'
 
+import { isInsideWith } from '../utils/ast'
+import { isPrimitiveLiteral } from '../utils/literal'
 import {
   declarationReaches,
   initializerReaches,
   readCrossesFunctionBoundary,
-} from 'src/analysis/document-order'
-import { isInsideWith } from 'src/utils/ast'
-import { isPrimitiveLiteral } from 'src/utils/literal'
+} from './document-order'
 
 // Purity also requires deterministic repetition and no throw. Identifier reads
 // need scope and reference paths to prove resolution, initialization, and the

@@ -1,7 +1,7 @@
 import { parse } from '@babel/parser'
 import { expect, test } from 'vitest'
 
-import { analyzeInlineability } from 'src/analysis/inlineability'
+import { analyzeInlineability } from '../../src/analysis/inlineability'
 
 function isCandidate(code: string): boolean {
   return analyzeInlineability(parse(code, { sourceType: 'unambiguous' })).has('f')

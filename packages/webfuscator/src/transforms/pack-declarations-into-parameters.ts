@@ -2,11 +2,11 @@ import type { Binding, NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { enclosingScopeHasDirectEval, hasDuplicateParamNames } from 'src/utils/ast'
-import { traverseForChanges } from 'src/utils/change-tracking'
-import type { ChangeState } from 'src/utils/change-tracking'
-import { isLiteralShaped } from 'src/utils/literal'
-import { hasAnnexBFunctionAlias } from 'src/utils/paths'
+import { enclosingScopeHasDirectEval, hasDuplicateParamNames } from '../utils/ast'
+import { traverseForChanges } from '../utils/change-tracking'
+import type { ChangeState } from '../utils/change-tracking'
+import { isLiteralShaped } from '../utils/literal'
+import { hasAnnexBFunctionAlias } from '../utils/paths'
 
 /**
  * Moves leading literal-valued `var` declarations into trailing default
@@ -54,7 +54,7 @@ function packLeadingIntoParams(path: NodePath<t.Function>): boolean {
   if (hasAnnexBFunctionAlias(path)) {
     return false
   }
-  const { params } = path.node
+  const params = path.node.params
   if (params.some((param) => t.isRestElement(param))) {
     return false
   }
@@ -63,7 +63,7 @@ function packLeadingIntoParams(path: NodePath<t.Function>): boolean {
     return false
   }
 
-  const { body } = path.node
+  const body = path.node.body
   if (!t.isBlockStatement(body)) {
     return false
   }

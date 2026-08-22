@@ -3,7 +3,7 @@ import { parse } from '@babel/parser'
 import * as t from '@babel/types'
 import { expect, test } from 'vitest'
 
-import { isLiteralShaped, valueToLiteral } from 'src/utils/literal'
+import { isLiteralShaped, valueToLiteral } from '../../src/utils/literal'
 
 // Evaluate generated literals to prove they parse and round-trip.
 function roundTrip(value: unknown): unknown {

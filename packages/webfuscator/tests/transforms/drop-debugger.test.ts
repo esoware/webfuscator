@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { dropDebugger } from 'src/transforms/drop-debugger'
-
+import { dropDebugger } from '../../src/transforms/drop-debugger'
 import { defineCases, run } from '../helpers'
 
 const cases = defineCases('drop-debugger', dropDebugger, {

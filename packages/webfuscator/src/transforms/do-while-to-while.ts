@@ -2,9 +2,9 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { traverseForChanges } from 'src/utils/change-tracking'
-import type { ChangeState } from 'src/utils/change-tracking'
-import { collectLoopLabels, generateLoopLabel, redirectContinues } from 'src/utils/loop-lowering'
+import { traverseForChanges } from '../utils/change-tracking'
+import type { ChangeState } from '../utils/change-tracking'
+import { collectLoopLabels, generateLoopLabel, redirectContinues } from '../utils/loop-lowering'
 
 /**
  * Rewrites `do` loops as `while (true)` with an exit test after the body.
@@ -41,8 +41,8 @@ const visitor: Visitor<ChangeState> = {
 }
 
 function transformDoWhile(path: NodePath<t.DoWhileStatement>): void {
-  const { node } = path
-  const { ourLabels } = collectLoopLabels(path)
+  const node = path.node
+  const ourLabels = collectLoopLabels(path).ourLabels
   const innerLabel = generateLoopLabel(path, 'doIteration')
 
   const blockBody: t.BlockStatement = t.isBlockStatement(node.body)
@@ -58,7 +58,7 @@ function transformDoWhile(path: NodePath<t.DoWhileStatement>): void {
     t.blockStatement([labeledBlock, exitTest]),
   )
 
-  const [newPath] = path.replaceWith(whileStmt)
+  const newPath = path.replaceWith(whileStmt)[0]
   const rewriteCount = redirectContinues(newPath, innerLabel, ourLabels)
 
   // Keep the block so body bindings cannot shadow names in the exit test.

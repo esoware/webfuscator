@@ -2,9 +2,8 @@ import { parse } from '@babel/parser'
 import * as t from '@babel/types'
 import { expect, test } from 'vitest'
 
-import { obfuscate } from 'src/index'
-import { optionalChainingToTernary } from 'src/transforms/optional-chaining-to-ternary'
-
+import { obfuscate } from '../../src/index'
+import { optionalChainingToTernary } from '../../src/transforms/optional-chaining-to-ternary'
 import { defineCases, run, trace } from '../helpers'
 
 const cases = defineCases('optional-chaining-to-ternary', optionalChainingToTernary, {

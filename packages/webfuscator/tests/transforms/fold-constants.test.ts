@@ -5,8 +5,7 @@ import type { NodePath } from '@babel/traverse'
 import type * as t from '@babel/types'
 import { expect, test } from 'vitest'
 
-import { foldConstants } from 'src/transforms/fold-constants'
-
+import { foldConstants } from '../../src/transforms/fold-constants'
 import { defineCases, run, trace } from '../helpers'
 
 const cases = defineCases('fold-constants', foldConstants, {

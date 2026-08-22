@@ -3,7 +3,7 @@ import type { NodePath } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { isProtoKey } from 'src/utils/ast'
+import { isProtoKey } from '../utils/ast'
 
 /**
  * Rewrites property keys in object literals and classes as computed strings.
@@ -57,7 +57,7 @@ function keyOrderIsSpreadSensitive(path: NodePath<t.ObjectProperty | t.ObjectMet
   if (!object || !object.isObjectExpression()) {
     return false
   }
-  const { properties } = object.node
+  const properties = object.node.properties
   const hasSpread = properties.some((prop) => t.isSpreadElement(prop))
   if (!hasSpread) {
     return false

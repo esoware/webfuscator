@@ -1,13 +1,13 @@
 import type { Binding, NodePath, Scope } from '@babel/traverse'
 import * as t from '@babel/types'
 
+import { enclosingScopeHasDirectEval, isInsideWith } from '../utils/ast'
 import {
   declarationReaches,
   initializerReaches,
   readCrossesFunctionBoundary,
-} from 'src/analysis/document-order'
-import { isSideEffectFree } from 'src/analysis/purity'
-import { enclosingScopeHasDirectEval, isInsideWith } from 'src/utils/ast'
+} from './document-order'
+import { isSideEffectFree } from './purity'
 
 export type Evaluation = { known: true; value: unknown } | { known: false }
 
@@ -48,7 +48,7 @@ const EVALUATORS: Partial<Record<t.Node['type'], Evaluator>> = {
     if (template.expressions.length > 0) {
       return UNKNOWN
     }
-    const [quasi] = template.quasis
+    const quasi = template.quasis[0]
     return { known: true, value: quasi?.value.cooked ?? quasi?.value.raw ?? '' }
   },
   UnaryExpression: evaluateUnary,

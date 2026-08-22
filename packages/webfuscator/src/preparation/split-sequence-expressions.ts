@@ -3,7 +3,7 @@ import type { NodePath } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { isInDirectivePrologue } from 'src/utils/ast'
+import { isInDirectivePrologue } from '../utils/ast'
 
 /**
  * Splits comma-sequenced expression statements into one statement each.
@@ -30,7 +30,7 @@ const visitor = {
       return
     }
     // Splitting a leading string out of a sequence could create a directive.
-    const [first] = path.node.expression.expressions
+    const first = path.node.expression.expressions[0]
     if (t.isStringLiteral(first) && isInDirectivePrologue(path)) {
       return
     }

@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { switchToIf } from 'src/transforms/switch-to-if'
-
+import { switchToIf } from '../../src/transforms/switch-to-if'
 import { defineCases, run, trace } from '../helpers'
 
 const cases = defineCases('switch-to-if', switchToIf, {

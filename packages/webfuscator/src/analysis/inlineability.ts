@@ -3,8 +3,8 @@ import type { Binding, NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { walkOwnFunctionScope } from 'src/utils/ast'
-import { hasAnnexBFunctionAlias, referencesOrWritesVariable } from 'src/utils/paths'
+import { walkOwnFunctionScope } from '../utils/ast'
+import { hasAnnexBFunctionAlias, referencesOrWritesVariable } from '../utils/paths'
 
 export interface InlineCandidate {
   name: string
@@ -47,7 +47,7 @@ export function analyzeInlineability(ast: File): Map<string, InlineCandidate> {
       if (!t.isIdentifier(path.node.id)) {
         return
       }
-      const { init } = path.node
+      const init = path.node.init
       if (!t.isFunctionExpression(init)) {
         return
       }
@@ -267,7 +267,7 @@ const analyzeBodyVisitor: Visitor<AnalyzeBodyState> = {
     path.stop()
   },
   Identifier(path, state) {
-    const { name } = path.node
+    const name = path.node.name
     if (
       state.innerFnDepth === 0 &&
       (name === 'arguments' || name === 'eval' || name === state.candidateName)

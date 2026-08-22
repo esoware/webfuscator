@@ -17,9 +17,6 @@
   },
   "license": "MIT",
   "author": "Esoware",
-  "contentPolicy": {
-    "class": "dual-use"
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/esoware/webfuscator.git",
@@ -30,22 +27,23 @@
     "dist",
     "src"
   ],
-  "publishConfig": {
-    "access": "public"
-  },
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
+      "source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "prepublishOnly": "pnpm --workspace-root check",
     "prepack": "pnpm run build",
-    "build": "node --eval \"require('node:fs').rmSync('dist', { force: true, recursive: true })\" && tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
+    "build": "node --eval \"require('node:fs').rmSync('dist', { force: true, recursive: true })\" && tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json && node scripts/verify-dist.mjs",
     "check": "pnpm run typecheck && pnpm run test",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
@@ -57,12 +55,15 @@
     "@babel/types": "^8.0.4"
   },
   "devDependencies": {
-    "@types/node": "^26.2.0",
+    "@types/node": "catalog:",
     "tsc-alias": "^1.9.2",
-    "typescript": "^7.0.2",
+    "typescript": "catalog:",
     "vitest": "^4.1.11"
   },
   "engines": {
     "node": "^22.18.0 || >=24.11.0"
+  },
+  "contentPolicy": {
+    "class": "dual-use"
   }
 }

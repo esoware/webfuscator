@@ -2,9 +2,9 @@ import type { Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { traverseForChanges } from 'src/utils/change-tracking'
-import type { ChangeState } from 'src/utils/change-tracking'
-import { isLiteralShaped } from 'src/utils/literal'
+import { traverseForChanges } from '../utils/change-tracking'
+import type { ChangeState } from '../utils/change-tracking'
+import { isLiteralShaped } from '../utils/literal'
 
 /**
  * Moves a safe literal-shaped right operand to the left of a comparison.
@@ -31,7 +31,7 @@ export function yodifyConditions(ast: File): boolean {
 
 const visitor: Visitor<ChangeState> = {
   BinaryExpression(path, state) {
-    const { node } = path
+    const node = path.node
     const op = node.operator
     if (!isComparisonOp(op)) {
       return
@@ -51,8 +51,8 @@ const visitor: Visitor<ChangeState> = {
       return
     }
 
-    const { left } = node
-    const { right } = node
+    const left = node.left
+    const right = node.right
     node.left = right
     node.right = left
     const flipped = RELATIONAL_FLIP[op]

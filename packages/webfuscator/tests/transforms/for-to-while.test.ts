@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { forToWhile } from 'src/transforms/for-to-while'
-
+import { forToWhile } from '../../src/transforms/for-to-while'
 import { defineCases, run } from '../helpers'
 
 const cases = defineCases('for-to-while', forToWhile, {

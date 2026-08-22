@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { argumentsToParameters } from 'src/transforms/arguments-to-parameters'
-
+import { argumentsToParameters } from '../../src/transforms/arguments-to-parameters'
 import { defineCases, run } from '../helpers'
 
 const cases = defineCases('arguments-to-parameters', argumentsToParameters, {

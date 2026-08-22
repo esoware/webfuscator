@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { expandTemplateLiterals } from 'src/preparation/expand-template-literals'
-
+import { expandTemplateLiterals } from '../../src/preparation/expand-template-literals'
 import { defineCases, run, trace } from '../helpers'
 
 const cases = defineCases('expand-template-literals', expandTemplateLiterals, {

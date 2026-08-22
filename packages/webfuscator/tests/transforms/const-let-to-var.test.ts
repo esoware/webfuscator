@@ -2,8 +2,7 @@ import { createContext, runInContext } from 'node:vm'
 
 import { expect, test } from 'vitest'
 
-import { constLetToVar } from 'src/transforms/const-let-to-var'
-
+import { constLetToVar } from '../../src/transforms/const-let-to-var'
 import { defineCases, run } from '../helpers'
 
 // Compare logs and thrown classes before and after lexical lifting.

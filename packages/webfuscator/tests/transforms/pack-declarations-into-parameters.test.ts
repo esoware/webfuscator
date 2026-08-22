@@ -1,8 +1,7 @@
 import type { File } from '@babel/types'
 import { expect, test } from 'vitest'
 
-import { packDeclarationsIntoParameters } from 'src/transforms/pack-declarations-into-parameters'
-
+import { packDeclarationsIntoParameters } from '../../src/transforms/pack-declarations-into-parameters'
 import { defineCases, run } from '../helpers'
 
 const cases = defineCases('pack-declarations-into-parameters', packDeclarationsIntoParameters, {

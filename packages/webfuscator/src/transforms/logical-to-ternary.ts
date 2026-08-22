@@ -2,11 +2,11 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { isPure } from 'src/analysis/purity'
-import { isInsideWith } from 'src/utils/ast'
-import { traverseForChanges } from 'src/utils/change-tracking'
-import type { ChangeState } from 'src/utils/change-tracking'
-import { lowerLogicalWriteStatement } from 'src/utils/logical-lowering'
+import { isPure } from '../analysis/purity'
+import { isInsideWith } from '../utils/ast'
+import { traverseForChanges } from '../utils/change-tracking'
+import type { ChangeState } from '../utils/change-tracking'
+import { lowerLogicalWriteStatement } from '../utils/logical-lowering'
 
 /**
  * Rewrites logical expressions as guarded assignments or ternaries. A
@@ -40,7 +40,7 @@ const visitor: Visitor<ChangeState> = {
 }
 
 function lowerLogical(path: NodePath<t.LogicalExpression>): boolean {
-  const { node } = path
+  const node = path.node
   const op = node.operator
   if (op !== '&&' && op !== '||' && op !== '??') {
     return false
@@ -54,7 +54,7 @@ function lowerLogical(path: NodePath<t.LogicalExpression>): boolean {
     return true
   }
 
-  const { scope } = path
+  const scope = path.scope
   const leftPath = path.get('left')
   let testSrc: t.Expression
   let valueSrc: t.Expression

@@ -3,8 +3,7 @@ import { parse } from '@babel/parser'
 import traverse from '@babel/traverse'
 import { expect, test } from 'vitest'
 
-import { extractObjectProperties } from 'src/transforms/extract-object-properties'
-
+import { extractObjectProperties } from '../../src/transforms/extract-object-properties'
 import { defineCases, run, trace } from '../helpers'
 
 const cases = defineCases('extract-object-properties', extractObjectProperties, {

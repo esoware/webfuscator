@@ -1,9 +1,13 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "workspaces": {
-    ".": {
+    "apps/docs": {
       "entry": ["scripts/**/*.mjs"],
       "project": ["scripts/**/*.mjs"]
+    },
+    "apps/playground": {
+      "entry": ["index.html", "src/lib/obfuscator.worker.ts"],
+      "project": ["src/**/*.{ts,tsx}", "src/**/*.css"]
     },
     "packages/webfuscator": {
       "entry": ["tests/**/*.test.ts"],

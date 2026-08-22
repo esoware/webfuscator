@@ -3,7 +3,7 @@ import type { NodePath, Scope } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { enclosingScopeHasDirectEval, isInsideWith } from 'src/utils/ast'
+import { enclosingScopeHasDirectEval, isInsideWith } from '../utils/ast'
 
 type Kind = t.VariableDeclaration['kind']
 
@@ -47,12 +47,13 @@ const visitor = {
       return
     }
 
-    const { kind } = path.node
+    const kind = path.node.kind
     const replacement: t.Statement[] = []
     let changed = false
 
     for (const declarator of path.node.declarations) {
-      const { id, init } = declarator
+      const id = declarator.id
+      const init = declarator.init
 
       if (
         !init ||
@@ -135,7 +136,7 @@ function expandPattern(
       if (t.isRestElement(prop)) {
         continue
       }
-      const { key } = prop
+      const key = prop.key
       const useComputed = prop.computed || !t.isIdentifier(key)
       const access = t.memberExpression(
         t.cloneNode(src),

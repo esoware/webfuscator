@@ -3,11 +3,11 @@ import type { Binding, Scope } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import type { TransformContext } from 'src/options'
-import { isDirectEvalCall, isInsideWith } from 'src/utils/ast'
-import { hasAnnexBFunctionAlias, referencesOrWritesVariable } from 'src/utils/paths'
-import { mulberry32 } from 'src/utils/random'
-import { StringGenerator } from 'src/utils/string-generator'
+import type { TransformContext } from '../options'
+import { isDirectEvalCall, isInsideWith } from '../utils/ast'
+import { hasAnnexBFunctionAlias, referencesOrWritesVariable } from '../utils/paths'
+import { mulberry32 } from '../utils/random'
+import { StringGenerator } from '../utils/string-generator'
 
 /**
  * Renames bindings and labels with a fresh `StringGenerator`. Each scope avoids
@@ -125,7 +125,7 @@ export function renameIdentifiers(ast: File, ctx: TransformContext): boolean {
 
   traverse(ast, {
     Scopable(path) {
-      const { scope } = path
+      const scope = path.scope
       // Test global reservations during allocation to avoid copying them per scope.
       const offLimits = new Set<string>()
       const live = liveAncestors.get(scope)
@@ -174,7 +174,7 @@ export function renameIdentifiers(ast: File, ctx: TransformContext): boolean {
 
   traverse(ast, {
     Identifier(path) {
-      const { node } = path
+      const node = path.node
       const directName = idToName.get(node)
       if (directName !== undefined) {
         node.name = directName
@@ -200,7 +200,8 @@ export function renameIdentifiers(ast: File, ctx: TransformContext): boolean {
 }
 
 function isNonBindingPosition(path: { node: t.Identifier; parent: t.Node }): boolean {
-  const { node, parent } = path
+  const node = path.node
+  const parent = path.parent
   // A PrivateName id is not a variable and must match its class declaration.
   if (t.isPrivateName(parent)) {
     return true

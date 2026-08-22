@@ -3,10 +3,10 @@ import type { NodePath, Scope, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { isSideEffectFree } from 'src/analysis/purity'
-import { isDirectEvalCall } from 'src/utils/ast'
-import type { ChangeState } from 'src/utils/change-tracking'
-import { hasAnnexBFunctionAlias } from 'src/utils/paths'
+import { isSideEffectFree } from '../analysis/purity'
+import { isDirectEvalCall } from '../utils/ast'
+import type { ChangeState } from '../utils/change-tracking'
+import { hasAnnexBFunctionAlias } from '../utils/paths'
 
 /**
  * Removes unused declarations and expression statements that have no effects.
@@ -150,12 +150,12 @@ function tryRemoveDeclarator(
     return false
   }
 
-  const { id } = path.node
+  const id = path.node.id
   if (!t.isIdentifier(id)) {
     return false
   }
 
-  const { init } = path.node
+  const init = path.node.init
   if (init && !isSideEffectFree(init, path.scope, path.get('init') as NodePath)) {
     return false
   }
@@ -196,7 +196,7 @@ function tryRemoveFunctionDecl(
   if (hasAnnexBFunctionAlias(path)) {
     return false
   }
-  const { id } = path.node
+  const id = path.node.id
   if (!id) {
     return false
   }
@@ -228,7 +228,7 @@ function tryRemoveClassDecl(
   if (isExported(path)) {
     return false
   }
-  const { id } = path.node
+  const id = path.node.id
   if (!id) {
     return false
   }

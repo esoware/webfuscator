@@ -2,8 +2,8 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { traverseForChanges } from 'src/utils/change-tracking'
-import type { ChangeState } from 'src/utils/change-tracking'
+import { traverseForChanges } from '../utils/change-tracking'
+import type { ChangeState } from '../utils/change-tracking'
 
 /**
  * Removes statements after unconditional control flow in the same statement list.
@@ -72,7 +72,7 @@ function isCompletion(node: t.Node): boolean {
 // Hoisted bindings and referenced lexical TDZ remain observable from reachable
 // code. An unreferenced lexical declaration is inert.
 function isSafeToRemoveAfterCompletion(path: NodePath<t.Statement>): boolean {
-  const { node } = path
+  const node = path.node
   if (t.isFunctionDeclaration(node) || (t.isVariableDeclaration(node) && node.kind === 'var')) {
     return false
   }

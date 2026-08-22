@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { splitSequenceExpressions } from 'src/preparation/split-sequence-expressions'
-
+import { splitSequenceExpressions } from '../../src/preparation/split-sequence-expressions'
 import { defineCases, run, trace } from '../helpers'
 
 const cases = defineCases('split-sequence-expressions', splitSequenceExpressions, {

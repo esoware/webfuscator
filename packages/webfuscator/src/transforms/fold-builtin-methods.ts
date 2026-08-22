@@ -3,10 +3,10 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { evaluateConstant, isOpaque } from 'src/analysis/constant'
-import { enclosingScopeHasDirectEval, isInDirectivePrologue, isInsideWith } from 'src/utils/ast'
-import type { ChangeState } from 'src/utils/change-tracking'
-import { valueToLiteral } from 'src/utils/literal'
+import { evaluateConstant, isOpaque } from '../analysis/constant'
+import { enclosingScopeHasDirectEval, isInDirectivePrologue, isInsideWith } from '../utils/ast'
+import type { ChangeState } from '../utils/change-tracking'
+import { valueToLiteral } from '../utils/literal'
 
 /**
  * Replaces built-in calls and reads with smaller syntax or host-computed
@@ -105,7 +105,7 @@ function collectPatchedIntrinsics(ast: File): Set<string> {
     },
     Identifier(path) {
       // Global eval and Function can patch any intrinsic outside this scan.
-      const { name } = path.node
+      const name = path.node.name
       if (name !== 'eval' && name !== 'Function') {
         return
       }
@@ -163,7 +163,7 @@ function markWriteTarget(target: t.Node, scope: NodePath['scope'], poison: Poiso
 
 // Only genuine Object and Reflect bulk mutation methods count as patches.
 function markMutationCall(path: NodePath<t.CallExpression>, poison: PoisonSink): void {
-  const { callee } = path.node
+  const callee = path.node.callee
   // Preparation may already have changed the method to bracket syntax.
   if (!t.isMemberExpression(callee) || !t.isIdentifier(callee.object)) {
     return
@@ -175,7 +175,7 @@ function markMutationCall(path: NodePath<t.CallExpression>, poison: PoisonSink):
   if (!isMutatingIntrinsicMethod(callee.object.name, method)) {
     return
   }
-  const [firstArg] = path.node.arguments
+  const firstArg = path.node.arguments[0]
   if (!firstArg || !t.isExpression(firstArg)) {
     return
   }
@@ -461,12 +461,12 @@ function staticPropertyName(node: t.MemberExpression): string | null {
 // Write targets require references. A folded literal would be invalid syntax,
 // including when the member sits inside a destructuring target.
 function isReferenceRequiredPosition(path: NodePath<t.MemberExpression>): boolean {
-  const { parentPath } = path
+  const parentPath = path.parentPath
   if (!parentPath) {
     return false
   }
   const parent = parentPath.node
-  const { node } = path
+  const node = path.node
   if (t.isAssignmentExpression(parent) && parent.left === node) {
     return true
   }
@@ -500,7 +500,7 @@ function foldsIntoDirective(path: NodePath<t.CallExpression>, replacement: t.Exp
   if (!t.isStringLiteral(replacement)) {
     return false
   }
-  const { parentPath } = path
+  const parentPath = path.parentPath
   return (
     parentPath != null && parentPath.isExpressionStatement() && isInDirectivePrologue(parentPath)
   )
@@ -511,7 +511,7 @@ function handleCall(path: NodePath<t.CallExpression>, patchedRoots: Set<string>)
   if (isInsideWith(path) || enclosingScopeHasDirectEval(path)) {
     return
   }
-  const { callee } = path.node
+  const callee = path.node.callee
 
   if (t.isIdentifier(callee)) {
     foldGlobalCall(path, callee.name, patchedRoots)
@@ -545,7 +545,7 @@ function handleMember(path: NodePath<t.MemberExpression>, patchedRoots: Set<stri
     return
   }
 
-  const { parent } = path
+  const parent = path.parent
   // Calls use their own folding path.
   if (
     (t.isCallExpression(parent) ||
@@ -700,7 +700,7 @@ function foldReceiverCall(
   if (!recv.known) {
     return
   }
-  const { value } = recv
+  const value = recv.value
 
   if (typeof value === 'string') {
     if (!STRING_PROTOTYPE_METHODS.has(method) || patchedRoots.has('String')) {
@@ -736,7 +736,8 @@ function foldMathPow(path: NodePath<t.CallExpression>): void {
   if (args.length !== 2) {
     return
   }
-  const [left, right] = args
+  const left = args[0]
+  const right = args[1]
   if (!t.isExpression(left) || !t.isExpression(right)) {
     return
   }
@@ -778,7 +779,7 @@ function foldArrayIsArray(path: NodePath<t.CallExpression>): void {
   if (args.length !== 1) {
     return
   }
-  const [arg] = args
+  const arg = args[0]
   if (!t.isExpression(arg)) {
     return
   }
@@ -787,7 +788,7 @@ function foldArrayIsArray(path: NodePath<t.CallExpression>): void {
   if (!evaluated.known) {
     return
   }
-  const { value } = evaluated
+  const value = evaluated.value
   if (
     typeof value === 'string' ||
     typeof value === 'number' ||
@@ -809,7 +810,7 @@ function foldBooleanCtor(path: NodePath<t.CallExpression>): void {
   if (args.length !== 1) {
     return
   }
-  const [arg] = args
+  const arg = args[0]
   if (!t.isExpression(arg)) {
     return
   }
@@ -828,7 +829,7 @@ function foldStringCtor(path: NodePath<t.CallExpression>): void {
   if (args.length !== 1) {
     return
   }
-  const [arg] = args
+  const arg = args[0]
   if (!t.isExpression(arg)) {
     return
   }
@@ -858,7 +859,7 @@ function foldNumberCtor(path: NodePath<t.CallExpression>): void {
   if (args.length !== 1) {
     return
   }
-  const [arg] = args
+  const arg = args[0]
   if (!t.isExpression(arg)) {
     return
   }

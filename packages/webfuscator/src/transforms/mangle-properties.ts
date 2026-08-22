@@ -3,13 +3,13 @@ import type { NodePath, Scope, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { evaluateConstant, isOpaque } from 'src/analysis/constant'
-import type { ManglePropertiesOptions, PropertyNameGenerator, TransformContext } from 'src/options'
-import { isProtoKey } from 'src/utils/ast'
-import type { ChangeState } from 'src/utils/change-tracking'
-import { DOM_PROPERTIES } from 'src/utils/dom-properties'
-import { mulberry32 } from 'src/utils/random'
-import { StringGenerator } from 'src/utils/string-generator'
+import { evaluateConstant, isOpaque } from '../analysis/constant'
+import type { ManglePropertiesOptions, PropertyNameGenerator, TransformContext } from '../options'
+import { isProtoKey } from '../utils/ast'
+import type { ChangeState } from '../utils/change-tracking'
+import { DOM_PROPERTIES } from '../utils/dom-properties'
+import { mulberry32 } from '../utils/random'
+import { StringGenerator } from '../utils/string-generator'
 
 /**
  * Renames statically known public properties through one program-wide mapping.
@@ -48,6 +48,27 @@ const PROPERTY_KEY_ANNOTATION = '__KEY__'
 const NUMERIC_PROPERTY_RE = /^-?[0-9]+(?:\.[0-9]+)?(?:e[+-][0-9]+)?$/u
 const SYNTAX_SENSITIVE_GENERATED_NAMES = new Set(['__proto__', 'constructor', 'prototype'])
 const MAX_GENERATOR_ATTEMPTS = 100_000
+
+/**
+ * Names a platform object may own wherever the output runs. That could be a
+ * browser, a Node process, or an embedded engine, and nothing here can tell
+ * which, so the table unions every host name Terser collected. Renaming a name
+ * the target owns breaks the program. Reserving one it does not own costs a
+ * single missed rename.
+ *
+ * `builtins: true` is the caller promising that none of these names reach a
+ * platform object in their target.
+ */
+const RESERVED_PROPERTIES: ReadonlySet<string> = new Set([
+  ...DOM_PROPERTIES,
+  // V8 reads `Error.prepareStackTrace` back off the constructor, and it postdates the table.
+  'prepareStackTrace',
+  // Not host names. ES3 rejects a keyword after `.`, which some downstream
+  // tooling still enforces, so they stay out of the generated keys too.
+  'false',
+  'null',
+  'true',
+])
 
 type KeyedProperty =
   | t.ClassAccessorProperty
@@ -92,7 +113,7 @@ class PropertyManglerState implements ChangeState {
     this.regex = compileRegex(options.regex)
 
     if (!options.builtins) {
-      for (const name of builtinProperties()) {
+      for (const name of RESERVED_PROPERTIES) {
         this.reserved.add(name)
       }
     }
@@ -292,7 +313,7 @@ const collectVisitor: Visitor<PropertyManglerState> = {
       (t.isCallExpression(path.node) || t.isOptionalCallExpression(path.node)) &&
       isObjectDefinePropertyCall(path as NodePath<Call>)
     ) {
-      const [, key] = path.node.arguments
+      const key = path.node.arguments[1]
       if (key && t.isExpression(key)) {
         collectTerminalNames(key, path.scope, path, state)
       }
@@ -324,7 +345,7 @@ const rewriteVisitor: Visitor<PropertyManglerState> = {
       (t.isCallExpression(path.node) || t.isOptionalCallExpression(path.node)) &&
       isObjectDefinePropertyCall(path as NodePath<Call>)
     ) {
-      const [, key] = path.node.arguments
+      const key = path.node.arguments[1]
       if (key && t.isExpression(key)) {
         path.node.arguments[1] = rewriteTerminalNames(key, path.scope, path, state)
       }
@@ -341,7 +362,7 @@ const rewriteVisitor: Visitor<PropertyManglerState> = {
 }
 
 function prepareKeyedProperty(path: NodePath<KeyedProperty>, state: PropertyManglerState): void {
-  const { node } = path
+  const node = path.node
   if (isSemanticKey(node)) {
     const name = plainKeyName(node.key)
     if (name !== null) {
@@ -360,7 +381,7 @@ function prepareKeyedProperty(path: NodePath<KeyedProperty>, state: PropertyMang
 }
 
 function prepareMember(path: NodePath<Member>, state: PropertyManglerState): void {
-  const { node } = path
+  const node = path.node
   if (state.keepQuoted && node.computed && t.isExpression(node.property)) {
     protectTerminalNames(node.property, path.scope, path, state)
   }
@@ -370,7 +391,7 @@ function prepareMember(path: NodePath<Member>, state: PropertyManglerState): voi
 }
 
 function protectQuotedKey(path: NodePath<KeyedProperty>, state: PropertyManglerState): void {
-  const { node } = path
+  const node = path.node
   if (node.computed) {
     if (t.isExpression(node.key)) {
       protectTerminalNames(node.key, path.scope, path, state)
@@ -398,7 +419,7 @@ function protectName(name: string, state: PropertyManglerState): void {
 }
 
 function addAnnotatedKey(path: NodePath<KeyedProperty>, state: PropertyManglerState): void {
-  const { node } = path
+  const node = path.node
   if (node.computed) {
     if (t.isExpression(node.key)) {
       forEachTerminalName(node.key, path.scope, path, (name) => state.annotated.add(name))
@@ -412,7 +433,7 @@ function addAnnotatedKey(path: NodePath<KeyedProperty>, state: PropertyManglerSt
 }
 
 function addAnnotatedMember(path: NodePath<Member>, state: PropertyManglerState): void {
-  const { node } = path
+  const node = path.node
   if (node.computed) {
     if (t.isExpression(node.property)) {
       forEachTerminalName(node.property, path.scope, path, (name) => state.annotated.add(name))
@@ -423,7 +444,7 @@ function addAnnotatedMember(path: NodePath<Member>, state: PropertyManglerState)
 }
 
 function collectKeyedProperty(path: NodePath<KeyedProperty>, state: PropertyManglerState): void {
-  const { node } = path
+  const node = path.node
   if (node.computed) {
     if (!state.keepQuoted && t.isExpression(node.key)) {
       collectTerminalNames(node.key, path.scope, path, state)
@@ -440,7 +461,7 @@ function collectKeyedProperty(path: NodePath<KeyedProperty>, state: PropertyMang
 }
 
 function collectMember(path: NodePath<Member>, state: PropertyManglerState): void {
-  const { node } = path
+  const node = path.node
   if (node.computed) {
     if (!state.keepQuoted && t.isExpression(node.property)) {
       collectTerminalNames(node.property, path.scope, path, state)
@@ -468,7 +489,7 @@ function collectTerminalNames(
 }
 
 function rewriteKeyedProperty(path: NodePath<KeyedProperty>, state: PropertyManglerState): void {
-  const { node } = path
+  const node = path.node
   if (node.computed) {
     if (!state.keepQuoted && t.isExpression(node.key)) {
       node.key = rewriteTerminalNames(node.key, path.scope, path, state)
@@ -495,7 +516,7 @@ function rewriteKeyedProperty(path: NodePath<KeyedProperty>, state: PropertyMang
 }
 
 function rewriteMember(path: NodePath<Member>, state: PropertyManglerState): void {
-  const { node } = path
+  const node = path.node
   if (node.computed) {
     if (!state.keepQuoted && t.isExpression(node.property)) {
       node.property = rewriteTerminalNames(node.property, path.scope, path, state)
@@ -650,7 +671,7 @@ function memberHasMangleAnnotation(path: NodePath<Member>): boolean {
 }
 
 function isTransparentAnnotationParent(path: NodePath, child: t.Node): boolean {
-  const { node } = path
+  const node = path.node
   return (
     (t.isAssignmentExpression(node) && node.left === child) ||
     (t.isCallExpression(node) && node.callee === child) ||
@@ -671,8 +692,8 @@ function hasAnnotation(node: t.Node, annotation: string): boolean {
 }
 
 function isObjectDefinePropertyCall(path: NodePath<Call>): boolean {
-  const { node } = path
-  const { callee } = node
+  const node = path.node
+  const callee = node.callee
   if (
     (!t.isMemberExpression(callee) && !t.isOptionalMemberExpression(callee)) ||
     !t.isIdentifier(callee.object, { name: 'Object' })
@@ -741,79 +762,4 @@ function compileRegex(regex: ManglePropertiesOptions['regex']): RegExp | null {
     return new RegExp(regex)
   }
   return new RegExp(regex.source, regex.flags)
-}
-
-const BUILTIN_OBJECTS: readonly object[] = [
-  Object,
-  Array,
-  Function,
-  Number,
-  String,
-  Boolean,
-  BigInt,
-  Symbol,
-  Error,
-  AggregateError,
-  EvalError,
-  RangeError,
-  ReferenceError,
-  SyntaxError,
-  TypeError,
-  URIError,
-  Math,
-  Date,
-  RegExp,
-  JSON,
-  ArrayBuffer,
-  SharedArrayBuffer,
-  DataView,
-  Atomics,
-  Float32Array,
-  Float64Array,
-  Int8Array,
-  Int16Array,
-  Int32Array,
-  BigInt64Array,
-  Uint8Array,
-  Uint8ClampedArray,
-  Uint16Array,
-  Uint32Array,
-  BigUint64Array,
-  Map,
-  Set,
-  WeakMap,
-  WeakSet,
-  WeakRef,
-  FinalizationRegistry,
-  Promise,
-  Proxy,
-  Reflect,
-  Intl,
-  WebAssembly,
-]
-
-let cachedBuiltinProperties: ReadonlySet<string> | undefined
-
-function builtinProperties(): ReadonlySet<string> {
-  cachedBuiltinProperties ??= collectBuiltinProperties()
-  return cachedBuiltinProperties
-}
-
-function collectBuiltinProperties(): ReadonlySet<string> {
-  const names = new Set(DOM_PROPERTIES)
-  for (const name of ['null', 'true', 'false', 'NaN', 'Infinity', '-Infinity', 'undefined']) {
-    names.add(name)
-  }
-  for (const object of BUILTIN_OBJECTS) {
-    for (const name of Object.getOwnPropertyNames(object)) {
-      names.add(name)
-    }
-    const prototype = 'prototype' in object ? object.prototype : null
-    if (prototype && (typeof prototype === 'object' || typeof prototype === 'function')) {
-      for (const name of Object.getOwnPropertyNames(prototype)) {
-        names.add(name)
-      }
-    }
-  }
-  return names
 }

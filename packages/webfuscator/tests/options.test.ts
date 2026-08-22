@@ -1,8 +1,7 @@
 import { expect, test } from 'vitest'
 
-import { obfuscate as obfuscateWithDefaults } from 'src/index'
-import type { ObfuscatorOptions } from 'src/index'
-
+import { obfuscate as obfuscateWithDefaults } from '../src/index'
+import type { ObfuscatorOptions } from '../src/index'
 import { obfuscateWithTransformPipeline as obfuscate } from './obfuscator-helpers'
 
 function evalProgram(code: string, harness?: Record<string, unknown>): unknown {

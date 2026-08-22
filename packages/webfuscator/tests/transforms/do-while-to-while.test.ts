@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { doWhileToWhile } from 'src/transforms/do-while-to-while'
-
+import { doWhileToWhile } from '../../src/transforms/do-while-to-while'
 import { defineCases, run, trace } from '../helpers'
 
 const cases = defineCases('do-while-to-while', doWhileToWhile, {

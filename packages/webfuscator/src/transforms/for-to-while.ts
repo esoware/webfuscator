@@ -2,9 +2,9 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { traverseForChanges } from 'src/utils/change-tracking'
-import type { ChangeState } from 'src/utils/change-tracking'
-import { collectLoopLabels, generateLoopLabel, redirectContinues } from 'src/utils/loop-lowering'
+import { traverseForChanges } from '../utils/change-tracking'
+import type { ChangeState } from '../utils/change-tracking'
+import { collectLoopLabels, generateLoopLabel, redirectContinues } from '../utils/loop-lowering'
 
 /**
  * Rewrites classic `for` loops as an initializer followed by `while`. Continues
@@ -45,14 +45,14 @@ const visitor: Visitor<ChangeState> = {
 }
 
 function transformFor(path: NodePath<t.ForStatement>): boolean {
-  const { node } = path
+  const node = path.node
 
   // One hoisted binding cannot preserve lexical per-iteration captures.
   if (t.isVariableDeclaration(node.init) && node.init.kind !== 'var') {
     return false
   }
 
-  const { outermost, ourLabels } = collectLoopLabels(path)
+  const loopLabels = collectLoopLabels(path)
   const innerLabel = generateLoopLabel(path, 'forIteration')
 
   const initStmt = buildInitStatement(node.init)
@@ -71,8 +71,8 @@ function transformFor(path: NodePath<t.ForStatement>): boolean {
   const test = node.test ?? t.booleanLiteral(true)
   const whileStmt = t.whileStatement(test, t.blockStatement(whileBody))
 
-  const [newPath] = path.replaceWith(whileStmt)
-  const rewriteCount = redirectContinues(newPath, innerLabel, ourLabels)
+  const newPath = path.replaceWith(whileStmt)[0]
+  const rewriteCount = redirectContinues(newPath, innerLabel, loopLabels.ourLabels)
 
   // Keep the block so body bindings cannot shadow names in the update.
   if (rewriteCount === 0) {
@@ -80,7 +80,7 @@ function transformFor(path: NodePath<t.ForStatement>): boolean {
     whileBlock.body[0] = blockBody
   }
 
-  hoistInit(outermost, initStmt)
+  hoistInit(loopLabels.outermost, initStmt)
   return true
 }
 

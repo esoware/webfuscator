@@ -3,11 +3,11 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import type { TransformContext } from 'src/options'
-import { enclosingScopeHasDirectEval, isInsideWith } from 'src/utils/ast'
-import type { ChangeState } from 'src/utils/change-tracking'
-import { mulberry32 } from 'src/utils/random'
-import { StringGenerator } from 'src/utils/string-generator'
+import type { TransformContext } from '../options'
+import { enclosingScopeHasDirectEval, isInsideWith } from '../utils/ast'
+import type { ChangeState } from '../utils/change-tracking'
+import { mulberry32 } from '../utils/random'
+import { StringGenerator } from '../utils/string-generator'
 
 /**
  * Rewrites five constant-like values through strings for later string mangling:
@@ -59,7 +59,7 @@ const visitor: Visitor<State> = {
     state.changed = true
   },
   Identifier(path, state) {
-    const { name } = path.node
+    const name = path.node.name
     if (!GLOBAL_SPECIALS.has(name)) {
       return
     }
@@ -93,7 +93,7 @@ function buildGlobalReplacement(name: string, str: t.StringLiteral): t.Expressio
 // Babel calls update and iterator targets references, but replacements there
 // would not be assignable. Delete also distinguishes references from values.
 function isWriteTarget(path: NodePath<t.Identifier>): boolean {
-  const { parentPath } = path
+  const parentPath = path.parentPath
   if (!parentPath) {
     return false
   }

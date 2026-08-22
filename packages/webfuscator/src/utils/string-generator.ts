@@ -1,4 +1,4 @@
-import { shuffleInPlace } from 'src/utils/random'
+import { shuffleInPlace } from './random'
 
 /**
  * Identifier styles supported by `StringGenerator`. An array chooses a style

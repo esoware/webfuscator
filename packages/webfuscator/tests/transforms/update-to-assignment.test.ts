@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { updateToAssignment } from 'src/transforms/update-to-assignment'
-
+import { updateToAssignment } from '../../src/transforms/update-to-assignment'
 import { defineCases, run, trace } from '../helpers'
 
 const cases = defineCases('update-to-assignment', updateToAssignment, {

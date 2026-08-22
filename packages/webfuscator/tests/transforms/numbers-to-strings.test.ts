@@ -1,8 +1,7 @@
 import { parse } from '@babel/parser'
 import { expect, test } from 'vitest'
 
-import { numbersToStrings } from 'src/transforms/numbers-to-strings'
-
+import { numbersToStrings } from '../../src/transforms/numbers-to-strings'
 import { defineCases, run } from '../helpers'
 
 const cases = defineCases('numbers-to-strings', numbersToStrings, {

@@ -10,11 +10,9 @@
   "endOfLine": "lf",
   "arrowParens": "always",
   "sortImports": {
-    "internalPattern": ["src/"],
     "groups": [
       "builtin",
       "external",
-      "internal",
       ["parent", "sibling", "index"],
       ["side_effect", "side_effect_style", "style"],
       "unknown"
@@ -23,5 +21,11 @@
     "sortSideEffects": false
   },
   "sortPackageJson": true,
-  "ignorePatterns": ["dist/", "node_modules/", "packages/webfuscator/tests/fixtures/"]
+  "ignorePatterns": [
+    "apps/docs/**/*.mdx",
+    "apps/docs/docs.json",
+    "dist/",
+    "node_modules/",
+    "packages/webfuscator/tests/fixtures/"
+  ]
 }

@@ -3,9 +3,8 @@ import { createHash } from 'node:crypto'
 import type { File } from '@babel/types'
 import { expect, test } from 'vitest'
 
-import { obfuscate } from 'src/index'
-import { pack } from 'src/transforms/pack'
-
+import { obfuscate } from '../../src/index'
+import { pack } from '../../src/transforms/pack'
 import { defineCases, run } from '../helpers'
 import { obfuscateWithTransformPipeline } from '../obfuscator-helpers'
 

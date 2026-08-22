@@ -2,8 +2,8 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { traverseForChanges } from 'src/utils/change-tracking'
-import type { ChangeState } from 'src/utils/change-tracking'
+import { traverseForChanges } from '../utils/change-tracking'
+import type { ChangeState } from '../utils/change-tracking'
 
 /**
  * Removes a function expression's name when the body does not use its binding
@@ -25,7 +25,7 @@ export function removeAnonymousFunctionNames(ast: File): boolean {
 
 const visitor: Visitor<ChangeState> = {
   FunctionExpression(path, state) {
-    const { id } = path.node
+    const id = path.node.id
     if (!id) {
       return
     }
@@ -48,8 +48,8 @@ const visitor: Visitor<ChangeState> = {
 
 // No inferred name means `.name` would become empty.
 function inferredName(path: NodePath<t.FunctionExpression>): string | null {
-  const { node } = path
-  const { parentPath } = path
+  const node = path.node
+  const parentPath = path.parentPath
   if (!parentPath) {
     return null
   }

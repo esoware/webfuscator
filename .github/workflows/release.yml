@@ -25,7 +25,7 @@ jobs:
           ref: ${{ github.event.release.tag_name }}
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: "24.19.0"
+          node-version: '24.19.0'
           package-manager-cache: false
           registry-url: https://registry.npmjs.org
       - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6

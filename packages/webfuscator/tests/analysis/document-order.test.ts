@@ -8,7 +8,7 @@ import {
   declarationReaches,
   initializerReaches,
   readCrossesFunctionBoundary,
-} from 'src/analysis/document-order'
+} from '../../src/analysis/document-order'
 
 // Resolve a declaration and its first non-binding reference.
 function bindingAndReference(code: string, name: string): { binding: NodePath; ref: NodePath } {

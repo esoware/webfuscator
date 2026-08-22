@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { expandLogicalAssignment } from 'src/transforms/expand-logical-assignment'
-
+import { expandLogicalAssignment } from '../../src/transforms/expand-logical-assignment'
 import { defineCases, run, trace } from '../helpers'
 
 const cases = defineCases('expand-logical-assignment', expandLogicalAssignment, {

@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { constToLet } from 'src/transforms/const-to-let'
-
+import { constToLet } from '../../src/transforms/const-to-let'
 import { defineCases, run } from '../helpers'
 
 // Compare logs and thrown classes before and after relaxing `const`.

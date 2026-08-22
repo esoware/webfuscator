@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { splitVariableDeclarations } from 'src/preparation/split-variable-declarations'
-
+import { splitVariableDeclarations } from '../../src/preparation/split-variable-declarations'
 import { defineCases, run } from '../helpers'
 
 const cases = defineCases('split-variable-declarations', splitVariableDeclarations, {

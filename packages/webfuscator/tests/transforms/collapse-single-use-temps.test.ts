@@ -1,8 +1,7 @@
 import { parse } from '@babel/parser'
 import { expect, test } from 'vitest'
 
-import { collapseSingleUseTemps } from 'src/transforms/collapse-single-use-temps'
-
+import { collapseSingleUseTemps } from '../../src/transforms/collapse-single-use-temps'
 import { defineCases, run, trace } from '../helpers'
 
 const cases = defineCases('collapse-single-use-temps', collapseSingleUseTemps, {

@@ -4,8 +4,8 @@ import type { NodePath } from '@babel/traverse'
 import * as t from '@babel/types'
 import { expect, test } from 'vitest'
 
-import { evaluateConstant } from 'src/analysis/constant'
-import type { Evaluation } from 'src/analysis/constant'
+import { evaluateConstant } from '../../src/analysis/constant'
+import type { Evaluation } from '../../src/analysis/constant'
 
 function soleExpression(code: string): NodePath<t.Expression> {
   const ast = parse(code, { sourceType: 'unambiguous' })

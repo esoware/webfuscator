@@ -4,7 +4,7 @@ import type { NodePath } from '@babel/traverse'
 import type * as t from '@babel/types'
 import { expect, test } from 'vitest'
 
-import { isPure, isSideEffectFree } from 'src/analysis/purity'
+import { isPure, isSideEffectFree } from '../../src/analysis/purity'
 
 // Each snippet must contain exactly one expression statement for the test node.
 function soleExpression(code: string): NodePath<t.Expression> {

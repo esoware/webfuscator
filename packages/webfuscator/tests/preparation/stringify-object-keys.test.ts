@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { stringifyObjectKeys } from 'src/preparation/stringify-object-keys'
-
+import { stringifyObjectKeys } from '../../src/preparation/stringify-object-keys'
 import { defineCases, run } from '../helpers'
 
 const cases = defineCases('stringify-object-keys', stringifyObjectKeys, {

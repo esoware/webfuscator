@@ -3,7 +3,7 @@ import traverse from '@babel/traverse'
 import type { NodePath } from '@babel/traverse'
 import { expect, test } from 'vitest'
 
-import { isConditionalGate, reorderableToStatement } from 'src/utils/evaluation-order'
+import { isConditionalGate, reorderableToStatement } from '../../src/utils/evaluation-order'
 
 // Use the first referenced name as the inline test marker.
 function refPath(code: string, name: string): NodePath {

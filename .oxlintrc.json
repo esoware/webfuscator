@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "unicorn", "oxc", "import", "promise"],
+  "plugins": ["typescript", "unicorn", "oxc", "import", "promise", "react", "jsx-a11y"],
   "categories": {
     "correctness": "error",
     "suspicious": "error",
@@ -15,7 +15,13 @@
     "capitalized-comments": ["error", "always", { "ignoreConsecutiveComments": true }],
     "eqeqeq": ["error", "always", { "null": "ignore" }],
     "func-style": ["error", "declaration", { "allowArrowFunctions": true }],
-    "id-length": ["error", { "exceptions": ["a", "b", "c", "d", "e", "i", "j", "k", "t", "x", "y", "z"], "checkGeneric": false }],
+    "id-length": [
+      "error",
+      {
+        "exceptions": ["a", "b", "c", "d", "e", "i", "j", "k", "t", "x", "y", "z"],
+        "checkGeneric": false
+      }
+    ],
     "sort-imports": ["error", { "ignoreDeclarationSort": true, "allowSeparatedGroups": true }],
     "no-duplicate-imports": ["error", { "allowSeparateTypeImports": true }],
     "import/no-named-as-default": "off",
@@ -23,6 +29,7 @@
 
     "import/no-nodejs-modules": "off",
     "no-magic-numbers": "off",
+    "prefer-destructuring": "off",
     "one-var": "off",
     "no-ternary": "off",
     "no-continue": "off",
@@ -40,6 +47,9 @@
     "import/no-namespace": "off",
     "import/group-exports": "off",
     "import/exports-last": "off",
+    "react/react-in-jsx-scope": "off",
+    "react/jsx-max-depth": "off",
+    "react/jsx-props-no-spreading": "off",
     "unicorn/no-null": "off",
     "unicorn/max-nested-calls": "off",
     "unicorn/prefer-math-trunc": "off",
@@ -54,12 +64,27 @@
         "id-length": "off",
         "require-unicode-regexp": "off",
         "prefer-named-capture-group": "off",
-        "prefer-destructuring": "off",
         "no-template-curly-in-string": "off",
         "no-useless-escape": "off",
         "unicorn/consistent-function-scoping": "off",
         "unicorn/numeric-separators-style": "off",
         "unicorn/no-useless-undefined": "off"
+      }
+    },
+    {
+      "files": ["apps/playground/**"],
+      "rules": {
+        "import/default": "off",
+        "import/no-unassigned-import": "off",
+        "react/invariant": "error",
+        "react/rule-suppression": "error",
+        "react/syntax": "error",
+        "react/todo": "error",
+        "unicorn/filename-case": [
+          "error",
+          { "cases": { "camelCase": true, "kebabCase": true, "pascalCase": true } }
+        ],
+        "unicorn/require-post-message-target-origin": "off"
       }
     }
   ],

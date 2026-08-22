@@ -2,9 +2,9 @@ import type { Binding, NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { isDirectEvalCall, isInsideWith } from 'src/utils/ast'
-import { traverseForChanges } from 'src/utils/change-tracking'
-import type { ChangeState } from 'src/utils/change-tracking'
+import { isDirectEvalCall, isInsideWith } from '../utils/ast'
+import { traverseForChanges } from '../utils/change-tracking'
+import type { ChangeState } from '../utils/change-tracking'
 
 /**
  * Rewrites numeric updates as compound assignments for later expansion. Prefix
@@ -35,7 +35,9 @@ export function updateToAssignment(ast: File): boolean {
 
 const visitor: Visitor<ChangeState> = {
   UpdateExpression(path, state) {
-    const { argument, prefix, operator } = path.node
+    const argument = path.node.argument
+    const prefix = path.node.prefix
+    const operator = path.node.operator
     if (!t.isIdentifier(argument)) {
       return
     }
@@ -61,7 +63,7 @@ const visitor: Visitor<ChangeState> = {
 }
 
 function valueIsDiscarded(path: NodePath<t.UpdateExpression>): boolean {
-  const { parentPath } = path
+  const parentPath = path.parentPath
   if (!parentPath) {
     return false
   }

@@ -3,10 +3,10 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { isSideEffectFree } from 'src/analysis/purity'
-import { isInsideWith } from 'src/utils/ast'
-import { traverseForChanges } from 'src/utils/change-tracking'
-import type { ChangeState } from 'src/utils/change-tracking'
+import { isSideEffectFree } from '../analysis/purity'
+import { isInsideWith } from '../utils/ast'
+import { traverseForChanges } from '../utils/change-tracking'
+import type { ChangeState } from '../utils/change-tracking'
 
 /**
  * Removes `console.*(...)` expression statements when `console` is not
@@ -61,7 +61,8 @@ function globalConsoleIsReassigned(ast: File): boolean {
 }
 
 function isWriteTarget(path: NodePath<t.Identifier>): boolean {
-  const { node, parentPath } = path
+  const node = path.node
+  const parentPath = path.parentPath
   if (!parentPath) {
     return false
   }
@@ -81,11 +82,11 @@ const visitor: Visitor<ChangeState> = {
     if (!t.isCallExpression(expr) && !t.isOptionalCallExpression(expr)) {
       return
     }
-    const { callee } = expr
+    const callee = expr.callee
     if (!t.isMemberExpression(callee) && !t.isOptionalMemberExpression(callee)) {
       return
     }
-    const { object } = callee
+    const object = callee.object
     if (!t.isIdentifier(object) || object.name !== 'console') {
       return
     }

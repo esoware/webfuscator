@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { dropConsole } from 'src/transforms/drop-console'
-
+import { dropConsole } from '../../src/transforms/drop-console'
 import { defineCases, run, trace } from '../helpers'
 
 const cases = defineCases('drop-console', dropConsole, {

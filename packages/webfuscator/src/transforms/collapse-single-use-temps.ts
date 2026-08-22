@@ -3,17 +3,17 @@ import type { Binding, NodePath, Scope } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { evaluateConstant } from 'src/analysis/constant'
+import { evaluateConstant } from '../analysis/constant'
 import {
   declarationReaches,
   initializerReaches,
   readCrossesFunctionBoundary,
-} from 'src/analysis/document-order'
-import { isPure } from 'src/analysis/purity'
-import { isInsideWith } from 'src/utils/ast'
-import { reorderableToStatement } from 'src/utils/evaluation-order'
-import { valueToLiteral } from 'src/utils/literal'
-import { isCalleeOrTagOf } from 'src/utils/paths'
+} from '../analysis/document-order'
+import { isPure } from '../analysis/purity'
+import { isInsideWith } from '../utils/ast'
+import { reorderableToStatement } from '../utils/evaluation-order'
+import { valueToLiteral } from '../utils/literal'
+import { isCalleeOrTagOf } from '../utils/paths'
 
 /**
  * Drops single-use temporaries through substitution, direct branch writes, or
@@ -125,7 +125,7 @@ function trySubstituteSingleUse(
   binding: Binding,
   declaratorPath: NodePath<t.VariableDeclarator>,
 ): boolean {
-  const [readPath] = binding.referencePaths
+  const readPath = binding.referencePaths[0]
   if (!readPath || !isPathLive(readPath)) {
     return false
   }
@@ -138,7 +138,7 @@ function trySubstituteSingleUse(
     return false
   }
 
-  const { init } = declaratorPath.node
+  const init = declaratorPath.node.init
   let writeStmt: NodePath
   let writeValueOwner: NodePath
   let writeRhs: t.Expression
@@ -255,7 +255,7 @@ function tryRenameWritesToReader(
     return false
   }
 
-  const [readPath] = binding.referencePaths
+  const readPath = binding.referencePaths[0]
   if (!readPath || !isPathLive(readPath)) {
     return false
   }
@@ -389,7 +389,7 @@ function tryScatterIntoTerminator(
     return false
   }
 
-  const [readPath] = binding.referencePaths
+  const readPath = binding.referencePaths[0]
   if (!readPath || !isPathLive(readPath)) {
     return false
   }
@@ -648,7 +648,7 @@ function combineFall(a: boolean | null, b: boolean | null): boolean | null {
 // Apart from redirected writes, the span must run no user code or observations.
 // Redirected right sides must also be pure.
 function spanStatementIsInert(path: NodePath, tempBinding: Binding): boolean {
-  const { node } = path
+  const node = path.node
   if (t.isEmptyStatement(node) || t.isBreakStatement(node) || t.isContinueStatement(node)) {
     return true
   }
@@ -715,7 +715,7 @@ function tryPropagateConstant(
     return false
   }
 
-  const { init } = declaratorPath.node
+  const init = declaratorPath.node.init
   let writeRhs: t.Expression
   let writeRhsPath: NodePath
   let writeStmtToRemove: NodePath | null
@@ -886,7 +886,7 @@ function subtreeReadsBinding(stmtPath: NodePath, target: Binding): boolean {
 }
 
 function isStatementMovementSafe(path: NodePath): boolean {
-  const { node } = path
+  const node = path.node
   if (t.isEmptyStatement(node)) {
     return true
   }

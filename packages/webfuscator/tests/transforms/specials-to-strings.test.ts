@@ -2,8 +2,7 @@ import { parse } from '@babel/parser'
 import type { File } from '@babel/types'
 import { expect, test } from 'vitest'
 
-import { specialsToStrings } from 'src/transforms/specials-to-strings'
-
+import { specialsToStrings } from '../../src/transforms/specials-to-strings'
 import { defineCases, run, trace } from '../helpers'
 
 const transform = (ast: File): void => {

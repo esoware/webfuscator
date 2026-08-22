@@ -13,7 +13,8 @@ export function isInDirectivePrologue(path: NodePath): boolean {
   if (!inBody) {
     return false
   }
-  const { container, key: index } = path
+  const container = path.container
+  const index = path.key
   if (!Array.isArray(container) || typeof index !== 'number') {
     return false
   }

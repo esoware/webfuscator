@@ -2,9 +2,9 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { isProtoKey } from 'src/utils/ast'
-import { traverseForChanges } from 'src/utils/change-tracking'
-import type { ChangeState } from 'src/utils/change-tracking'
+import { isProtoKey } from '../utils/ast'
+import { traverseForChanges } from '../utils/change-tracking'
+import type { ChangeState } from '../utils/change-tracking'
 
 /**
  * Rewrites generator and async object methods as function-valued properties so
@@ -43,7 +43,7 @@ export function objectMethodToProperty(ast: File): boolean {
 
 const visitor: Visitor<ChangeState> = {
   ObjectMethod(path, state) {
-    const { node } = path
+    const node = path.node
     if (node.kind !== 'method' || (!node.generator && !node.async)) {
       return
     }

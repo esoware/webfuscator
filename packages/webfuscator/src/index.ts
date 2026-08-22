@@ -1,7 +1,9 @@
-export { obfuscate } from 'src/obfuscator'
+export { obfuscate } from './obfuscator'
 export type {
   ManglePropertiesOptions,
   ObfuscatorOptions,
   PackOptions,
   PropertyNameGenerator,
-} from 'src/options'
+  TransformName,
+} from './options'
+export type { StringGeneratorMode, StringGeneratorModeOption } from './utils/string-generator'

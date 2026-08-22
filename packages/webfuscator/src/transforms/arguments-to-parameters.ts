@@ -2,10 +2,10 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { hasDuplicateParamNames } from 'src/utils/ast'
-import { traverseForChanges } from 'src/utils/change-tracking'
-import type { ChangeState } from 'src/utils/change-tracking'
-import { isInStrictContext } from 'src/utils/paths'
+import { hasDuplicateParamNames } from '../utils/ast'
+import { traverseForChanges } from '../utils/change-tracking'
+import type { ChangeState } from '../utils/change-tracking'
+import { isInStrictContext } from '../utils/paths'
 
 /**
  * Replaces `arguments[i]` reads with their mapped parameter in sloppy functions
@@ -113,7 +113,7 @@ function processFunction(path: NodePath<t.Function>): boolean {
   if (path.isArrowFunctionExpression()) {
     return false
   }
-  const { params } = path.node
+  const params = path.node.params
   // Rest, defaults, and destructuring make `arguments` unmapped.
   if (!params.every((param) => t.isIdentifier(param))) {
     return false

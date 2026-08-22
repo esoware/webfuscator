@@ -3,13 +3,13 @@ import type { NodePath, Scope } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { analyzeInlineability } from 'src/analysis/inlineability'
-import type { InlineCandidate } from 'src/analysis/inlineability'
-import { isPure } from 'src/analysis/purity'
-import { enclosingScopeHasDirectEval, isInsideWith, walkOwnFunctionScope } from 'src/utils/ast'
-import { reorderableToStatement } from 'src/utils/evaluation-order'
-import { generateLoopLabel } from 'src/utils/loop-lowering'
-import { hasAnnexBFunctionAlias, isInStrictContext } from 'src/utils/paths'
+import { analyzeInlineability } from '../analysis/inlineability'
+import type { InlineCandidate } from '../analysis/inlineability'
+import { isPure } from '../analysis/purity'
+import { enclosingScopeHasDirectEval, isInsideWith, walkOwnFunctionScope } from '../utils/ast'
+import { reorderableToStatement } from '../utils/evaluation-order'
+import { generateLoopLabel } from '../utils/loop-lowering'
+import { hasAnnexBFunctionAlias, isInStrictContext } from '../utils/paths'
 
 /**
  * Replaces eligible calls with function bodies, working from inner calls out.
@@ -59,7 +59,7 @@ function tryInlineAtCallExpr(
   path: NodePath<t.CallExpression>,
   candidates: Map<string, InlineCandidate>,
 ): boolean {
-  const { callee } = path.node
+  const callee = path.node.callee
   if (!t.isIdentifier(callee)) {
     return false
   }
@@ -123,7 +123,7 @@ function declarationIdentifier(declPath: NodePath): t.Identifier | null {
     return declPath.node.id ?? null
   }
   if (declPath.isVariableDeclaration() && declPath.node.declarations.length === 1) {
-    const { id } = declPath.node.declarations[0]!
+    const id = declPath.node.declarations[0]!.id
     return t.isIdentifier(id) ? id : null
   }
   return null
@@ -209,7 +209,7 @@ function annexBHoistShadowsFreeVar(
       path.skip()
     },
     FunctionDeclaration(path) {
-      const { id } = path.node
+      const id = path.node.id
       if (id && freeVars.has(id.name) && hasAnnexBFunctionAlias(path)) {
         found = true
         path.stop()
@@ -463,7 +463,7 @@ function inlineCallSite(
     return false
   }
 
-  const { scope } = stmtParent
+  const scope = stmtParent.scope
   const labelName = generateLoopLabel(stmtParent, 'inlined')
 
   // Returns can write directly into a bare assignment or `var` initializer.
@@ -660,7 +660,7 @@ function identifyDirectAssignmentTarget(
     if (owner.isForOfStatement() && owner.node.left === declPath.node) {
       return null
     }
-    const { name } = parent.node.id
+    const name = parent.node.id.name
     if (freeVars.has(name)) {
       return null
     }
@@ -680,7 +680,7 @@ function identifyDirectAssignmentTarget(
     if (!stmt || !stmt.isExpressionStatement() || stmt.node.expression !== parent.node) {
       return null
     }
-    const { name } = parent.node.left
+    const name = parent.node.left.name
     if (freeVars.has(name)) {
       return null
     }
@@ -782,7 +782,7 @@ function computeLiveFreeVars(candidate: InlineCandidate): Set<string> {
       if (slot && isNonReferenceSlot(slot.node, slot.key)) {
         return
       }
-      const { name } = node
+      const name = node.name
       if (ownBound.has(name) || shadows.covers(name)) {
         return
       }

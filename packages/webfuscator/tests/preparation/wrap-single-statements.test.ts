@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { wrapSingleStatements } from 'src/preparation/wrap-single-statements'
-
+import { wrapSingleStatements } from '../../src/preparation/wrap-single-statements'
 import { defineCases, run } from '../helpers'
 
 const cases = defineCases('wrap-single-statements', wrapSingleStatements, {

@@ -1,8 +1,7 @@
 import { parse } from '@babel/parser'
 import { expect, test } from 'vitest'
 
-import { inlineFunctions } from 'src/transforms/inline-functions'
-
+import { inlineFunctions } from '../../src/transforms/inline-functions'
 import { defineCases, run } from '../helpers'
 
 const cases = defineCases('inline-functions', inlineFunctions, {

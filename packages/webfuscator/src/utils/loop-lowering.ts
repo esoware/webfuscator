@@ -76,7 +76,7 @@ const redirectVisitor: Visitor<RedirectState> = {
     path.skip()
   },
   ContinueStatement(path, state) {
-    const { label } = path.node
+    const label = path.node.label
     if (!label) {
       if (!hasInterposedLoop(path, state.rootPath)) {
         path.replaceWith(t.breakStatement(t.identifier(state.innerLabel)))
