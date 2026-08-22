@@ -1,3 +1,4 @@
+import { commitUrl } from '../lib/links'
 import { RUN_SHORTCUT_KEYS } from '../lib/shortcut'
 import { Hint } from './Tooltip'
 
@@ -8,38 +9,65 @@ interface StatusBarProps {
 
 export function StatusBar({ warnings, onShowWarnings }: StatusBarProps) {
   return (
-    <footer className="flex h-10 shrink-0 items-center justify-end gap-4 px-4 text-xs text-fg-subtle">
-      {warnings.length > 0 && (
-        <Hint
-          side="top"
-          content={
-            <ul className="space-y-1">
-              {warnings.map((warning) => (
-                <li key={warning}>{warning}</li>
-              ))}
-            </ul>
-          }
-        >
-          {/* The tooltip summarizes. Pressing this opens the config tab, where
-              the same warnings already print in full under the editor. */}
-          <button
-            type="button"
-            onClick={onShowWarnings}
-            className="rounded-md px-1.5 py-0.5 text-warning transition-colors hover:bg-tint"
-          >
-            {warnings.length} config warning{warnings.length === 1 ? '' : 's'}
-          </button>
-        </Hint>
-      )}
+    <footer className="flex h-10 shrink-0 items-center justify-between gap-4 px-4 text-xs text-fg-subtle">
+      <BuildStamp />
 
-      <span className="hidden items-center gap-1 sm:flex">
-        {RUN_SHORTCUT_KEYS.map((key) => (
-          <kbd key={key} className="rounded-md bg-fill px-1.5 py-0.5 font-sans text-fg-muted">
-            {key}
-          </kbd>
-        ))}
-        <span className="ml-1">to obfuscate</span>
-      </span>
+      <div className="flex items-center gap-4">
+        {warnings.length > 0 && (
+          <Hint
+            side="top"
+            content={
+              <ul className="space-y-1">
+                {warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            }
+          >
+            {/* The tooltip summarizes. Pressing this opens the config tab, where
+              the same warnings already print in full under the editor. */}
+            <button
+              type="button"
+              onClick={onShowWarnings}
+              className="rounded-md px-1.5 py-0.5 text-warning transition-colors hover:bg-tint"
+            >
+              {warnings.length} config warning{warnings.length === 1 ? '' : 's'}
+            </button>
+          </Hint>
+        )}
+
+        <span className="hidden items-center gap-1 sm:flex">
+          {RUN_SHORTCUT_KEYS.map((key) => (
+            <kbd key={key} className="rounded-md bg-fill px-1.5 py-0.5 font-sans text-fg-muted">
+              {key}
+            </kbd>
+          ))}
+          <span className="ml-1">to obfuscate</span>
+        </span>
+      </div>
     </footer>
+  )
+}
+
+// The playground bundles webfuscator from source on main, so it can run ahead of
+// the npm release. Printing the commit is what makes a "the playground gives me
+// something else" report answerable.
+function BuildStamp() {
+  const commit = import.meta.env.BUILD_COMMIT
+  const label = `webfuscator ${import.meta.env.WEBFUSCATOR_VERSION}`
+  if (commit === null) {
+    return <span>{label}</span>
+  }
+  return (
+    <Hint side="top" content="Built from main, which can run ahead of the published release">
+      <a
+        href={commitUrl(commit)}
+        target="_blank"
+        rel="noreferrer"
+        className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-tint hover:text-fg-muted"
+      >
+        {label} · {commit}
+      </a>
+    </Hint>
   )
 }
