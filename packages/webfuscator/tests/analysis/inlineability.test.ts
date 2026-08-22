@@ -56,3 +56,74 @@ test('analyzeInlineability does not treat a label sharing a binding name as a ca
     ),
   ).toBe(true)
 })
+
+// A clone carries the nested functions with it, so a call reached only through
+// a closure still expands.
+const REACHES_ITSELF: Record<string, string> = {
+  ownBody: `function f() { return f(); }`,
+  arrow: `function f() { return () => f(); }`,
+  functionExpression: `function f() { return function () { return f(); }; }`,
+  arrowInsideFunctionExpression: `function f() { return function () { return () => f(); }; }`,
+  objectMethod: `function f() { return { m() { return f(); } }; }`,
+  objectGetter: `function f() { return { get m() { return f(); } }; }`,
+  classMethod: `function f() { return class { m() { return f(); } }; }`,
+  nestedTwice: `function f() { return function () { return function () { return f(); }; }; }`,
+  varFunctionExpression: `var f = function () { return function () { return f(); }; };`,
+}
+
+for (const [name, source] of Object.entries(REACHES_ITSELF)) {
+  test(`analyzeInlineability refuses a candidate that reaches itself through ${name}`, () => {
+    expect(isCandidate(`${source}\nlog(f());`)).toBe(false)
+  })
+}
+
+// One edge hidden in a closure is enough to hide the whole cycle from Tarjan.
+test('analyzeInlineability refuses mutual recursion whose back edge sits in a closure', () => {
+  const candidates = analyzeInlineability(
+    parse(
+      `function f() { return g(); }
+function g() { return function () { return f(); }; }
+log(f());`,
+      { sourceType: 'unambiguous' },
+    ),
+  )
+  expect([...candidates.keys()]).toEqual([])
+})
+
+test('analyzeInlineability refuses a three-candidate cycle closed through nested methods', () => {
+  const candidates = analyzeInlineability(
+    parse(
+      `function f() { return hook({ apply() { return h(); } }); }
+function g() { return f(); }
+function h() { return hook({ apply() { return g(); } }); }
+log(h());`,
+      { sourceType: 'unambiguous' },
+    ),
+  )
+  expect([...candidates.keys()]).toEqual([])
+})
+
+// Edges come from bindings, so a member property spelling a candidate's name
+// creates no edge.
+test('analyzeInlineability accepts a candidate whose body reads a property of its own name', () => {
+  expect(isCandidate(`function f() { return console.f(1); }\nlog(f());`)).toBe(true)
+})
+
+// The `g` inside `f` is the local var, so `f` gets no edge to `g` and no cycle
+// forms.
+test('analyzeInlineability accepts candidates whose only back edge is a shadowed name', () => {
+  const candidates = analyzeInlineability(
+    parse(`function f() { var g = 1; return g; }\nfunction g() { return f(); }\nlog(g());`, {
+      sourceType: 'unambiguous',
+    }),
+  )
+  expect([...candidates.keys()].toSorted()).toEqual(['f', 'g'])
+})
+
+// A cycle that closes outside the candidate set cannot expand, because the
+// inliner never replaces the non-candidate call.
+test('analyzeInlineability accepts a candidate whose cycle runs through a non-candidate', () => {
+  expect(
+    isCandidate(`function f() { return g(); }\nfunction g() { return f(this); }\nlog(f());`),
+  ).toBe(true)
+})

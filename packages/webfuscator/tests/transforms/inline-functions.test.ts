@@ -1062,3 +1062,46 @@ log(results);`,
   )
   expect(out).toContain('function f')
 })
+
+// Every body below reaches `f` again only through a nested function. Inlining
+// one would splice in a copy that calls `f` again, and that copy would splice
+// another. The size bound is what catches the runaway.
+const RECURSION_BEHIND_A_NESTED_FUNCTION: Record<string, string> = {
+  functionExpression: `function f(n) { return n > 0 ? (function () { return f(n - 1); })() : 0; }`,
+  arrowInsideFunctionExpression: `function f(n) { return n > 0 ? (function () { return (() => f(n - 1))(); })() : 0; }`,
+  objectMethod: `function f(n) { return n > 0 ? { m() { return f(n - 1); } }.m() : 0; }`,
+  objectGetter: `function f(n) { return n > 0 ? { get m() { return f(n - 1); } }.m : 0; }`,
+  classMethod: `function f(n) { return n > 0 ? new (class { m() { return f(n - 1); } })().m() : 0; }`,
+}
+
+for (const [name, source] of Object.entries(RECURSION_BEHIND_A_NESTED_FUNCTION)) {
+  test(`inlineFunctions does not inline a function that recurses through ${name}`, () => {
+    const code = `${source}\nlog(f(3));`
+    const out = preservesInline(code)
+    expect(out).toContain('function f')
+    expect(out.length).toBeLessThan(code.length * 2)
+  })
+}
+
+test('inlineFunctions does not inline mutual recursion whose back edge sits in a closure', () => {
+  const code = `function f(n) { return g(n); }
+function g(n) { return n > 0 ? (function () { return f(n - 1); })() : 0; }
+log(f(3));`
+  const out = preservesInline(code)
+  expect(out).toContain('function f')
+  expect(out).toContain('function g')
+  expect(out.length).toBeLessThan(code.length * 2)
+})
+
+test('inlineFunctions does not inline a three-way cycle closed through nested methods', () => {
+  const code = `var ticks = 0;
+function watch() { return { run() { return find(); } }.run(); }
+function capture() { return watch(); }
+function find() { ticks = ticks + 1; if (ticks > 3) { return ticks; } return { run() { return capture(); } }.run(); }
+log(find());`
+  const out = preservesInline(code)
+  expect(out).toContain('function watch')
+  expect(out).toContain('function capture')
+  expect(out).toContain('function find')
+  expect(out.length).toBeLessThan(code.length * 2)
+})

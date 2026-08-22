@@ -3,7 +3,6 @@ import type { Binding, NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { walkOwnFunctionScope } from '../utils/ast'
 import { hasAnnexBFunctionAlias, referencesOrWritesVariable } from '../utils/paths'
 
 export interface InlineCandidate {
@@ -15,7 +14,10 @@ export interface InlineCandidate {
   declarationPath: NodePath
 }
 
-// Tarjan SCC removal prevents endless expansion of mutually recursive bodies.
+// Inlining splices a deep clone of the callee body, so any call that clone
+// contains expands again. Expansion stops only when the graph below is acyclic,
+// so this pass drops every candidate on a cycle before the inliner reaches a
+// call site.
 export function analyzeInlineability(ast: File): Map<string, InlineCandidate> {
   const rawCandidates: InlineCandidate[] = []
 
@@ -75,34 +77,45 @@ export function analyzeInlineability(ast: File): Map<string, InlineCandidate> {
     candidateByName.set(candidate.name, candidate)
   }
 
-  // Self-reference is already excluded, leaving Tarjan to remove larger cycles.
+  const edges = buildExpansionGraph(candidateByName)
+  for (const scc of tarjanSCC([...candidateByName.keys()], edges)) {
+    // Tarjan reports an acyclic node as a singleton too, so a self-recursive
+    // candidate shows up only as an edge back to itself.
+    if (scc.length === 1 && !edges.get(scc[0]!)!.has(scc[0]!)) {
+      continue
+    }
+    for (const name of scc) {
+      candidateByName.delete(name)
+    }
+  }
+  return candidateByName
+}
+
+// A clone keeps the whole body, so a reference inside a closure, an object
+// method, or a getter is as live in the copy as one at the top level. Walking
+// out to every enclosing candidate, rather than stopping at the innermost, also
+// covers a candidate declared inside another candidate's body.
+function buildExpansionGraph(
+  candidateByName: Map<string, InlineCandidate>,
+): Map<string, Set<string>> {
+  const nameByFnNode = new Map<t.Function, string>()
   const edges = new Map<string, Set<string>>()
-  for (const candidate of rawCandidates) {
-    const callees = new Set<string>()
-    walkOwnFunctionScope(candidate.fnNode.body, (node) => {
-      if (t.isIdentifier(node) && node.name !== candidate.name && candidateByName.has(node.name)) {
-        callees.add(node.name)
-      }
-    })
-    edges.set(candidate.name, callees)
+  for (const [name, candidate] of candidateByName) {
+    nameByFnNode.set(candidate.fnNode, name)
+    edges.set(name, new Set())
   }
 
-  const inCycle = new Set<string>()
-  for (const scc of tarjanSCC(
-    rawCandidates.map((candidate) => candidate.name),
-    edges,
-  )) {
-    if (scc.length > 1) {
-      for (const name of scc) {
-        inCycle.add(name)
+  for (const [name, candidate] of candidateByName) {
+    for (const ref of candidate.binding.referencePaths) {
+      for (let owner = ref.parentPath; owner; owner = owner.parentPath) {
+        const ownerName = owner.isFunction() ? nameByFnNode.get(owner.node) : undefined
+        if (ownerName !== undefined) {
+          edges.get(ownerName)!.add(name)
+        }
       }
     }
   }
-
-  for (const name of inCycle) {
-    candidateByName.delete(name)
-  }
-  return candidateByName
+  return edges
 }
 
 function checkCandidate(
@@ -142,7 +155,7 @@ function checkCandidate(
     return null
   }
 
-  const analysis = analyzeBody(name, fnPath as NodePath<t.Function>)
+  const analysis = analyzeBody(fnPath as NodePath<t.Function>)
   if (analysis.unsafe || analysis.closureCapture) {
     return null
   }
@@ -200,9 +213,8 @@ interface BodyAnalysis {
   closureCapture: boolean
 }
 
-function analyzeBody(name: string, fnPath: NodePath<t.Function>): BodyAnalysis {
+function analyzeBody(fnPath: NodePath<t.Function>): BodyAnalysis {
   const state: AnalyzeBodyState = {
-    candidateName: name,
     outerScope: fnPath.scope,
     innerFnDepth: 0,
     unsafe: false,
@@ -216,7 +228,6 @@ function analyzeBody(name: string, fnPath: NodePath<t.Function>): BodyAnalysis {
 }
 
 interface AnalyzeBodyState {
-  candidateName: string
   outerScope: NodePath<t.Function>['scope']
   innerFnDepth: number
   unsafe: boolean
@@ -268,10 +279,7 @@ const analyzeBodyVisitor: Visitor<AnalyzeBodyState> = {
   },
   Identifier(path, state) {
     const name = path.node.name
-    if (
-      state.innerFnDepth === 0 &&
-      (name === 'arguments' || name === 'eval' || name === state.candidateName)
-    ) {
+    if (state.innerFnDepth === 0 && (name === 'arguments' || name === 'eval')) {
       state.unsafe = true
       path.stop()
       return
