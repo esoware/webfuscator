@@ -12,3 +12,4 @@ allowBuilds:
   keytar: false
   puppeteer: false
   sharp: true
+  workerd: false
