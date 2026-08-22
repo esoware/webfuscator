@@ -418,18 +418,14 @@ function expectMangle(entry: unknown, warnings: string[]): ManglePropertiesOptio
   }
 
   const keepQuoted = input['keepQuoted']
-  if (keepQuoted === undefined) {
-    // Leave unset.
-  } else if (keepQuoted === true || keepQuoted === false || keepQuoted === 'strict') {
+  if (keepQuoted === true || keepQuoted === false || keepQuoted === 'strict') {
     assignIfDefined(mangle, 'keepQuoted', keepQuoted)
-  } else {
+  } else if (keepQuoted !== undefined) {
     warnings.push('Ignoring "mangleProperties.keepQuoted": expected true, false, or "strict".')
   }
 
   const regex = input['regex']
-  if (regex === undefined) {
-    // Leave unset.
-  } else if (typeof regex === 'string') {
+  if (typeof regex === 'string') {
     assignIfDefined(mangle, 'regex', regex)
   } else if (regex instanceof RegExp) {
     // Stored as a source string so the option survives `JSON.stringify` on the
@@ -438,7 +434,7 @@ function expectMangle(entry: unknown, warnings: string[]): ManglePropertiesOptio
       warnings.push(`Dropping the "${regex.flags}" flags from "mangleProperties.regex".`)
     }
     assignIfDefined(mangle, 'regex', regex.source)
-  } else {
+  } else if (regex !== undefined) {
     warnings.push('Ignoring "mangleProperties.regex": expected a pattern string or a RegExp.')
   }
 

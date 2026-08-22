@@ -1,6 +1,6 @@
 import type { TransformName } from 'webfuscator'
 
-export const DOCS_URL = 'https://webfuscator.mintlify.app'
+export const DOCS_URL = 'https://docs.webfuscator.dev'
 export const GITHUB_URL = 'https://github.com/esoware/webfuscator'
 export const NPM_URL = 'https://www.npmjs.com/package/webfuscator'
 

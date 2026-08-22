@@ -1,6 +1,6 @@
 `webfuscator` is a Babel-based JavaScript obfuscator. It parses a JavaScript source string, applies configurable transforms, and returns JavaScript source.
 
-[Read the documentation](https://webfuscator.mintlify.app/) for the quickstart, configuration guides, API details, and a reference page for every transform.
+[Read the documentation](https://docs.webfuscator.dev) for the quickstart, configuration guides, API details, and a reference page for every transform. To try it without installing anything, open the [playground](https://playground.webfuscator.dev) and obfuscate a file in your browser.
 
 ## Install
 
@@ -34,13 +34,14 @@ Configurable transforms are disabled by default; preparation passes always run.
 
 ## Documentation
 
-- [Quickstart](https://webfuscator.mintlify.app/getting-started/quickstart)
-- [JavaScript API](https://webfuscator.mintlify.app/reference/api)
-- [Configure transforms](https://webfuscator.mintlify.app/guides/configure-transforms)
-- [Obfuscator options](https://webfuscator.mintlify.app/reference/options)
-- [Property mangling](https://webfuscator.mintlify.app/reference/property-mangling-options)
-- [String generator modes](https://webfuscator.mintlify.app/reference/string-generator-modes)
-- [Report a bug](https://webfuscator.mintlify.app/troubleshooting/report-a-bug)
+- [Playground](https://playground.webfuscator.dev)
+- [Quickstart](https://docs.webfuscator.dev/getting-started/quickstart)
+- [JavaScript API](https://docs.webfuscator.dev/reference/api)
+- [Configure transforms](https://docs.webfuscator.dev/guides/configure-transforms)
+- [Obfuscator options](https://docs.webfuscator.dev/reference/options)
+- [Property mangling](https://docs.webfuscator.dev/reference/property-mangling-options)
+- [String generator modes](https://docs.webfuscator.dev/reference/string-generator-modes)
+- [Report a bug](https://docs.webfuscator.dev/troubleshooting/report-a-bug)
 
 ## Development
 

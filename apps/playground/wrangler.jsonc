@@ -1,0 +1,14 @@
+{
+  "$schema": "https://unpkg.com/wrangler/config-schema.json",
+  "name": "webfuscator-playground",
+  "compatibility_date": "2026-08-22",
+  "assets": {
+    "directory": "./dist",
+  },
+  "routes": [
+    {
+      "pattern": "playground.webfuscator.dev",
+      "custom_domain": true,
+    },
+  ],
+}

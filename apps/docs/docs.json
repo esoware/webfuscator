@@ -2,7 +2,7 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "webfuscator",
-  "description": "Install, configure, and understand the webfuscator JavaScript obfuscator.",
+  "description": "Documentation for webfuscator, a JavaScript obfuscator built on Babel.",
   "logo": {
     "light": "/logo/wordmark-light.svg",
     "dark": "/logo/wordmark.svg"
@@ -114,6 +114,11 @@
   "navbar": {
     "links": [
       {
+        "label": "Playground",
+        "icon": "play",
+        "href": "https://playground.webfuscator.dev"
+      },
+      {
         "type": "github",
         "href": "https://github.com/esoware/webfuscator"
       }
@@ -146,6 +151,10 @@
       {
         "header": "Project",
         "items": [
+          {
+            "label": "Playground",
+            "href": "https://playground.webfuscator.dev"
+          },
           {
             "label": "Source code",
             "href": "https://github.com/esoware/webfuscator"
