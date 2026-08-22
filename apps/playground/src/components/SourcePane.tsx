@@ -76,7 +76,7 @@ export function SourcePane({
         <Tabs.Panel
           keepMounted
           value="source"
-          className="min-h-0 flex-1 focus-visible:-outline-offset-2 [&[hidden]]:hidden"
+          className="min-h-0 flex-1 focus-visible:-outline-offset-2 [[hidden]]:hidden"
         >
           <CodeEditor path="source" value={source} onChange={onSourceChange} />
         </Tabs.Panel>
@@ -84,7 +84,7 @@ export function SourcePane({
             tab, so a second Monaco instance is not worth building at first paint. */}
         <Tabs.Panel
           value="config"
-          className="min-h-0 flex-1 focus-visible:-outline-offset-2 [&[hidden]]:hidden"
+          className="min-h-0 flex-1 focus-visible:-outline-offset-2 [[hidden]]:hidden"
         >
           <CodeEditor path="config" value={configText} onChange={onConfigTextChange} />
         </Tabs.Panel>

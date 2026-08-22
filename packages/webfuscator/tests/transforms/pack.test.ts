@@ -169,16 +169,103 @@ test('pack escapeStrict is a no-op for code that is already sloppy', () => {
 test('pack keeps top-level this as the global object for a strict script', () => {
   const src = `"use strict"; globalThis.__packThisProbe = this === globalThis;`
   const packed = packOnly(src)
-  expect(packed).toContain('.call(this,')
+  // Top-level `this` is captured as a property, not forwarded with `.call`.
+  expect(packed).not.toContain('.call(')
   try {
     // Indirect eval runs at global scope, where a strict script keeps `this`
-    // bound to the global object.
+    // bound to the global object; the routed accessor reproduces it.
     // oxlint-disable-next-line no-eval
     ;(0, eval)(packed)
     expect((globalThis as Record<string, unknown>)['__packThisProbe']).toBe(true)
   } finally {
     delete (globalThis as Record<string, unknown>)['__packThisProbe']
   }
+})
+
+test('pack routes top-level this captured by a top-level arrow', () => {
+  const src = `"use strict"; var getThis = () => this; globalThis.__packArrowThis = getThis() === globalThis;`
+  const packed = packOnly(src)
+  expect(packed).not.toContain('.call(')
+  try {
+    // oxlint-disable-next-line no-eval
+    ;(0, eval)(packed)
+    expect((globalThis as Record<string, unknown>)['__packArrowThis']).toBe(true)
+  } finally {
+    delete (globalThis as Record<string, unknown>)['__packArrowThis']
+  }
+})
+
+test('pack leaves this inside a nested function unrouted', () => {
+  // A strict nested function called plainly sees `undefined`. Routing its `this`
+  // would wrongly hand it the global object.
+  const src = `"use strict"; function f() { return this; } globalThis.__packNestedThis = f();`
+  const packed = packOnly(src)
+  try {
+    // oxlint-disable-next-line no-eval
+    ;(0, eval)(packed)
+    expect((globalThis as Record<string, unknown>)['__packNestedThis']).toBe(undefined)
+  } finally {
+    delete (globalThis as Record<string, unknown>)['__packNestedThis']
+  }
+})
+
+test('pack routes top-level this inside computed member keys', () => {
+  // A computed key evaluates in the scope surrounding its method or field, so
+  // its `this` is the top-level `this`, not the member's. Leaving it unrouted
+  // makes the strict body read `this` as `undefined` and throw a TypeError.
+  const src = `"use strict";
+globalThis.__packKeys = { m: "method", f: "field", o: "object" };
+class C {
+  [this.__packKeys.m]() { return 1; }
+  [this.__packKeys.f] = 2;
+}
+const c = new C();
+const lit = { [this.__packKeys.o]() { return 3; } };
+globalThis.__packKeyResult = c.method() + c.field + lit.object();`
+  const packed = packOnly(src)
+  expect(packed).not.toContain('.call(')
+  try {
+    // oxlint-disable-next-line no-eval
+    ;(0, eval)(packed)
+    expect((globalThis as Record<string, unknown>)['__packKeyResult']).toBe(6)
+  } finally {
+    delete (globalThis as Record<string, unknown>)['__packKeys']
+    delete (globalThis as Record<string, unknown>)['__packKeyResult']
+  }
+})
+
+test('pack skipGlobals leaves standard globals bare and still routes the rest', () => {
+  const src = `log(JSON.stringify({ n: Math.max(1, 2) }));`
+  const skipped = obfuscate(src, { transforms: { pack: { skipGlobals: true } } })
+  // A skipped global stays a bare reference, so its access reads `JSON[...]`.
+  expect(skipped).toContain('JSON[')
+  expect(skipped).toContain('Math[')
+  // Without the option the same globals route through the accessor object, so
+  // the bare reference is gone.
+  expect(packOnly(src)).not.toContain('JSON[')
+  expect(traceWith(skipped)).toEqual(traceWith(src))
+})
+
+test('pack skipGlobals accepts a custom name set', () => {
+  const src = `log(Math.max(subject, 2));`
+  const skipped = obfuscate(src, { transforms: { pack: { skipGlobals: ['Math'] } } })
+  expect(skipped).toContain('Math[')
+  // A name outside the set still routes; only the listed name stays bare.
+  expect(packOnly(src)).not.toContain('Math[')
+  expect(traceWith(skipped, { subject: 5 })).toEqual(traceWith(src, { subject: 5 }))
+})
+
+test('pack skipGlobals still routes stripped imports', () => {
+  // An import is unreachable from the body, so it routes even when the caller
+  // lists it in skipGlobals. If it were left bare the body would throw.
+  const src = `import { createHash } from "node:crypto";
+log(createHash("sha256").update("x").digest("hex"));`
+  const packed = obfuscate(src, { transforms: { pack: { skipGlobals: ['createHash'] } } })
+  const logs: unknown[] = []
+  const runnable = packed.replace(/import[^;]*;/u, '')
+  // oxlint-disable-next-line no-new-func
+  new Function('log', 'createHash', runnable)((v: unknown) => logs.push(v), createHash)
+  expect(logs).toEqual([createHash('sha256').update('x').digest('hex')])
 })
 
 test('pack hoists import declarations above the call and routes the binding', () => {

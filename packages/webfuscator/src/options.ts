@@ -84,6 +84,13 @@ export interface PackOptions {
    * source is strict. This deliberately changes behavior. Default `false`.
    */
   escapeStrict?: boolean
+  /**
+   * Free names to leave un-routed because they resolve to the real global from
+   * inside a detached Function body. `true` uses the built-in standard-globals
+   * list; an array names your own set. Stripped imports always route regardless,
+   * since a Function body cannot reach them. Default routes every free name.
+   */
+  skipGlobals?: boolean | readonly string[]
   /** Override the default string-generator mode for the names pack creates. */
   stringGeneratorMode?: StringGeneratorModeOption
 }

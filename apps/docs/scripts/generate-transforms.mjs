@@ -139,7 +139,7 @@ function configurationNote(transformName) {
   }
 
   if (transformName === 'pack') {
-    return `Pass \`{ escapeStrict, stringGeneratorMode }\` instead of \`true\`. Set \`escapeStrict\` to run the packed body in sloppy mode even when the source is strict, which deliberately changes behavior.`
+    return `Pass \`{ escapeStrict, skipGlobals, stringGeneratorMode }\` instead of \`true\`. Set \`escapeStrict\` to run the packed body in sloppy mode even when the source is strict, which deliberately changes behavior. Set \`skipGlobals\` to \`true\`, or to an array of names, to leave those free names bare instead of routing them through the accessor object; they resolve to the same global from inside the packed body, so this only trims the output.`
   }
 
   if (configurableStringModeTransforms.has(transformName)) {

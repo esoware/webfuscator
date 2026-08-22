@@ -10,6 +10,103 @@ import { isCalleeOrTagOf, isInStrictContext, referencesOrWritesVariable } from '
 import { mulberry32 } from '../utils/random'
 import { StringGenerator } from '../utils/string-generator'
 
+// The ECMAScript intrinsics and the common host globals. A detached Function
+// body reaches every one of them and gets the same value, so pack can leave them
+// bare. The CommonJS wrapper names (require, module, exports, __dirname,
+// __filename) are left out on purpose. They are function parameters, not
+// properties of the global object, so a Function body cannot see them and pack
+// routes them like any other free name. `skipGlobals: true` opts into this list.
+const STANDARD_GLOBALS: readonly string[] = [
+  'globalThis',
+  'self',
+  'Infinity',
+  'NaN',
+  'undefined',
+  'parseInt',
+  'parseFloat',
+  'isNaN',
+  'isFinite',
+  'decodeURI',
+  'decodeURIComponent',
+  'encodeURI',
+  'encodeURIComponent',
+  'escape',
+  'unescape',
+  'btoa',
+  'atob',
+  'structuredClone',
+  'fetch',
+  'queueMicrotask',
+  'setTimeout',
+  'clearTimeout',
+  'setInterval',
+  'clearInterval',
+  'setImmediate',
+  'clearImmediate',
+  'Object',
+  'Function',
+  'Boolean',
+  'Symbol',
+  'BigInt',
+  'Number',
+  'Math',
+  'Date',
+  'String',
+  'RegExp',
+  'JSON',
+  'Promise',
+  'Proxy',
+  'Reflect',
+  'Error',
+  'EvalError',
+  'RangeError',
+  'ReferenceError',
+  'SyntaxError',
+  'TypeError',
+  'URIError',
+  'AggregateError',
+  'Array',
+  'Map',
+  'Set',
+  'WeakMap',
+  'WeakSet',
+  'WeakRef',
+  'FinalizationRegistry',
+  'ArrayBuffer',
+  'SharedArrayBuffer',
+  'DataView',
+  'Atomics',
+  'Int8Array',
+  'Uint8Array',
+  'Uint8ClampedArray',
+  'Int16Array',
+  'Uint16Array',
+  'Int32Array',
+  'Uint32Array',
+  'Float32Array',
+  'Float64Array',
+  'BigInt64Array',
+  'BigUint64Array',
+  'console',
+  'crypto',
+  'performance',
+  'Intl',
+  'URL',
+  'URLSearchParams',
+  'TextEncoder',
+  'TextDecoder',
+  'WebAssembly',
+  'window',
+  'document',
+  'location',
+  'postMessage',
+  'alert',
+  'confirm',
+  'global',
+  'process',
+  'Buffer',
+]
+
 /**
  * Serializes the whole program to a string and rebuilds it at runtime through
  * the `Function` constructor. A detached function body only reaches true globals
@@ -94,20 +191,42 @@ function packProgram(programPath: NodePath<t.Program>, ctx: TransformContext): b
   const readProperties = new Map<string, string>()
   const typeofProperties = new Map<string, string>()
   const settable = new Set<string>()
+  const freshProperty = (): string => {
+    let property: string
+    do {
+      // `__proto__` as an object-literal key would set the prototype rather
+      // than name an accessor.
+      property = generator.next()
+    } while (property === '__proto__')
+    return property
+  }
   const propertyFor = (registry: Map<string, string>, name: string): string => {
     let property = registry.get(name)
     if (property === undefined) {
-      do {
-        // `__proto__` as an object-literal key would set the prototype rather
-        // than name an accessor.
-        property = generator.next()
-      } while (property === '__proto__')
+      property = freshProperty()
       registry.set(name, property)
     }
     return property
   }
   const memberFor = (property: string): t.MemberExpression =>
     t.memberExpression(t.identifier(objectName), t.stringLiteral(property), true)
+
+  // Import locals read as free once detached but are unreachable from a Function
+  // body, so they route even when the caller lists them in skipGlobals.
+  const importedNames = new Set<string>()
+  for (const declaration of importDeclarations) {
+    for (const specifier of declaration.specifiers) {
+      importedNames.add(specifier.local.name)
+    }
+  }
+  const skipOption = ctx.pack?.skipGlobals ?? false
+  let skipNames: readonly string[] = []
+  if (skipOption === true) {
+    skipNames = STANDARD_GLOBALS
+  } else if (skipOption !== false) {
+    skipNames = skipOption
+  }
+  const skip = new Set<string>(skipNames)
 
   const isRoutable = (path: NodePath<t.Identifier>): boolean => {
     const name = path.node.name
@@ -125,10 +244,28 @@ function packProgram(programPath: NodePath<t.Program>, ctx: TransformContext): b
     if (!referencesOrWritesVariable(path)) {
       return false
     }
-    return !path.scope.getBinding(name)
+    if (path.scope.getBinding(name)) {
+      return false
+    }
+    return importedNames.has(name) || !skip.has(name)
   }
 
+  // A strict script's top-level `this` is the global object, but a strict
+  // Function called plainly sees `undefined`. Rather than reach for `.call`,
+  // route top-level `this` through a captured property like any free name.
+  const routeTopLevelThis = bodyStrict && !wasModule
+  let thisProperty: string | null = null
+
   const routingVisitor: Visitor = {
+    ThisExpression(path) {
+      if (!routeTopLevelThis || !isTopLevelThis(path)) {
+        return
+      }
+      if (thisProperty === null) {
+        thisProperty = freshProperty()
+      }
+      path.replaceWith(memberFor(thisProperty))
+    },
     UnaryExpression(path) {
       if (path.node.operator !== 'typeof') {
         return
@@ -181,6 +318,7 @@ function packProgram(programPath: NodePath<t.Program>, ctx: TransformContext): b
     settable,
     setterParam,
     strict: bodyStrict,
+    thisProperty,
   })
 
   const constructorReference = shadowedConstructor
@@ -193,16 +331,7 @@ function packProgram(programPath: NodePath<t.Program>, ctx: TransformContext): b
     t.stringLiteral(objectName),
     t.stringLiteral(innerCode),
   ])
-  // A strict script keeps top-level `this` bound to the global object. A plainly
-  // called strict function would instead see `undefined`, so pass the global
-  // `this` of the sloppy output script.
-  const invocation =
-    bodyStrict && !wasModule
-      ? t.callExpression(t.memberExpression(wrapper, t.identifier('call')), [
-          t.thisExpression(),
-          objectExpression,
-        ])
-      : t.callExpression(wrapper, [objectExpression])
+  const invocation = t.callExpression(wrapper, [objectExpression])
 
   programNode.body = [...importDeclarations, t.expressionStatement(invocation)]
   programNode.directives = []
@@ -236,6 +365,45 @@ function collectImportDeclarations(
 
 function bindsFunctionConstructor(declaration: t.ImportDeclaration): boolean {
   return declaration.specifiers.some((specifier) => specifier.local.name === 'Function')
+}
+
+// A `this` refers to the top-level `this` when no enclosing non-arrow function,
+// class field, or static block captures it before the program does. A computed
+// member key is the exception: it evaluates in the scope surrounding its method
+// or field, not that member's `this`, so a `this` reached through a boundary's
+// `key` skips it and keeps looking outward. `thisBinding` keeps every path
+// predicate off the walked `current`, whose narrowed union would otherwise trip
+// NodePath's invariant generic when reassigned to `child`.
+function isTopLevelThis(path: NodePath<t.ThisExpression>): boolean {
+  let child: NodePath = path
+  let current: NodePath | null = path.parentPath
+  while (current) {
+    const binding = thisBinding(current)
+    if (binding === 'program') {
+      return true
+    }
+    if (binding === 'captured' && child.key !== 'key') {
+      return false
+    }
+    child = current
+    current = current.parentPath
+  }
+  return false
+}
+
+function thisBinding(boundary: NodePath): 'captured' | 'program' | null {
+  if (boundary.isProgram()) {
+    return 'program'
+  }
+  if (
+    (boundary.isFunction() && !boundary.isArrowFunctionExpression()) ||
+    boundary.isClassProperty() ||
+    boundary.isClassPrivateProperty() ||
+    boundary.isStaticBlock()
+  ) {
+    return 'captured'
+  }
+  return null
 }
 
 function isBareDeleteArgument(path: NodePath<t.Identifier>): boolean {
@@ -291,11 +459,12 @@ interface AccessorObjectSpec {
   setterParam: string
   settable: Set<string>
   strict: boolean
+  thisProperty: string | null
   typeofProperties: Map<string, string>
 }
 
 function buildAccessorObject(spec: AccessorObjectSpec): t.ObjectExpression {
-  const properties: t.ObjectMethod[] = []
+  const properties: (t.ObjectMethod | t.ObjectProperty)[] = []
   for (const [name, property] of spec.readProperties) {
     properties.push(
       t.objectMethod(
@@ -335,6 +504,12 @@ function buildAccessorObject(spec: AccessorObjectSpec): t.ObjectExpression {
         t.blockStatement([t.returnStatement(t.unaryExpression('typeof', t.identifier(name)))]),
       ),
     )
+  }
+  // This is a data property. Its `this` value evaluates in the output script's
+  // top-level scope, where `this` is the global object. A getter would bind
+  // `this` to the accessor object instead.
+  if (spec.thisProperty !== null) {
+    properties.push(t.objectProperty(t.stringLiteral(spec.thisProperty), t.thisExpression()))
   }
   return t.objectExpression(properties)
 }
