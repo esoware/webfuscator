@@ -1,39 +1,183 @@
 @import 'tailwindcss';
 
+/*
+ * Semantic roles first, then the shape and motion scales. Components name a
+ * role and never a raw color, so recoloring the playground is one edit here.
+ *
+ * The type scale, the radii, the motion, and the accent are the documentation
+ * site's, so the two match. The neutrals are not. Mintlify tints its grays
+ * toward blue, which works behind prose and does not behind two full-height
+ * code editors.
+ */
 @theme {
-  /* `background.color.dark` from apps/docs/docs.json, so both surfaces match. */
+  /* Surfaces, in elevation order. `canvas` is `background.color.dark` in
+     apps/docs/docs.json, which is what puts the playground on the docs' page
+     color. The rest are steps off it, eight points of lightness apart above and
+     four below. Only `inset` sits below the canvas, so only `inset` may back an
+     editor. Sitting below is what makes the window look recessed instead of
+     stacked on top. */
+  --color-inset: #0b0b0b;
   --color-canvas: #0f0f0f;
-  --color-chrome: #131316;
-  --color-line: #26262c;
+  --color-frame: #171717;
+  --color-overlay: #1f1f1f;
+
+  /* Foreground, in weight order. The docs pairs `fg-muted` at rest with `fg` on
+     hover for every nav link, so use those two together. */
+  --color-fg-strong: #e5e5e5;
+  --color-fg: #d4d4d4;
+  --color-fg-muted: #a3a3a3;
+  --color-fg-subtle: #737373;
+  --color-fg-faint: #525252;
+
+  /* `tint` is what a row takes under the pointer. The rest fills controls that
+     have no surface of their own. A secondary control rests on `fill` and a
+     ghost control hovers to it, which keeps the two one step apart at rest, on
+     hover, and while pressed. */
+  --color-tint: rgb(255 255 255 / 5%);
+  --color-fill: rgb(255 255 255 / 8%);
+  --color-fill-hover: rgb(255 255 255 / 14%);
+  --color-fill-active: rgb(255 255 255 / 20%);
+
+  /* Hairlines. `line` outlines a surface its own color already separates.
+     `line-strong` outlines one that floats above the page. */
+  --color-line: rgb(255 255 255 / 6%);
+  --color-line-strong: rgb(255 255 255 / 10%);
+
+  /* `colors.dark`, `colors.primary`, and `colors.light` in apps/docs/docs.json.
+     Only `accent-soft` stays legible as text or a hairline on a dark surface.
+     `accent-strong` takes the pressed state because the docs' hover already
+     darkens toward it. */
+  --color-accent: #2563eb;
+  --color-accent-strong: #1d4ed8;
+  --color-accent-soft: #60a5fa;
+  --color-on-accent: #ffffff;
+
+  /* Neutral rather than accent, so a focus ring never reads as a selected or
+     primary state. */
+  --color-focus: #e5e5e5;
+
+  /* Status, shaped like the docs' callouts: the 300 step as foreground, the 600
+     step at 20% as fill, the 900 step as the hairline. */
+  --color-warning: #fcd34d;
+  --color-warning-fill: rgb(217 119 6 / 20%);
+  --color-warning-line: #78350f;
+  --color-danger: #fca5a5;
+  --color-danger-fill: rgb(220 38 38 / 20%);
+  --color-danger-line: #7f1d1d;
 
   --font-sans:
     'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* The docs set their interface at 14px on a 24px rhythm and drop to 12px for
+     metadata. So `text-sm` sizes every control and `text-xs` sizes what sits
+     beside one, and the playground needs no other step. */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: calc(1.25 / 0.75);
+  --text-sm: 0.875rem;
+  --text-sm--line-height: calc(1.5 / 0.875);
+
+  /* Radii come from the docs unchanged. Which one applies follows the element:
+     16px for the window, 12px for a full-size control or anything floating over
+     the page, 8px for a control nested in one, 6px for a target under 26px, a
+     full round for pills. A child inside a rounded parent ignores that list and
+     takes the parent's radius minus the gap between them. Any other inner
+     radius leaves the two curves visibly out of step. */
+
+  --animate-sweep: sweep 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+
+  /* The delay is what keeps a run that finishes in a few frames from flashing a
+     progress bar nobody had time to read. */
+  --animate-appear: appear 150ms 220ms ease-out forwards;
+
+  @keyframes sweep {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(500%);
+    }
+  }
+
+  @keyframes appear {
+    to {
+      opacity: 1;
+    }
+  }
 }
 
 @layer base {
+  /* The canvas fills the viewport and every scrollable region sits inside it, so
+     a page-level scrollbar can only come from something that escaped its
+     container. */
   body {
-    @apply bg-canvas font-sans text-[13px] text-zinc-300 antialiased;
+    @apply overflow-hidden overscroll-none bg-canvas font-sans text-sm text-fg antialiased;
   }
 
-  /* Monaco draws its own, so these only reach the panel and the banners. */
+  /* Base UI portals every popup next to #root, so the app needs its own stacking
+     context to keep a z-index inside it from painting over them. */
+  #root {
+    isolation: isolate;
+  }
+
+  /* Preflight hands every button `cursor: default`, and half of Base UI's
+     controls are not buttons at all: Switch renders a `<span role="switch">`.
+     Matching on role covers both without a class on every call site.
+
+     The rule below cannot carry `[data-disabled]` on its own, because a plain
+     tag plus pseudo-class selector outweighs a bare attribute. It has to be
+     excluded here. Base UI deletes the `disabled` attribute from a focusable
+     disabled control to keep it hoverable, so `:disabled` misses those. */
+  :is(
+    button,
+    summary,
+    label[for],
+    [role='button'],
+    [role='switch'],
+    [role='tab'],
+    [role='option'],
+    [role='menuitem']
+  ):not(:disabled, [data-disabled]) {
+    cursor: pointer;
+  }
+
+  :disabled,
+  [data-disabled] {
+    cursor: default;
+  }
+
+  /* Tabler puts this class on every icon. Most sit beside a label in a flex row,
+     where the default `flex-shrink` squashes the glyph before the text wraps. */
+  .tabler-icon {
+    flex-shrink: 0;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  /* Monaco signals focus with its own caret and line highlight, and its focus
+     target is a 1px offscreen textarea that an outline would only smear. */
+  .monaco-editor :focus-visible {
+    outline: none;
+  }
+
+  ::selection {
+    background: rgb(37 99 235 / 35%);
+  }
+
   * {
-    scrollbar-color: var(--color-zinc-700) transparent;
+    scrollbar-color: var(--color-neutral-700) transparent;
     scrollbar-width: thin;
   }
 
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    border: 3px solid transparent;
-    border-radius: 9999px;
-    background-color: var(--color-zinc-700);
-    background-clip: content-box;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background-color: var(--color-zinc-600);
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }

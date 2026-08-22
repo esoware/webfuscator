@@ -45,14 +45,18 @@ Configurable transforms are disabled by default; preparation passes always run.
 
 ## Development
 
+Every task runs from the repository root.
+
 ```sh
 pnpm install
-pnpm test
-pnpm check
-pnpm docs:check
+pnpm dev          # playground at localhost:5173
+pnpm docs:dev     # documentation site
+pnpm test         # the full suite
+pnpm check        # typecheck, lint, format, knip, generated docs, tests
+pnpm docs:check   # links, snippets, redirects, accessibility
 ```
 
-Read [AGENTS.md](./AGENTS.md) before changing transforms or analysis code.
+[AGENTS.md](./AGENTS.md) lists the rest and explains which workspace owns what. Read it before changing transforms or analysis code.
 
 ## Responsible use
 

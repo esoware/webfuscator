@@ -2,7 +2,7 @@
 
 `webfuscator` is a Babel-based JavaScript obfuscator. `obfuscate(code, options)` parses source, always runs preparation, runs only explicitly enabled transforms, and generates formatted JavaScript unless `minify` is enabled.
 
-Published packages live in `packages/`, so the npm package is `packages/webfuscator/`. Everything that deploys without being published lives in `apps/`: the documentation site in `apps/docs/` and the playground in `apps/playground/`. Each workspace owns the scripts it runs. The repository root holds configuration only.
+Published packages live in `packages/`, so the npm package is `packages/webfuscator/`. Everything that deploys without being published lives in `apps/`: the documentation site in `apps/docs/` and the playground in `apps/playground/`. Each workspace owns the commands it runs, and the root delegates to every one. The repository root holds configuration and no source.
 
 ## Behavior contracts
 
@@ -19,9 +19,13 @@ Throwing is for invalid caller configuration and for the one construct `pack` ca
 
 ## Commands
 
+Every task runs from the root. A workspace script is the real command, a root script is a one-line delegation. Add the command where it runs, then expose it from the root.
+
 - `pnpm test` runs the full suite. Run it after every meaningful change.
-- `pnpm check` runs the typecheck, lint, format check, knip, and tests. It must pass before the task is done.
-- `pnpm docs:check` validates generated documentation, links, snippets, redirects, and accessibility.
+- `pnpm check` runs the typecheck, lint, format check, knip, generated-docs check, and tests. It must pass before the task is done.
+- `pnpm docs:check` validates links, snippets, redirects, and accessibility. It needs the network, so it stays out of `pnpm check`.
+- `pnpm dev` and `pnpm preview` serve the playground, `pnpm docs:dev` the docs. `pnpm build`, `pnpm typecheck`, and `pnpm test:watch` cover the rest.
+- The deploy script is `deploy:playground`, not `deploy`, because `pnpm deploy` is a built-in pnpm command that never reaches a script by that name.
 
 ## Tooling
 

@@ -55,6 +55,11 @@ export function mergePatch<T extends object>(current: T, patch: PatchOf<T>): T {
   return next as T
 }
 
+/** An absent key and an explicit `false` both mean the transform does not run. */
+export function isEntryEnabled(entry: unknown): boolean {
+  return entry !== undefined && entry !== false
+}
+
 export function entryObject<T extends object>(entry: unknown): T {
   return typeof entry === 'object' && entry !== null ? (entry as T) : ({} as T)
 }

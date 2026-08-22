@@ -1,60 +1,159 @@
-import { useState } from 'react'
+import { Accordion } from '@base-ui/react/accordion'
+import { Field } from '@base-ui/react/field'
+import { Input } from '@base-ui/react/input'
+import { ScrollArea } from '@base-ui/react/scroll-area'
+import { memo, useState } from 'react'
 import type { ReactNode } from 'react'
-import type {
-  ManglePropertiesOptions,
-  ObfuscatorOptions,
-  PackOptions,
-  StringGeneratorModeOption,
-} from 'webfuscator'
+import type { ObfuscatorOptions } from 'webfuscator'
 
-import { transformDocsUrl } from '../lib/links'
-import {
-  KEEP_QUOTED_CHOICES,
-  MANGLE_FLAGS,
-  STRING_GENERATOR_MODES,
-  TRANSFORM_GROUPS,
-  isStringGeneratorMode,
-} from '../lib/schema'
-import type { TransformGroup, TransformSpec } from '../lib/schema'
-import {
-  editTransformEntry,
-  entryMode,
-  entryObject,
-  mergePatch,
-  patchTransformEntry,
-} from '../lib/transformEntry'
-import type { ModeOverride, PatchOf } from '../lib/transformEntry'
+import { ChevronRightIcon, CloseIcon, SearchIcon } from '../lib/icons'
+import { displayMode, modeChoices } from '../lib/modes'
+import { TRANSFORM_GROUPS, isStringGeneratorMode } from '../lib/schema'
+import type { TransformGroup } from '../lib/schema'
+import { isEntryEnabled, mergePatch } from '../lib/transformEntry'
+import type { PatchOf } from '../lib/transformEntry'
 import { Button } from './Button'
-import { CommitTextField, NumberField, SelectField } from './Fields'
-import { CloseIcon, ExternalLinkIcon, SearchIcon } from './Icons'
-import { Switch } from './Switch'
+import { NumberSpinner, SelectField, SwitchField } from './Fields'
+import { Hint } from './Tooltip'
+import { TransformRow } from './TransformRow'
 
-type MangleFlagKey = (typeof MANGLE_FLAGS)[number]['key']
+const GENERAL = 'General'
 
-interface SelectChoice {
-  value: string
-  label: string
+interface OptionsPanelProps {
+  options: ObfuscatorOptions
+  onChange: (next: ObfuscatorOptions) => void
+  onReset: () => void
 }
 
-function displayMode(value: StringGeneratorModeOption | undefined): string {
-  if (value === undefined) {
-    return 'inherit'
-  }
-  return typeof value === 'string' ? value : 'mixed'
-}
+/** A source keystroke re-renders the app. Rebuilding every transform row costs more. */
+export const OptionsPanel = memo(OptionsPanelContent)
 
-function modeChoices(
-  current: StringGeneratorModeOption | undefined,
-  includeInherit: boolean,
-): SelectChoice[] {
-  const choices: SelectChoice[] = includeInherit ? [{ value: 'inherit', label: 'inherit' }] : []
-  for (const mode of STRING_GENERATOR_MODES) {
-    choices.push({ value: mode, label: mode })
+function OptionsPanelContent({ options, onChange, onReset }: OptionsPanelProps) {
+  const [filter, setFilter] = useState('')
+  const [expanded, setExpanded] = useState<string[]>(() => [
+    GENERAL,
+    ...TRANSFORM_GROUPS.map((group) => group.title),
+  ])
+
+  const query = filter.trim().toLowerCase()
+  const searching = query !== ''
+  const groups = matchingGroups(query)
+
+  const patchOptions = (patch: PatchOf<ObfuscatorOptions>) => {
+    onChange(mergePatch(options, patch))
   }
-  if (Array.isArray(current)) {
-    choices.push({ value: 'mixed', label: 'mixed' })
-  }
-  return choices
+
+  const globalMode = options.stringGeneratorMode
+
+  return (
+    // Wide enough for `functionDeclarationToExpression`, the longest name.
+    <aside aria-label="Options" className="hidden w-88 shrink-0 flex-col lg:flex">
+      <div className="flex h-11 shrink-0 items-center justify-between gap-2 pr-1.5 pl-2.5">
+        <h2 className="text-sm font-semibold text-fg-strong">Options</h2>
+        <Hint content="Restore the starter preset">
+          <Button variant="ghost" aria-label="Reset options" onClick={onReset}>
+            Reset
+          </Button>
+        </Hint>
+      </div>
+
+      <div className="shrink-0 px-2 pb-2">
+        <FilterInput value={filter} onChange={setFilter} />
+      </div>
+
+      <ScrollArea.Root className="relative min-h-0 flex-1">
+        {/* Pinned rather than sized with `h-full`, which resolves against an ancestor
+            height this flex chain does not settle. Unpinned it grows to its content
+            and drags the whole page taller than the canvas. */}
+        <ScrollArea.Viewport className="absolute inset-0 focus-visible:-outline-offset-2">
+          <ScrollArea.Content className="px-2 pb-4">
+            <Accordion.Root
+              multiple
+              value={searching ? groups.map((group) => group.title) : expanded}
+              onValueChange={(next) => {
+                if (!searching) {
+                  setExpanded(next)
+                }
+              }}
+            >
+              {!searching && (
+                <Group title={GENERAL}>
+                  <div className="pr-1.5 pl-5">
+                    <SwitchField
+                      label="Minify output"
+                      hint="Print Babel's minified output instead of formatted JavaScript"
+                      checked={options.minify === true}
+                      onChange={(checked) => {
+                        patchOptions({ minify: checked || undefined })
+                      }}
+                    />
+                    <NumberSpinner
+                      label="Seed"
+                      hint="The same seed produces the same output. Drag this label to scrub."
+                      value={options.seed ?? 0}
+                      min={0}
+                      onChange={(seed) => {
+                        patchOptions({ seed: seed === 0 ? undefined : seed })
+                      }}
+                    />
+                    <SelectField
+                      label="Name style"
+                      hint="stringGeneratorMode: the default style for every generated name"
+                      options={modeChoices(globalMode, false)}
+                      // Unset means the library's `mangled`, and this select offers no `inherit`.
+                      value={displayMode(globalMode ?? 'mangled')}
+                      onChange={(choice) => {
+                        if (isStringGeneratorMode(choice)) {
+                          patchOptions({
+                            stringGeneratorMode: choice === 'mangled' ? undefined : choice,
+                          })
+                        }
+                      }}
+                    />
+                  </div>
+                </Group>
+              )}
+
+              {groups.map((group) => (
+                <Group
+                  key={group.title}
+                  title={group.title}
+                  enabled={
+                    group.transforms.filter((spec) =>
+                      isEntryEnabled(options.transforms?.[spec.name]),
+                    ).length
+                  }
+                  total={group.transforms.length}
+                >
+                  {group.transforms.map((spec) => (
+                    <TransformRow
+                      key={spec.name}
+                      spec={spec}
+                      options={options}
+                      onChange={onChange}
+                    />
+                  ))}
+                </Group>
+              ))}
+            </Accordion.Root>
+
+            {groups.length === 0 && (
+              <p className="px-2 py-10 text-center text-sm text-fg-subtle">
+                Nothing matches that filter.
+              </p>
+            )}
+          </ScrollArea.Content>
+        </ScrollArea.Viewport>
+
+        <ScrollArea.Scrollbar
+          orientation="vertical"
+          className="flex w-2.5 touch-none justify-center py-1 opacity-0 transition-opacity data-hovering:opacity-100 data-scrolling:opacity-100 data-scrolling:duration-0"
+        >
+          <ScrollArea.Thumb className="w-1 rounded-full bg-neutral-700 transition-colors hover:bg-neutral-600" />
+        </ScrollArea.Scrollbar>
+      </ScrollArea.Root>
+    </aside>
+  )
 }
 
 function matchingGroups(query: string): readonly TransformGroup[] {
@@ -74,174 +173,56 @@ function matchingGroups(query: string): readonly TransformGroup[] {
   return groups
 }
 
-interface OptionsPanelProps {
-  options: ObfuscatorOptions
-  onChange: (next: ObfuscatorOptions) => void
-  onReset: () => void
+interface GroupProps {
+  title: string
+  enabled?: number
+  total?: number
+  children: ReactNode
 }
 
-export function OptionsPanel({ options, onChange, onReset }: OptionsPanelProps) {
-  const [filter, setFilter] = useState('')
-  const query = filter.trim().toLowerCase()
-  const groups = matchingGroups(query)
-
-  const patchOptions = (patch: PatchOf<ObfuscatorOptions>) => {
-    onChange(mergePatch(options, patch))
-  }
-
-  const globalMode = options.stringGeneratorMode
-
+function Group({ title, enabled, total, children }: GroupProps) {
   return (
-    // Wide enough for `functionDeclarationToExpression`, the longest name.
-    <aside className="hidden w-[336px] shrink-0 flex-col border-r border-line bg-chrome lg:flex">
-      <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-line pr-1.5 pl-4">
-        <h2 className="text-[13px] font-semibold text-zinc-200">Options</h2>
-        <Button variant="ghost" onClick={onReset} title="Restore the starter preset">
-          Reset
-        </Button>
-      </div>
+    <Accordion.Item value={title}>
+      <Accordion.Header>
+        <Accordion.Trigger className="group flex w-full items-center rounded-xl py-1.5 pr-2.5 text-left transition-colors hover:bg-tint">
+          {/* Centered in its slot, otherwise the rotation pivots off the glyph. */}
+          <span className="inline-flex w-5 shrink-0 items-center justify-center text-fg-subtle transition-transform group-data-panel-open:rotate-90">
+            <ChevronRightIcon size={14} aria-hidden />
+          </span>
+          <span className="truncate text-sm font-semibold text-fg-strong">{title}</span>
+          {/* Collapsed, this is the only sign a group holds anything active. */}
+          {total !== undefined && (
+            <span
+              aria-label={`${enabled} of ${total} enabled`}
+              className="ml-auto shrink-0 pl-2 text-xs text-fg-faint tabular-nums"
+            >
+              {enabled}/{total}
+            </span>
+          )}
+        </Accordion.Trigger>
+      </Accordion.Header>
 
-      <div className="shrink-0 border-b border-line p-2">
-        <FilterInput value={filter} onChange={setFilter} />
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-8">
-        {query === '' && (
-          <section>
-            <GroupHeading title="General" />
-            <div className="space-y-0.5 px-2 pb-2">
-              <ToggleRow
-                id="option-minify"
-                label="Minify output"
-                title="Print Babel's minified output instead of formatted JavaScript"
-                checked={options.minify === true}
-                onChange={(checked) => {
-                  patchOptions({ minify: checked || undefined })
-                }}
-              />
-              <NumberField
-                label="Seed"
-                title="The same seed produces the same output"
-                value={options.seed ?? 0}
-                min={0}
-                onChange={(seed) => {
-                  patchOptions({ seed: seed === 0 ? undefined : seed })
-                }}
-              />
-              <SelectField
-                label="Name style"
-                title="stringGeneratorMode: the default style for generated names"
-                options={modeChoices(globalMode, false)}
-                value={displayMode(globalMode) === 'inherit' ? 'mangled' : displayMode(globalMode)}
-                onChange={(choice) => {
-                  if (!isStringGeneratorMode(choice)) {
-                    return
-                  }
-                  patchOptions({ stringGeneratorMode: choice === 'mangled' ? undefined : choice })
-                }}
-              />
-            </div>
-          </section>
-        )}
-
-        {groups.map((group) => (
-          <section key={group.title}>
-            <GroupHeading
-              title={group.title}
-              enabled={group.transforms.filter((spec) => isEnabled(options, spec)).length}
-              total={group.transforms.length}
-            />
-            {group.transforms.map((spec) => {
-              const entry = options.transforms?.[spec.name]
-              const enabled = entry !== undefined && entry !== false
-              const patchDetails = <T extends object>(patch: PatchOf<T>) => {
-                onChange(patchTransformEntry(options, spec.name, entry, patch))
-              }
-              const setOverride = (choice: string) => {
-                if (choice === 'inherit') {
-                  patchDetails<ModeOverride>({ stringGeneratorMode: undefined })
-                  return
-                }
-                if (isStringGeneratorMode(choice)) {
-                  patchDetails<ModeOverride>({ stringGeneratorMode: choice })
-                }
-              }
-
-              return (
-                <div key={spec.name}>
-                  <TransformToggle
-                    spec={spec}
-                    checked={enabled}
-                    onChange={(checked) => {
-                      onChange(editTransformEntry(options, spec.name, checked ? true : undefined))
-                    }}
-                  />
-
-                  {enabled && spec.kind === 'mode' && (
-                    <Details>
-                      <SelectField
-                        label="Name style"
-                        title="Override the global generator style for this transform"
-                        options={modeChoices(entryMode(entry), true)}
-                        value={displayMode(entryMode(entry))}
-                        onChange={setOverride}
-                      />
-                    </Details>
-                  )}
-
-                  {enabled && spec.kind === 'mangle' && (
-                    <MangleDetails
-                      mangle={entryObject<ManglePropertiesOptions>(entry)}
-                      override={entryMode(entry)}
-                      onOverride={setOverride}
-                      onPatch={patchDetails}
-                    />
-                  )}
-
-                  {enabled && spec.kind === 'pack' && (
-                    <PackDetails
-                      pack={entryObject<PackOptions>(entry)}
-                      override={entryMode(entry)}
-                      onOverride={setOverride}
-                      onPatch={patchDetails}
-                    />
-                  )}
-                </div>
-              )
-            })}
-          </section>
-        ))}
-
-        {groups.length === 0 && (
-          <p className="px-2 py-8 text-center text-[13px] text-zinc-600">
-            Nothing matches that filter.
-          </p>
-        )}
-      </div>
-    </aside>
+      {/* The docs run every height change at 300ms and everything else at the
+          150ms default, including chevrons. */}
+      <Accordion.Panel className="h-(--accordion-panel-height) overflow-hidden transition-[height] duration-300 ease-in-out data-ending-style:h-0 data-starting-style:h-0">
+        <div className="pt-0.5 pb-2">{children}</div>
+      </Accordion.Panel>
+    </Accordion.Item>
   )
-}
-
-function isEnabled(options: ObfuscatorOptions, spec: TransformSpec): boolean {
-  const entry = options.transforms?.[spec.name]
-  return entry !== undefined && entry !== false
 }
 
 function FilterInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
-    <div className="relative">
-      <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-zinc-600">
-        <SearchIcon />
+    <Field.Root className="relative">
+      <Field.Label className="sr-only">Filter transforms</Field.Label>
+      <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-fg-muted">
+        <SearchIcon size={16} aria-hidden />
       </span>
-      <input
-        type="text"
+      <Input
         value={value}
-        aria-label="Filter transforms"
         placeholder="Filter transforms"
-        onChange={(event) => {
-          onChange(event.target.value)
-        }}
-        className="h-8 w-full rounded-lg border border-line bg-zinc-900 pr-8 pl-8 text-[13px] text-zinc-200 transition-colors outline-none placeholder:text-zinc-600 hover:border-zinc-700 focus:border-blue-600"
+        onValueChange={onChange}
+        className="h-9 w-full rounded-xl bg-frame pr-9 pl-9 text-sm text-fg ring-1 ring-line transition-shadow placeholder:text-fg-subtle hover:ring-line-strong"
       />
       {value !== '' && (
         <button
@@ -250,235 +231,11 @@ function FilterInput({ value, onChange }: { value: string; onChange: (value: str
           onClick={() => {
             onChange('')
           }}
-          className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded p-1 text-zinc-500 transition-colors hover:text-zinc-200"
+          className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded-md p-1 text-fg-subtle transition-colors hover:bg-fill-hover hover:text-fg"
         >
-          <CloseIcon />
+          <CloseIcon size={14} aria-hidden />
         </button>
       )}
-    </div>
+    </Field.Root>
   )
-}
-
-function GroupHeading({
-  title,
-  enabled,
-  total,
-}: {
-  title: string
-  enabled?: number
-  total?: number
-}) {
-  return (
-    <h3 className="sticky top-0 z-10 flex items-baseline justify-between gap-2 bg-chrome px-2 pt-4 pb-1.5 text-[12px] font-medium text-zinc-500">
-      <span>{title}</span>
-      {total !== undefined && (
-        <span className="tabular-nums text-zinc-600">
-          {enabled}/{total}
-        </span>
-      )}
-    </h3>
-  )
-}
-
-function TransformToggle({
-  spec,
-  checked,
-  onChange,
-}: {
-  spec: TransformSpec
-  checked: boolean
-  onChange: (checked: boolean) => void
-}) {
-  const id = `transform-${spec.name}`
-  return (
-    <div className="group flex items-center gap-1 rounded-lg pr-1.5 transition-colors hover:bg-zinc-800/60">
-      <label
-        htmlFor={id}
-        title={spec.description}
-        className="min-w-0 flex-1 cursor-pointer truncate py-1.5 pl-2 font-mono text-[12.5px] text-zinc-300 select-none"
-      >
-        {spec.name}
-      </label>
-      <a
-        href={transformDocsUrl(spec.name)}
-        target="_blank"
-        rel="noreferrer"
-        title={`Read the ${spec.name} reference`}
-        aria-label={`Read the ${spec.name} reference`}
-        className="rounded p-1 text-zinc-600 opacity-0 transition-opacity outline-offset-2 group-hover:opacity-100 hover:text-zinc-200 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-blue-500"
-      >
-        <ExternalLinkIcon />
-      </a>
-      <Switch id={id} checked={checked} onChange={onChange} />
-    </div>
-  )
-}
-
-function ToggleRow({
-  id,
-  label,
-  title,
-  checked,
-  onChange,
-}: {
-  id: string
-  label: string
-  title: string
-  checked: boolean
-  onChange: (checked: boolean) => void
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 py-0.5">
-      <label
-        htmlFor={id}
-        title={title}
-        className="cursor-pointer truncate text-[13px] text-zinc-400 select-none"
-      >
-        {label}
-      </label>
-      <Switch id={id} checked={checked} onChange={onChange} />
-    </div>
-  )
-}
-
-function Details({ children }: { children: ReactNode }) {
-  // The right padding matches `TransformToggle` so nested controls line up.
-  return (
-    <div className="mt-1 mb-2 ml-3 space-y-1 border-l border-zinc-700/70 pr-1.5 pl-3">
-      {children}
-    </div>
-  )
-}
-
-function keepQuotedPatch(choice: string): boolean | 'strict' | undefined {
-  if (choice === 'true') {
-    return true
-  }
-  if (choice === 'strict') {
-    return 'strict'
-  }
-  return undefined
-}
-
-function MangleDetails({
-  mangle,
-  override,
-  onOverride,
-  onPatch,
-}: {
-  mangle: ManglePropertiesOptions
-  override: StringGeneratorModeOption | undefined
-  onOverride: (choice: string) => void
-  onPatch: (patch: PatchOf<ManglePropertiesOptions>) => void
-}) {
-  return (
-    <Details>
-      {MANGLE_FLAGS.map((flag) => (
-        <ToggleRow
-          key={flag.key}
-          id={`mangle-${flag.key}`}
-          label={flag.key}
-          title={flag.description}
-          checked={mangle[flag.key] === true}
-          onChange={(checked) => {
-            switch (flag.key satisfies MangleFlagKey) {
-              case 'builtins':
-                onPatch({ builtins: checked || undefined })
-                break
-              case 'undeclared':
-                onPatch({ undeclared: checked || undefined })
-                break
-              case 'onlyAnnotated':
-                onPatch({ onlyAnnotated: checked || undefined })
-                break
-              case 'onlyCache':
-                onPatch({ onlyCache: checked || undefined })
-                break
-            }
-          }}
-        />
-      ))}
-      <SelectField
-        label="keepQuoted"
-        title="Preserve quoted occurrences of a name"
-        options={KEEP_QUOTED_CHOICES}
-        value={mangle.keepQuoted === undefined ? 'false' : String(mangle.keepQuoted)}
-        onChange={(choice) => {
-          onPatch({ keepQuoted: keepQuotedPatch(choice) })
-        }}
-      />
-      <CommitTextField
-        label="regex"
-        title="Only mangle names matching this pattern"
-        placeholder="^_"
-        value={mangle.regex instanceof RegExp ? mangle.regex.source : (mangle.regex ?? '')}
-        onCommit={(text) => {
-          onPatch({ regex: text.length > 0 ? text : undefined })
-        }}
-      />
-      <CommitTextField
-        label="reserved"
-        title="Names to leave alone, comma separated"
-        placeholder="id, url"
-        value={(mangle.reserved ?? []).join(', ')}
-        onCommit={(text) => {
-          const names = text
-            .split(',')
-            .map((part) => part.trim())
-            .filter((part) => part.length > 0)
-          onPatch({ reserved: names.length > 0 ? names : undefined })
-        }}
-      />
-      <SelectField
-        label="Name style"
-        title="Override the global generator style for the mangled names"
-        options={modeChoices(override, true)}
-        value={displayMode(override)}
-        onChange={onOverride}
-      />
-      <Caveat>
-        Boundary-dependent. Code outside this input that reads the same property names breaks.
-      </Caveat>
-    </Details>
-  )
-}
-
-function PackDetails({
-  pack,
-  override,
-  onOverride,
-  onPatch,
-}: {
-  pack: PackOptions
-  override: StringGeneratorModeOption | undefined
-  onOverride: (choice: string) => void
-  onPatch: (patch: PatchOf<PackOptions>) => void
-}) {
-  return (
-    <Details>
-      <ToggleRow
-        id="pack-escapeStrict"
-        label="escapeStrict"
-        title="Skip the strict-mode directive so the packed body runs sloppy"
-        checked={pack.escapeStrict === true}
-        onChange={(checked) => {
-          onPatch({ escapeStrict: checked || undefined })
-        }}
-      />
-      {pack.escapeStrict === true && (
-        <Caveat>Behavior changes. The packed body runs sloppy even for strict sources.</Caveat>
-      )}
-      <SelectField
-        label="Name style"
-        title="Override the global generator style for the names pack introduces"
-        options={modeChoices(override, true)}
-        value={displayMode(override)}
-        onChange={onOverride}
-      />
-    </Details>
-  )
-}
-
-function Caveat({ children }: { children: string }) {
-  return <p className="pt-1 text-[12px] leading-relaxed text-amber-500/90">{children}</p>
 }

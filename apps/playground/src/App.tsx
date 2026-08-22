@@ -1,13 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
-import { Group, Panel, Separator } from 'react-resizable-panels'
+import { Tooltip } from '@base-ui/react/tooltip'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ObfuscatorOptions } from 'webfuscator'
 
 import { Header } from './components/Header'
 import { OptionsPanel } from './components/OptionsPanel'
-import { OutputPane } from './components/OutputPane'
-import { SourcePane } from './components/SourcePane'
 import type { TabId } from './components/SourcePane'
 import { StatusBar } from './components/StatusBar'
+import { Workspace } from './components/Workspace'
 import { useObfuscator } from './hooks/useObfuscator'
 import { parseConfig, serializeOptions } from './lib/config'
 import type { ConfigParseResult } from './lib/config'
@@ -53,6 +52,16 @@ export default function App() {
     run(source, options)
   }, [run, requested, runOnChange, source, options])
 
+  // StrictMode tears the app down and rebuilds it once, and the teardown takes
+  // the worker with it. Without this the first run is lost and the output pane
+  // sits empty in development until someone presses Obfuscate.
+  useEffect(
+    () => () => {
+      primedRef.current = false
+    },
+    [],
+  )
+
   useEffect(() => {
     const timer = setTimeout(() => {
       saveWorkspace({ source, options, runOnChange })
@@ -75,76 +84,77 @@ export default function App() {
     }
   }, [])
 
-  const handleConfigTextChange = (text: string) => {
+  // These close over setters only. Stable identities keep a source keystroke from
+  // re-rendering the options panel and re-attaching the config editor's listener.
+  const handleConfigTextChange = useCallback((text: string) => {
     setConfigText(text)
     const result = parseConfig(text)
     setConfigResult(result)
     if (result.status === 'ok') {
       setOptions(result.options)
     }
-  }
+  }, [])
 
-  const handleOptionsChange = (next: ObfuscatorOptions) => {
+  const handleOptionsChange = useCallback((next: ObfuscatorOptions) => {
     setOptions(next)
     setConfigText(serializeOptions(next))
     setConfigResult(null)
-  }
+  }, [])
 
-  const handleOptionsReset = () => {
+  const handleOptionsReset = useCallback(() => {
     handleOptionsChange(defaultWorkspace().options)
-  }
-
-  const handleSourceReset = () => {
-    setSource(defaultWorkspace().source)
-  }
+  }, [handleOptionsChange])
 
   const warnings = configResult?.status === 'ok' ? configResult.warnings : []
   // Both fields are replaced rather than mutated, so identity is enough here.
   const stale = ranWith !== null && (ranWith.source !== source || ranWith.options !== options)
 
   return (
-    <div className="flex h-dvh flex-col bg-canvas">
-      <Header
-        runOnChange={runOnChange}
-        onRunOnChangeToggle={setRunOnChange}
-        onRun={() => {
-          setRequested((count) => count + 1)
-        }}
-        stale={stale}
-      />
-
-      <div className="flex min-h-0 flex-1">
-        <OptionsPanel
-          options={options}
-          onChange={handleOptionsChange}
-          onReset={handleOptionsReset}
+    <Tooltip.Provider delay={400} closeDelay={80}>
+      <div className="flex h-dvh flex-col">
+        <Header
+          runOnChange={runOnChange}
+          onRunOnChangeToggle={setRunOnChange}
+          onRun={() => {
+            setRequested((count) => count + 1)
+          }}
+          stale={stale}
+          busy={obfuscation.busy}
         />
 
-        <Group orientation="horizontal" className="min-h-0 flex-1">
-          <Panel defaultSize="50" minSize="20">
-            <SourcePane
-              tab={tab}
-              onTabChange={setTab}
-              source={source}
-              onSourceChange={setSource}
-              onSourceReset={handleSourceReset}
-              configText={configText}
-              onConfigTextChange={handleConfigTextChange}
-              configResult={configResult}
-            />
-          </Panel>
+        {/* No vertical padding. The bars already center their contents, so a gap
+            here lands on one side of the text and breaks the symmetry. */}
+        <div className="flex min-h-0 flex-1 gap-4 px-4">
+          <OptionsPanel
+            options={options}
+            onChange={handleOptionsChange}
+            onReset={handleOptionsReset}
+          />
 
-          <Separator className="group relative w-px shrink-0 bg-line outline-none">
-            <div className="absolute inset-y-0 -left-1 w-2 transition-colors group-hover:bg-blue-600/60 group-active:bg-blue-500" />
-          </Separator>
+          <Workspace
+            tab={tab}
+            onTabChange={setTab}
+            source={source}
+            onSourceChange={setSource}
+            onSourceReset={() => {
+              setSource(defaultWorkspace().source)
+            }}
+            configText={configText}
+            onConfigTextChange={handleConfigTextChange}
+            configResult={configResult}
+            output={obfuscation.output}
+            error={obfuscation.error}
+            busy={obfuscation.busy}
+          />
+        </div>
 
-          <Panel defaultSize="50" minSize="20">
-            <OutputPane output={obfuscation.output} error={obfuscation.error} />
-          </Panel>
-        </Group>
+        <StatusBar
+          warnings={warnings}
+          onShowWarnings={() => {
+            setTab('config')
+          }}
+        />
       </div>
-
-      <StatusBar warnings={warnings} />
-    </div>
+    </Tooltip.Provider>
   )
 }

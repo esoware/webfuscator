@@ -1,8 +1,10 @@
+import { Toolbar } from '@base-ui/react/toolbar'
 import { useEffect, useRef, useState } from 'react'
 
+import { CheckIcon, CopyIcon, DownloadIcon } from '../lib/icons'
+import { ErrorBanner } from './Banner'
 import { Button } from './Button'
 import { CodeEditor } from './CodeEditor'
-import { CheckIcon, CopyIcon, DownloadIcon } from './Icons'
 
 interface OutputPaneProps {
   output: string
@@ -56,37 +58,42 @@ export function OutputPane({ output, error }: OutputPaneProps) {
 
   return (
     <section className="flex h-full min-h-0 flex-col">
-      <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-line bg-chrome pr-1.5 pl-4">
-        <h2 className="text-[13px] font-medium text-zinc-400">Output</h2>
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" disabled={output === ''} onClick={handleCopy}>
-            {copied ? <CheckIcon /> : <CopyIcon />}
+      <div className="flex h-11 shrink-0 items-center justify-between gap-2 bg-frame pr-1.5 pl-3.5">
+        <h2 className="text-sm font-medium text-fg-muted">Output</h2>
+        <Toolbar.Root aria-label="Output actions" className="flex items-center gap-1">
+          <Toolbar.Button
+            render={<Button variant="ghost" />}
+            disabled={output === ''}
+            onClick={handleCopy}
+          >
+            {copied ? <CheckIcon size={14} aria-hidden /> : <CopyIcon size={14} aria-hidden />}
             {copied ? 'Copied' : 'Copy'}
-          </Button>
-          <Button variant="secondary" disabled={output === ''} onClick={handleDownload}>
-            <DownloadIcon />
+          </Toolbar.Button>
+          <Toolbar.Button
+            render={<Button variant="secondary" />}
+            disabled={output === ''}
+            onClick={handleDownload}
+          >
+            <DownloadIcon size={14} aria-hidden />
             Download
-          </Button>
-        </div>
+          </Toolbar.Button>
+        </Toolbar.Root>
       </div>
 
-      <div className="relative min-h-0 flex-1">
-        <CodeEditor path="output" value={output} readOnly />
-        {output === '' && error === null && (
-          <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-[13px] text-zinc-600">
-            Press Obfuscate to fill this pane.
-          </p>
-        )}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="relative min-h-0 flex-1">
+          <CodeEditor path="output" value={output} readOnly />
+          {output === '' && error === null && (
+            <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-fg-subtle">
+              Press Obfuscate to fill this pane.
+            </p>
+          )}
+        </div>
+
+        {error !== null && <ErrorBanner message={error} />}
       </div>
 
-      {error !== null && (
-        <div
-          role="alert"
-          className="max-h-32 shrink-0 overflow-y-auto border-t border-red-900/60 bg-red-950/40 px-3 py-2 font-mono text-[12px] leading-relaxed whitespace-pre-wrap text-red-300"
-        >
-          {error}
-        </div>
-      )}
+      <output className="sr-only">{copied ? 'Output copied to the clipboard' : ''}</output>
     </section>
   )
 }

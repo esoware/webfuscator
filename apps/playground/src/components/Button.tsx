@@ -1,30 +1,44 @@
-import type { ComponentPropsWithoutRef } from 'react'
+import { Button as BaseButton } from '@base-ui/react/button'
 
 type Variant = 'primary' | 'secondary' | 'ghost'
 
-const VARIANT_CLASSES: Record<Variant, string> = {
-  primary: 'bg-blue-600 text-white hover:bg-blue-500 active:bg-blue-700',
-  secondary: 'border border-line bg-zinc-900 text-zinc-200 hover:border-zinc-700 hover:bg-zinc-800',
-  ghost: 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100',
-}
-
-const BASE_CLASSES =
-  'inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 text-[13px] font-medium whitespace-nowrap transition-colors outline-offset-2 focus-visible:outline-2 focus-visible:outline-blue-500 disabled:pointer-events-none disabled:opacity-40'
-
-interface ButtonProps extends ComponentPropsWithoutRef<'button'> {
+interface ButtonProps extends Omit<BaseButton.Props, 'className'> {
   variant?: Variant
+  className?: string | undefined
 }
 
-export function Button({
-  variant = 'secondary',
-  className,
-  type = 'button',
-  ...rest
-}: ButtonProps) {
+/*
+ * Disabled is spelled twice in each branch below. A disabled `Toolbar.Button`
+ * never carries the attribute, because Base UI deletes it to keep the element
+ * focusable and hoverable, so `:disabled` alone would leave a dead button
+ * sitting at full opacity.
+ */
+export function Button({ variant = 'secondary', className, ...rest }: ButtonProps) {
+  if (variant === 'primary') {
+    return (
+      <BaseButton
+        // The docs navbar call to action fades its fill to 90% on hover rather
+        // than lightening it, and darkens to `accent-strong` when pressed.
+        className={`inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-accent px-3.5 text-sm font-medium whitespace-nowrap text-on-accent transition-colors select-none hover:bg-accent/90 active:bg-accent-strong disabled:pointer-events-none disabled:opacity-40 data-disabled:opacity-40 ${className ?? ''}`}
+        {...rest}
+      />
+    )
+  }
+
+  if (variant === 'ghost') {
+    return (
+      <BaseButton
+        className={`inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl px-3.5 text-sm font-medium whitespace-nowrap text-fg-muted transition-colors select-none hover:bg-fill hover:text-fg active:bg-fill-hover disabled:pointer-events-none disabled:opacity-40 data-disabled:opacity-40 ${className ?? ''}`}
+        {...rest}
+      />
+    )
+  }
+
+  // A secondary control rests on `fill` and a ghost one hovers to it, which
+  // holds the two a step apart at rest, on hover, and while pressed.
   return (
-    <button
-      type={type}
-      className={`${BASE_CLASSES} ${VARIANT_CLASSES[variant]} ${className ?? ''}`}
+    <BaseButton
+      className={`inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-fill px-3.5 text-sm font-medium whitespace-nowrap text-fg transition-colors select-none hover:bg-fill-hover hover:text-fg-strong active:bg-fill-active disabled:pointer-events-none disabled:opacity-40 data-disabled:opacity-40 ${className ?? ''}`}
       {...rest}
     />
   )
