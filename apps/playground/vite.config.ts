@@ -8,8 +8,7 @@ import { defaultClientConditions, defineConfig } from 'vite'
 const manifest = new URL('../../packages/webfuscator/package.json', import.meta.url)
 const version = JSON.parse(fs.readFileSync(manifest, 'utf8')).version as string
 
-// The site deploys from main, so a version alone cannot identify a build. CI
-// hands the commit over through the environment, and a local build asks git.
+// The site deploys from main, so the version alone cannot identify a build.
 function buildCommit(): string | null {
   const fromWorkflow = process.env['GITHUB_SHA']
   if (fromWorkflow) {
@@ -18,7 +17,7 @@ function buildCommit(): string | null {
   try {
     return execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim()
   } catch {
-    // Building outside a checkout is fine. The version still prints.
+    // No git history, so the stamp falls back to the version alone.
     return null
   }
 }

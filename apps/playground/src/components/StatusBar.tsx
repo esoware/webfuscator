@@ -49,9 +49,8 @@ export function StatusBar({ warnings, onShowWarnings }: StatusBarProps) {
   )
 }
 
-// The playground bundles webfuscator from source on main, so it can run ahead of
-// the npm release. Printing the commit is what makes a "the playground gives me
-// something else" report answerable.
+// The playground bundles webfuscator from source on main, so it can run ahead
+// of the npm release. The commit is how you tell which build a bug report ran.
 function BuildStamp() {
   const commit = import.meta.env.BUILD_COMMIT
   const label = `webfuscator ${import.meta.env.WEBFUSCATOR_VERSION}`
@@ -59,7 +58,7 @@ function BuildStamp() {
     return <span>{label}</span>
   }
   return (
-    <Hint side="top" content="Built from main, which can run ahead of the published release">
+    <Hint side="top" content="Built from main, which can run ahead of the version on npm">
       <a
         href={commitUrl(commit)}
         target="_blank"
