@@ -82,7 +82,7 @@ export function OutputPane({ output, error }: OutputPaneProps) {
 
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="relative min-h-0 flex-1">
-          <CodeEditor path="output" value={output} readOnly />
+          <CodeEditor path="output.js" value={output} readOnly />
           {output === '' && error === null && (
             <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-fg-subtle">
               Press Obfuscate to fill this pane.

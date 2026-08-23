@@ -78,7 +78,7 @@ export function SourcePane({
           value="source"
           className="min-h-0 flex-1 focus-visible:-outline-offset-2 [[hidden]]:hidden"
         >
-          <CodeEditor path="source" value={source} onChange={onSourceChange} />
+          <CodeEditor path="source.js" value={source} onChange={onSourceChange} />
         </Tabs.Panel>
         {/* Not kept mounted like the source panel. Most sessions never open this
             tab, so a second Monaco instance is not worth building at first paint. */}
@@ -86,7 +86,7 @@ export function SourcePane({
           value="config"
           className="min-h-0 flex-1 focus-visible:-outline-offset-2 [[hidden]]:hidden"
         >
-          <CodeEditor path="config" value={configText} onChange={onConfigTextChange} />
+          <CodeEditor path="config.js" value={configText} onChange={onConfigTextChange} />
         </Tabs.Panel>
 
         {tab === 'config' && <ConfigBanner result={configResult} />}

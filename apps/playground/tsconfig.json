@@ -6,10 +6,6 @@
     "customConditions": ["source"],
     "types": ["vite/client", "node"],
 
-    // Two dependencies ship broken declarations. @monaco-editor/loader imports
-    // monaco-editor/esm/vs/editor/editor.api, which the exports map resolves to
-    // ./esm/vs/esm/vs/..., and @monaco-editor/react references the global JSX
-    // namespace that React 19 types removed.
     "skipLibCheck": true,
     "noEmit": true
   },
