@@ -2,7 +2,7 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { enclosingScopeHasDirectEval, isInsideWith } from '../utils/ast'
+import { isInsideWith } from '../utils/ast'
 import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 
@@ -65,10 +65,8 @@ const visitor: Visitor<ChangeState> = {
       arrowReferencesSuper(path) ||
       inUnsafeCaptureContext(path) ||
       usesReassignedArguments(path) ||
-      // `with` can shadow capture aliases, and direct eval can inspect the changed
-      // runtime meaning of `this` or `arguments`.
-      isInsideWith(path) ||
-      enclosingScopeHasDirectEval(path)
+      // `with` can capture Babel's `this` or `arguments` alias.
+      isInsideWith(path)
     ) {
       return
     }

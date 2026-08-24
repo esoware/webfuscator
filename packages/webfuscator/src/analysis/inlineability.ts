@@ -279,7 +279,7 @@ const analyzeBodyVisitor: Visitor<AnalyzeBodyState> = {
   },
   Identifier(path, state) {
     const name = path.node.name
-    if (state.innerFnDepth === 0 && (name === 'arguments' || name === 'eval')) {
+    if (state.innerFnDepth === 0 && name === 'arguments') {
       state.unsafe = true
       path.stop()
       return

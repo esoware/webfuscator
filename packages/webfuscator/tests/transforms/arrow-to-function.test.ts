@@ -281,10 +281,13 @@ test('arrowToFunction leaves an arrow whose capture alias a with object could sh
   )
 })
 
-test('arrowToFunction leaves an arrow whose this is read by a direct eval (A10-13)', () => {
-  preservesArrow(
-    'function outer() { var g = () => eval("this.tag"); return g.call({ tag: "inner" }); }\nlog(outer.call({ tag: "outer" }));',
+test('arrowToFunction does not skip an arrow containing eval', () => {
+  const out = run(
+    'function outer() { var g = () => eval("this.tag"); return g(); }\nlog(outer.call({ tag: "outer" }));',
+    arrowToFunction,
   )
+  expect(out).not.toContain('=>')
+  expect(out).toContain('function ()')
 })
 
 test('arrowToFunction leaves an arrow when arguments is rebound by destructuring (A10-14)', () => {

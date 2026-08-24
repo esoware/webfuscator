@@ -101,6 +101,47 @@ test('valueToLiteral returns null for values with no literal form', () => {
   expect(valueToLiteral([1, () => {}])).toBeNull()
 })
 
+test('valueToLiteral enforces depth, node-count, and generated-size budgets', () => {
+  const nest = (depth: number): unknown => {
+    let value: unknown = 0
+    for (let index = 0; index < depth; index++) {
+      value = [value]
+    }
+    return value
+  }
+
+  expect(valueToLiteral(nest(32))).not.toBeNull()
+  expect(valueToLiteral(nest(33))).toBeNull()
+  expect(valueToLiteral(Array.from({ length: 511 }, () => 0))).not.toBeNull()
+  expect(valueToLiteral(Array.from({ length: 512 }, () => 0))).toBeNull()
+  expect(valueToLiteral('\0'.repeat(4096))).toBeNull()
+})
+
+test('valueToLiteral rejects arrays whose literal shape would lose behavior', () => {
+  const sparse = Object.defineProperty([], 'length', { value: 2 })
+  const extra = [1] as unknown[] & { extra?: number }
+  extra.extra = 2
+  const readonly = [1]
+  Object.defineProperty(readonly, '0', { writable: false })
+  const symbolic = [1]
+  Object.defineProperty(symbolic, Symbol('extra'), { value: 2 })
+
+  expect(valueToLiteral(sparse)).toBeNull()
+  expect(valueToLiteral(extra)).toBeNull()
+  expect(valueToLiteral(readonly)).toBeNull()
+  expect(valueToLiteral(Object.freeze([1]))).toBeNull()
+  expect(valueToLiteral(symbolic)).toBeNull()
+})
+
+test('valueToLiteral rejects repeated array identity and cycles', () => {
+  const shared = [1]
+  const cyclic: unknown[] = []
+  cyclic.push(cyclic)
+
+  expect(valueToLiteral([shared, shared])).toBeNull()
+  expect(valueToLiteral(cyclic)).toBeNull()
+})
+
 test('isLiteralShaped accepts literals and unary chains over literals', () => {
   const shaped = [
     '5',

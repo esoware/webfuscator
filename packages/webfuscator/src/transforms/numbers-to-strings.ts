@@ -1,7 +1,8 @@
-import type { NodePath, Visitor } from '@babel/traverse'
+import type { Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
+import { isNonComputedKey } from '../utils/ast'
 import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 
@@ -47,15 +48,4 @@ const visitor: Visitor<ChangeState> = {
     path.skip()
     state.changed = true
   },
-}
-
-function isNonComputedKey(path: NodePath<t.NumericLiteral>): boolean {
-  const parentPath = path.parentPath
-  if (!parentPath) {
-    return false
-  }
-  const parent = parentPath.node
-  return (
-    'key' in parent && parent.key === path.node && 'computed' in parent && parent.computed === false
-  )
 }

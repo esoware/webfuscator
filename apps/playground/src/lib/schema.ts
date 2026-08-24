@@ -24,7 +24,7 @@ export function isDefaultModeOption(value: StringGeneratorModeOption): boolean {
 }
 
 /** How much of an entry the options panel renders below its toggle. */
-type TransformKind = 'boolean' | 'mode' | 'mangle' | 'pack'
+type TransformKind = 'boolean' | 'conceal' | 'mode' | 'mangle' | 'pack'
 
 export interface TransformSpec {
   name: TransformName
@@ -129,6 +129,21 @@ export const TRANSFORM_GROUPS = [
         description: 'Rewrites safe function declarations as var initializers.',
       },
       {
+        name: 'reorderFunctionDeclarations',
+        kind: 'boolean',
+        description: 'Moves hoisted function declarations to the end of their scope.',
+      },
+      {
+        name: 'hoistVariables',
+        kind: 'boolean',
+        description: 'Raises eligible var bindings to one declaration with in-place assignments.',
+      },
+      {
+        name: 'mergeVariableDeclarations',
+        kind: 'boolean',
+        description: 'Fuses compatible same-kind declarations into one.',
+      },
+      {
         name: 'packDeclarationsIntoParameters',
         kind: 'boolean',
         description: 'Moves literal var declarations into trailing default parameters.',
@@ -212,6 +227,11 @@ export const TRANSFORM_GROUPS = [
         name: 'numbersToStrings',
         kind: 'mode',
         description: 'Rewrites numeric literals as strings coerced with unary plus.',
+      },
+      {
+        name: 'concealStrings',
+        kind: 'conceal',
+        description: 'Rebuilds runtime strings from padded pools and masked positions.',
       },
       {
         name: 'mangleProperties',

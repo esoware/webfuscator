@@ -200,10 +200,11 @@ test('evaluateConstant refuses any identifier read inside a `with` block', () =>
   expect(evalRecordArg('with (obj) { record(undefined); }').known).toBe(false)
 })
 
-test('evaluateConstant refuses an identifier read when a direct eval shares its scope', () => {
-  expect(evalRecordArg('var k = 5; function f(){ eval("var k = 7"); record(k); } f();').known).toBe(
-    false,
-  )
+test('evaluateConstant does not special-case eval calls in the binding scope', () => {
+  expect(evalRecordArg('function f(){ var k = 5; eval("var k = 7"); record(k); } f();')).toEqual({
+    known: true,
+    value: 5,
+  })
 })
 
 test('evaluateConstant refuses the identifier `undefined` when a binding shadows it', () => {

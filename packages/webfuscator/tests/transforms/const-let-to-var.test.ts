@@ -2,6 +2,7 @@ import { createContext, runInContext } from 'node:vm'
 
 import { expect, test } from 'vitest'
 
+import { obfuscate } from '../../src/obfuscator'
 import { constLetToVar } from '../../src/transforms/const-let-to-var'
 import { defineCases, run } from '../helpers'
 
@@ -15,6 +16,15 @@ function capture(code: string): { logs: string[]; threw: string | null } {
   } catch (error) {
     return { logs, threw: (error as Error).constructor.name }
   }
+}
+
+function runInGlobal(code: string): string[] {
+  const logs: string[] = []
+  const context = createContext({
+    log: (...values: unknown[]) => logs.push(values.join('|')),
+  })
+  runInContext(code, context)
+  return logs
 }
 
 function expectEquivalent(input: string): string {
@@ -299,18 +309,50 @@ test('A04-13 constLetToVar preserves Annex B hoisting from a captured loop', () 
   expect(out).toContain('let k')
 })
 
-// A04-14: Top-level lexical bindings must not become global properties.
-test('A04-14 constLetToVar leaves top-level lexical bindings off the global object', () => {
+test('A04-14 constLetToVar leaves top-level script lexicals off the global object', () => {
   const src = `let a = 1; const b = 2; log(typeof globalThis.a, typeof globalThis.b);`
   const out = run(src, constLetToVar)
   expect(out).toContain('let a = 1')
   expect(out).toContain('const b = 2')
-  const runInGlobal = (code: string): string[] => {
-    const trace: string[] = []
-    const ctx = createContext({ log: (...values: unknown[]) => trace.push(values.join('|')) })
-    runInContext(code, ctx)
-    return trace
-  }
+  expect(runInGlobal(out)).toEqual(runInGlobal(src))
+})
+
+test('A04-14b constLetToVar lifts top-level module lexicals', () => {
+  const out = run(
+    `export {};
+let a = 1;
+const b = 2;
+a + b;`,
+    constLetToVar,
+  )
+  expect(out).toContain('var a = 1')
+  expect(out).toContain('var b = 2')
+})
+
+// A circular importer can read the binding before initialization, when only a
+// lexical declaration preserves the TDZ.
+test('A04-14d constLetToVar keeps exported module lexicals lexical', () => {
+  const out = run(
+    `export let a = 1;
+export const b = 2;
+let c = 3;
+export { c };
+let d = 4;
+a + b + c + d;`,
+    constLetToVar,
+  )
+  expect(out).toContain('export let a = 1')
+  expect(out).toContain('export const b = 2')
+  expect(out).toContain('let c = 3')
+  expect(out).toContain('var d = 4')
+})
+
+test('A04-14c public pipeline preserves script globals with hoisting enabled', () => {
+  const src = `let x = 1; log(typeof globalThis.x);`
+  const out = obfuscate(src, {
+    transforms: { constLetToVar: true, hoistVariables: true },
+  })
+  expect(out).toContain('let x = 1;')
   expect(runInGlobal(out)).toEqual(runInGlobal(src))
 })
 

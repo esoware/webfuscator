@@ -85,6 +85,12 @@ function evalScript(code: string, harness: Record<string, unknown>): unknown[] {
   return calls
 }
 
+let moduleId = 0
+async function importModule(code: string): Promise<Record<string, unknown>> {
+  const url = `data:text/javascript,${encodeURIComponent(code)}#${moduleId++}`
+  return (await import(url)) as Record<string, unknown>
+}
+
 test(cases.siblingParams.name, () => {
   const out = run(cases.siblingParams.input, renameMangled)
   expect(out).not.toContain(' a + b')
@@ -185,9 +191,10 @@ test('renameIdentifiers does not rename a binding referenced inside a with block
   expect(after).toEqual(before)
 })
 
-test('renameIdentifiers does not rename locals in a function with direct eval', () => {
-  const { before, after } = runBoth("function f() { var x = 42; return eval('x'); } log(f());")
-  expect(after).toEqual(before)
+test('renameIdentifiers does not pin names visible to eval', () => {
+  const out = run("function f() { var x = 42; return eval('x'); } log(f());", renameMangled)
+  expect(out).not.toContain('function f')
+  expect(out).not.toContain('var x')
 })
 
 test('renameIdentifiers does not generate a name that captures a free reference', () => {
@@ -204,11 +211,25 @@ test('renameIdentifiers keeps import/export external names intact', () => {
   expect(exportOut).toMatch(/export\s*\{\s*\w+ as a\s*\}/)
 })
 
-test('renameIdentifiers reserves an eval-pinned outer name in a nested scope (A10-01)', () => {
-  const { before, after } = runBoth(
-    "var M = 1; function e() { eval(''); } function f() { var q = 2; log(M, q); } f();",
-  )
-  expect(after).toEqual(before)
+test('renameIdentifiers preserves names from direct exported declarations', async () => {
+  const src = `export let publicValue = 2;
+publicValue += 3;
+export function publicFunction() { return publicValue + 1; }
+export class PublicClass { read() { return publicFunction() + 1; } }
+export const { left, right: renamedRight } = { left: 8, right: 9 };`
+  const out = run(src, renameMangled)
+  const [before, after] = await Promise.all([importModule(src), importModule(out)])
+
+  expect(Object.keys(after).toSorted()).toEqual(Object.keys(before).toSorted())
+  expect(after['publicValue']).toBe(5)
+  expect((after['publicFunction'] as () => number)()).toBe(6)
+  const ExportedClass = after['PublicClass'] as new () => { read: () => number }
+  expect(new ExportedClass().read()).toBe(7)
+  expect(after['left']).toBe(8)
+  expect(after['renamedRight']).toBe(9)
+  expect(out).not.toContain('let publicValue')
+  expect(out).not.toContain('function publicFunction')
+  expect(out).not.toContain('class PublicClass')
 })
 
 test('renameIdentifiers reserves a with-pinned outer name in a nested scope (A10-01)', () => {

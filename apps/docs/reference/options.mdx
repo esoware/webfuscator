@@ -34,7 +34,7 @@ Type: object<br />Default: `{}`
 
 All configurable transforms are disabled by default; set a key to `true` or an options object to enable it.
 
-`renameIdentifiers` and `specialsToStrings` also accept `{ stringGeneratorMode }`. `pack` accepts `{ escapeStrict, stringGeneratorMode }`. `mangleProperties` accepts its [property options](/reference/property-mangling-options).
+`renameIdentifiers` and `specialsToStrings` also accept `{ stringGeneratorMode }`. `concealStrings` accepts `{ cache, cover, deduplicate, scope }`. `pack` accepts `{ escapeStrict, skipGlobals, stringGeneratorMode }`. `mangleProperties` accepts its [property options](/reference/property-mangling-options).
 
 ```js Enable selected transforms
 const output = obfuscate(source, {
@@ -72,10 +72,13 @@ const output = obfuscate(source, {
 | --- | --- |
 | `constToLet` | [Const to let](./transforms/const-to-let.mdx) |
 | `constLetToVar` | [Const and let to var](./transforms/const-let-to-var.mdx) |
+| `hoistVariables` | [Hoist variables](./transforms/hoist-variables.mdx) |
+| `mergeVariableDeclarations` | [Merge variable declarations](./transforms/merge-variable-declarations.mdx) |
 | `objectMethodToProperty` | [Object methods to properties](./transforms/object-method-to-property.mdx) |
 | `arrowToFunction` | [Arrow to function](./transforms/arrow-to-function.mdx) |
 | `functionDeclarationToExpression` | [Function declarations to expressions](./transforms/function-declaration-to-expression.mdx) |
 | `packDeclarationsIntoParameters` | [Pack declarations into parameters](./transforms/pack-declarations-into-parameters.mdx) |
+| `reorderFunctionDeclarations` | [Reorder function declarations](./transforms/reorder-function-declarations.mdx) |
 
 ### Control flow
 
@@ -104,6 +107,7 @@ const output = obfuscate(source, {
 | --- | --- |
 | `specialsToStrings` | [Special values to strings](./transforms/specials-to-strings.mdx) |
 | `numbersToStrings` | [Numbers to strings](./transforms/numbers-to-strings.mdx) |
+| `concealStrings` | [Conceal strings](./transforms/conceal-strings.mdx) |
 | `mangleProperties` | [Mangle properties](./transforms/mangle-properties.mdx) |
 | `renameIdentifiers` | [Rename identifiers](./transforms/rename-identifiers.mdx) |
 

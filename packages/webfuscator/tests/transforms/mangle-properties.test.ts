@@ -709,6 +709,20 @@ log(lookup(object, /*#__KEY__*/ "secret_"));`
   expect(out).not.toContain('secret_')
 })
 
+test('mangleProperties ignores annotation markers embedded in other text', () => {
+  const input = `function lookup(object, key) { return object[key]; }
+var object = { /* explain @__MANGLE_PROP__ here */ secret_: 8 };
+log(lookup(object, /* explain @__KEY__ here */ "secret_"));`
+  const out = transform(input, {
+    builtins: true,
+    nameGenerator: () => 'renamed',
+    onlyAnnotated: true,
+  })
+  expect(trace(out)).toEqual(trace(input))
+  expect(out).toContain('secret_')
+  expect(out).not.toContain('renamed')
+})
+
 test('mangleProperties rewrites strings marked with @__KEY__ in arbitrary expressions', () => {
   const input = `function lookup(object, key) { return object[key]; }
 var object = { /*@__MANGLE_PROP__*/ secret_: 8 };

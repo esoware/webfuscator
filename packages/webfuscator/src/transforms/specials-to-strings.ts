@@ -4,7 +4,7 @@ import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
 import type { TransformContext } from '../options'
-import { enclosingScopeHasDirectEval, isInsideWith } from '../utils/ast'
+import { isInsideWith } from '../utils/ast'
 import type { ChangeState } from '../utils/change-tracking'
 import { mulberry32 } from '../utils/random'
 import { StringGenerator } from '../utils/string-generator'
@@ -69,8 +69,9 @@ const visitor: Visitor<State> = {
     if (path.scope.getBinding(name)) {
       return
     }
-    // Replacements are not write targets. `with` and eval can also shadow globals.
-    if (isWriteTarget(path) || isInsideWith(path) || enclosingScopeHasDirectEval(path)) {
+    // A replacement cannot occupy a write target. `with` may also shadow `NaN`,
+    // `Infinity`, or `undefined`.
+    if (isWriteTarget(path) || isInsideWith(path)) {
       return
     }
     const str = t.stringLiteral(state.generator.next())

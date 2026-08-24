@@ -2,14 +2,14 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
+import { parse } from '@babel/parser'
+
 // `tsc` copies every relative specifier into its output verbatim, so a build
 // that loses the `tsc-alias` step still imports cleanly from a bundler and
 // throws ERR_MODULE_NOT_FOUND under Node. Nothing else reads `dist`, so without
 // this check that build ships.
 
 const distDirectory = path.join(import.meta.dirname, '..', 'dist')
-const relativeSpecifier =
-  /\bfrom\s*['"](?<specifier>\.{1,2}\/[^'"]*)['"]|\bimport\s*\(\s*['"](?<dynamic>\.{1,2}\/[^'"]*)['"]/gu
 
 function* walk(directory) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
@@ -29,14 +29,53 @@ function findExtensionlessSpecifiers() {
       continue
     }
     const text = fs.readFileSync(file, 'utf8')
-    for (const match of text.matchAll(relativeSpecifier)) {
-      const specifier = match.groups.specifier ?? match.groups.dynamic
-      if (!specifier.endsWith('.js')) {
+    for (const specifier of moduleSpecifiers(file, text)) {
+      if (specifier.startsWith('.') && !specifier.endsWith('.js')) {
         offenders.push(`${path.relative(distDirectory, file)} imports "${specifier}"`)
       }
     }
   }
   return offenders
+}
+
+function moduleSpecifiers(file, text) {
+  const ast = parse(text, {
+    plugins: file.endsWith('.d.ts') ? ['typescript'] : [],
+    sourceType: 'unambiguous',
+  })
+  const specifiers = []
+  visit(ast.program, specifiers)
+  return specifiers
+}
+
+function visit(value, specifiers) {
+  if (Array.isArray(value)) {
+    for (const element of value) {
+      visit(element, specifiers)
+    }
+    return
+  }
+  if (value === null || typeof value !== 'object') {
+    return
+  }
+
+  if (
+    (value.type === 'ImportDeclaration' ||
+      value.type === 'ExportAllDeclaration' ||
+      value.type === 'ExportNamedDeclaration') &&
+    value.source?.type === 'StringLiteral'
+  ) {
+    specifiers.push(value.source.value)
+  } else if (
+    (value.type === 'ImportExpression' || value.type === 'TSImportType') &&
+    value.source?.type === 'StringLiteral'
+  ) {
+    specifiers.push(value.source.value)
+  }
+
+  for (const child of Object.values(value)) {
+    visit(child, specifiers)
+  }
 }
 
 const offenders = findExtensionlessSpecifiers()

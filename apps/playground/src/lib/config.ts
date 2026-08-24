@@ -1,4 +1,5 @@
 import type {
+  ConcealStringsOptions,
   ManglePropertiesOptions,
   ObfuscatorOptions,
   PackOptions,
@@ -85,20 +86,46 @@ function serializeTransforms(
       case 'boolean':
         out[spec.name] = true
         break
+      case 'conceal':
+        out[spec.name] =
+          typeof entry === 'object' ? serializeConceal(entry as ConcealStringsOptions) : true
+        break
       case 'mode':
         out[spec.name] =
-          typeof entry === 'object' ? serializeModeEntry(entry.stringGeneratorMode) : true
+          typeof entry === 'object'
+            ? serializeModeEntry(
+                (entry as { stringGeneratorMode?: StringGeneratorModeOption }).stringGeneratorMode,
+              )
+            : true
         break
       case 'mangle':
-        out[spec.name] = typeof entry === 'object' ? serializeMangle(entry) : true
+        out[spec.name] =
+          typeof entry === 'object' ? serializeMangle(entry as ManglePropertiesOptions) : true
         break
       case 'pack':
-        out[spec.name] = typeof entry === 'object' ? serializePack(entry) : true
+        out[spec.name] = typeof entry === 'object' ? serializePack(entry as PackOptions) : true
         break
     }
   }
 
   return Object.keys(out).length > 0 ? out : undefined
+}
+
+function serializeConceal(conceal: ConcealStringsOptions): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  if (conceal.cache === false) {
+    out['cache'] = false
+  }
+  if (conceal.cover !== undefined && conceal.cover !== 'regional') {
+    out['cover'] = conceal.cover
+  }
+  if (conceal.deduplicate === false) {
+    out['deduplicate'] = false
+  }
+  if (conceal.scope === 'function') {
+    out['scope'] = 'function'
+  }
+  return out
 }
 
 function serializeModeEntry(mode: StringGeneratorModeOption | undefined): Record<string, unknown> {
@@ -334,7 +361,10 @@ function expectTransforms(value: unknown, warnings: string[]): TransformsMap | u
       // TypeScript cannot correlate a spec's `kind` with its `name`, though the
       // branch above has already proven which subset this name belongs to.
       transforms[
-        spec.name as Exclude<TransformName, ModeOverrideName | 'mangleProperties' | 'pack'>
+        spec.name as Exclude<
+          TransformName,
+          ModeOverrideName | 'concealStrings' | 'mangleProperties' | 'pack'
+        >
       ] = true
       continue
     }
@@ -345,6 +375,13 @@ function expectTransforms(value: unknown, warnings: string[]): TransformsMap | u
       const mode = expectModeEntry(spec.name as ModeOverrideName, entry, warnings)
       if (mode !== undefined) {
         transforms[spec.name as ModeOverrideName] = mode
+      }
+      continue
+    }
+    if (spec.kind === 'conceal') {
+      const conceal = entry === true ? true : expectConceal(entry, warnings)
+      if (conceal !== undefined) {
+        transforms['concealStrings'] = conceal
       }
       continue
     }
@@ -369,6 +406,30 @@ function expectTransforms(value: unknown, warnings: string[]): TransformsMap | u
 
   // The same missing correlation, on entries the loop has already shape-checked.
   return Object.keys(transforms).length > 0 ? (transforms as TransformsMap) : undefined
+}
+
+function expectConceal(entry: unknown, warnings: string[]): ConcealStringsOptions | undefined {
+  if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
+    warnings.push('Ignoring "concealStrings": expected true or an options object.')
+    return undefined
+  }
+  const input = entry as Record<string, unknown>
+  const conceal: ConcealStringsOptions = {}
+  assignIfDefined(conceal, 'cache', expectBoolean(input, 'cache', warnings))
+  const cover = input['cover']
+  if (cover === 'full' || cover === 'regional' || cover === 'used') {
+    conceal.cover = cover
+  } else if (cover !== undefined) {
+    warnings.push('Ignoring "concealStrings.cover": expected "full", "regional", or "used".')
+  }
+  assignIfDefined(conceal, 'deduplicate', expectBoolean(input, 'deduplicate', warnings))
+  const scope = input['scope']
+  if (scope === 'function' || scope === 'program') {
+    conceal.scope = scope
+  } else if (scope !== undefined) {
+    warnings.push('Ignoring "concealStrings.scope": expected "function" or "program".')
+  }
+  return conceal
 }
 
 function expectModeEntry(

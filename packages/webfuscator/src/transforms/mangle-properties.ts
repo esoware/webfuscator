@@ -507,7 +507,7 @@ function rewriteKeyedProperty(path: NodePath<KeyedProperty>, state: PropertyMang
   if (mangled === name) {
     return
   }
-  node.key = t.inheritsComments(t.stringLiteral(mangled), node.key)
+  node.key = t.stringLiteral(mangled)
   node.computed = false
   if (t.isObjectProperty(node)) {
     node.shorthand = false
@@ -532,7 +532,7 @@ function rewriteMember(path: NodePath<Member>, state: PropertyManglerState): voi
   }
   // Babel narrows members by `computed`, so both fields need widening.
   const computed = node as Member & { computed: boolean; property: t.Expression }
-  computed.property = t.inheritsComments(t.stringLiteral(mangled), node.property)
+  computed.property = t.stringLiteral(mangled)
   computed.computed = true
   state.changed = true
 }
@@ -586,7 +586,7 @@ function rewriteTerminalNames(
       node.value = mangled
       return node
     }
-    return t.inheritsComments(t.stringLiteral(mangled), node)
+    return t.stringLiteral(mangled)
   }
   if (t.isSequenceExpression(node)) {
     const last = node.expressions.length - 1
@@ -684,10 +684,10 @@ function isTransparentAnnotationParent(path: NodePath, child: t.Node): boolean {
 
 function hasAnnotation(node: t.Node, annotation: string): boolean {
   return (
-    node.leadingComments?.some(
-      (comment) =>
-        comment.value.includes(`@${annotation}`) || comment.value.includes(`#${annotation}`),
-    ) ?? false
+    node.leadingComments?.some((comment) => {
+      const value = comment.value.trim()
+      return value === `@${annotation}` || value === `#${annotation}`
+    }) ?? false
   )
 }
 

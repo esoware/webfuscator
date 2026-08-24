@@ -2,7 +2,7 @@ import type { Binding, NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { enclosingScopeHasDirectEval, hasDuplicateParamNames } from '../utils/ast'
+import { hasDuplicateParamNames } from '../utils/ast'
 import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 import { isLiteralShaped } from '../utils/literal'
@@ -73,10 +73,6 @@ function packLeadingIntoParams(path: NodePath<t.Function>): boolean {
   }
   // Defaults make `arguments` unmapped.
   if (referencesArguments(path)) {
-    return false
-  }
-  // Direct eval can inspect the newly unmapped `arguments` by name.
-  if (enclosingScopeHasDirectEval(path)) {
     return false
   }
   // A caller with extra arguments could fill the new parameter slot.

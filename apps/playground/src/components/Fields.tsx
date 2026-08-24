@@ -89,12 +89,14 @@ export function NumberSpinner({
   hint,
   value,
   min,
+  max,
   onChange,
 }: {
   label: string
   hint: string
   value: number
   min: number
+  max?: number
   onChange: (value: number) => void
 }) {
   return (
@@ -103,6 +105,8 @@ export function NumberSpinner({
         className="contents"
         value={value}
         min={min}
+        max={max}
+        step={1}
         onValueChange={(next) => {
           onChange(next ?? min)
         }}

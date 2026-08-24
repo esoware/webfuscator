@@ -114,13 +114,11 @@ const STANDARD_GLOBALS: readonly string[] = [
  * bundler-injected binding, or a live import, none reachable from the body and
  * none distinguishable from a global at build time, so free names are routed
  * through a parameter object whose accessors run in the original top-level scope
- * and resolve each name there. Import declarations return above the call. `eval`
- * is left un-routed so a direct eval still reads the body scope. Names inside a
- * `with` stay un-routed too, since they may resolve against the with object at
- * runtime. Export statements cannot live inside a Function body, so pack throws
- * on them. It packs everything else as written. Code that needs `import.meta`,
- * top-level await, dynamic `import()`, or a top-level `arguments` will not run
- * once moved into a Function body.
+ * and resolve each name there. Imports remain above the call. Names inside
+ * `with` stay bare so the object still controls lookup. A Function body cannot
+ * contain exports, so pack throws when it finds one. Code that needs
+ * `import.meta`, top-level await, dynamic `import()`, or top-level `arguments`
+ * will not run after the move.
  *
  * @example
  * // ◀️ before
@@ -230,10 +228,9 @@ function packProgram(programPath: NodePath<t.Program>, ctx: TransformContext): b
 
   const isRoutable = (path: NodePath<t.Identifier>): boolean => {
     const name = path.node.name
-    // The wrapper parameter stays as written. `arguments` and `eval` are never
-    // routed: `arguments` binds to its own function's object, and leaving `eval`
-    // bare keeps a direct eval reading the body scope rather than the global one.
-    if (name === objectName || name === 'arguments' || name === 'eval') {
+    // Keep the wrapper parameter and `arguments` bare. The latter must bind to
+    // the wrapper function's own arguments object.
+    if (name === objectName || name === 'arguments') {
       return false
     }
     // Inside `with`, a free name may resolve to a property of the with object at
@@ -298,18 +295,13 @@ function packProgram(programPath: NodePath<t.Program>, ctx: TransformContext): b
   }
   programPath.traverse(routingVisitor)
 
-  // The script completion value is its trailing expression; returning it keeps
-  // `eval` of the packed output producing the same value.
   const body = programNode.body
-  const lastStatement = body.at(-1)
-  if (lastStatement && t.isExpressionStatement(lastStatement)) {
-    body[body.length - 1] = t.returnStatement(lastStatement.expression)
-  }
-
   const innerDirectives = bodyStrict ? [t.directive(t.directiveLiteral('use strict'))] : []
   const innerCode = generate(t.program(body, innerDirectives, 'script'), {
     minified: true,
     comments: false,
+    // `comments: false` still allows @license and @preserve.
+    shouldPrintComment: () => false,
   }).code
 
   const objectExpression = buildAccessorObject({

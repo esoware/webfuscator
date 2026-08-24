@@ -4,13 +4,13 @@ import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
 import { initializerReaches } from '../analysis/document-order'
-import { enclosingScopeHasDirectEval, isInsideWith } from '../utils/ast'
+import { isInsideWith } from '../utils/ast'
 import { hasConstantViolation } from '../utils/paths'
 
 /**
- * Lifts safe lexical declarations to function-scoped `var`, renaming collisions
- * caused by hoisting. TDZ reads, reassigned constants, captured loop bindings,
- * uninitialized loop heads, program scope, `with`, and direct eval are refused.
+ * Converts safe `let` and `const` declarations to `var` and renames bindings
+ * that would conflict after hoisting. It skips TDZ reads, reassigned constants,
+ * captured loop bindings, uninitialized loop heads, script globals, and `with`.
  *
  * @example
  * // ◀️ before
@@ -33,8 +33,8 @@ export function constLetToVar(ast: File): boolean {
       if (kind !== 'let' && kind !== 'const') {
         return
       }
-      // Babel cannot see names supplied by `with` or direct eval.
-      if (isInsideWith(path) || enclosingScopeHasDirectEval(path)) {
+      // Babel's scope table cannot account for properties supplied by `with`.
+      if (isInsideWith(path)) {
         return
       }
       // A `var` write would lose the `const` TypeError.
@@ -49,11 +49,19 @@ export function constLetToVar(ast: File): boolean {
       if (forHeadMissingInitializer(path)) {
         return
       }
-      // Top-level `var` creates a global property. Lexical declarations do not.
       const blockScope = path.scope
       const varScope = blockScope.getFunctionParent() ?? blockScope.getProgramParent()
       if (varScope.path.isProgram()) {
-        return
+        // Script `var` creates a global-object property; module `var` does not.
+        if (varScope.path.node.sourceType !== 'module') {
+          return
+        }
+        // A circular importer can read this binding before initialization. A
+        // lexical binding throws in TDZ then, while `var` reads `undefined`. That
+        // external read does not appear in this file's references.
+        if (bindsExportedName(path)) {
+          return
+        }
       }
       // One `var` cannot preserve per-iteration bindings captured by closures.
       if (capturedInEnclosingLoop(path)) {
@@ -68,7 +76,7 @@ export function constLetToVar(ast: File): boolean {
       if (!id) {
         return
       }
-      if (isInsideWith(path) || enclosingScopeHasDirectEval(path)) {
+      if (isInsideWith(path)) {
         return
       }
 
@@ -133,6 +141,26 @@ function forHeadMissingInitializer(path: NodePath<t.VariableDeclaration>): boole
     return false
   }
   return path.node.declarations.some((decl) => decl.init == null)
+}
+
+// A source clause re-exports another module's binding, not this local binding.
+function bindsExportedName(path: NodePath<t.VariableDeclaration>): boolean {
+  if (path.parentPath.isExportNamedDeclaration()) {
+    return true
+  }
+  const names = new Set(Object.keys(path.getBindingIdentifiers()))
+  const program = path.scope.getProgramParent().path.node as t.Program
+  for (const statement of program.body) {
+    if (!t.isExportNamedDeclaration(statement) || statement.source) {
+      continue
+    }
+    for (const specifier of statement.specifiers) {
+      if (t.isExportSpecifier(specifier) && names.has(specifier.local.name)) {
+        return true
+      }
+    }
+  }
+  return false
 }
 
 // A nested function or class can observe the loop's per-iteration binding.

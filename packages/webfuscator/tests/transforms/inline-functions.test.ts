@@ -992,14 +992,15 @@ log(r);`,
   expect(out).toContain('function f')
 })
 
-test('inlineFunctions does not splice a body into a scope with direct eval (A01-09)', () => {
-  const out = preservesInline(
+test('inlineFunctions does not skip a call site in a scope containing eval', () => {
+  const out = run(
     `var v = 'outer';
 function f() { return v; }
 function g() { eval('var v = "inner";'); return f(); }
 log(g());`,
+    inlineFunctions,
   )
-  expect(out).toContain('function f')
+  expect(out).not.toContain('function f')
 })
 
 test('inlineFunctions does not splice across an Annex B block-function hoist (A01-09b)', () => {

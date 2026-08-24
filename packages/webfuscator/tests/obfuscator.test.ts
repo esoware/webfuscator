@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { obfuscateWithTransformPipeline as obfuscate } from './obfuscator-helpers'
+import { obfuscateAll } from './obfuscator-helpers'
 
 function evalProgram(code: string, harness?: Record<string, unknown>): unknown {
   const keys = harness ? Object.keys(harness) : []
@@ -12,91 +12,85 @@ test('obfuscate is pure: same input produces same output across calls', () => {
   const src = `function add(a, b) { return a + b; }
 var v = add(1, 2);
 log(v);`
-  const a = obfuscate(src)
-  const b = obfuscate(src)
+  const a = obfuscateAll(src)
+  const b = obfuscateAll(src)
   expect(a).toBe(b)
 })
 
 test('obfuscate accepts options without altering equivalence', () => {
   const src = `var x = 1 + 2; log(x);`
-  expect(obfuscate(src)).toBe(obfuscate(src, {}))
+  expect(obfuscateAll(src)).toBe(obfuscateAll(src, {}))
 })
 
-test('obfuscate preserves a license-bang block comment', () => {
-  const out = obfuscate(`/*! (c) 2025 Acme Corp. All rights reserved. */
-log('hi');`)
-  expect(out).toContain('(c) 2025 Acme Corp')
+test.each([false, true])('obfuscate strips every comment when minify is %s', (minify) => {
+  const out = obfuscateAll(
+    `/*! copyright */
+/** @license MIT */
+/** @preserve internal-name */
+// regular
+/* also regular */
+log('hi');
+//# sourceURL=original.js
+//# sourceMappingURL=original.js.map`,
+    { minify },
+  )
+  for (const text of [
+    'copyright',
+    '@license',
+    '@preserve',
+    'regular',
+    'sourceURL',
+    'sourceMappingURL',
+  ]) {
+    expect(out).not.toContain(text)
+  }
 })
 
-test('obfuscate preserves a comment containing @license', () => {
-  const out = obfuscate(`/** @license MIT */
-log('hi');`)
-  expect(out).toContain('@license')
-})
-
-test('obfuscate preserves a comment containing @preserve', () => {
-  const out = obfuscate(`/** @preserve fingerprint */
-log('hi');`)
-  expect(out).toContain('@preserve')
-})
-
-test('obfuscate preserves comments attached to mangled property expressions', () => {
-  const out = obfuscate(
-    `var object = { /*! key-license */ secret_: read() };
+test('obfuscate consumes property annotations without printing them', () => {
+  const out = obfuscateAll(
+    `var object = { /*@__MANGLE_PROP__*/ secret_: read() };
 expose(object);
-log(object./*! member-license */secret_, object[/*! computed-license */ \`secret_\`]);`,
+log(object.secret_, object[/*@__KEY__*/ "secret_"]);`,
     {
       transforms: {
+        concealStrings: false,
         mangleProperties: {
           builtins: true,
           nameGenerator: () => 'renamed',
+          onlyAnnotated: true,
         },
       },
     },
   )
-  expect(out).toContain('key-license')
-  expect(out).toContain('member-license')
-  expect(out).toContain('computed-license')
+  expect(out).not.toContain('__MANGLE_PROP__')
+  expect(out).not.toContain('__KEY__')
+  expect(out).not.toContain('secret_')
+  expect(out).toContain('renamed')
 })
 
-test('obfuscate preserves the //# sourceMappingURL directive', () => {
-  const out = obfuscate(`log('hi');
-//# sourceMappingURL=app.js.map`)
-  expect(out).toContain('//# sourceMappingURL=app.js.map')
-})
-
-test('obfuscate preserves the //# sourceURL directive', () => {
-  const out = obfuscate(`log('hi');
-//# sourceURL=app.js`)
-  expect(out).toContain('//# sourceURL=app.js')
-})
-
-test('obfuscate drops every other comment', () => {
-  const out = obfuscate(`// regular
-/* also regular */
-/** @internal */
+test('obfuscate keeps a hashbang', () => {
+  const out = obfuscateAll(`#!/usr/bin/env node
 log('hi');`)
-  expect(out).not.toContain('regular')
-  expect(out).not.toContain('@internal')
+  expect(out).toMatch(/^#!\/usr\/bin\/env node/u)
 })
 
 test('obfuscate keeps a "use strict" directive present in the input', () => {
-  const out = obfuscate(`'use strict';
+  const out = obfuscateAll(`'use strict';
 log('hi');`)
   expect(out).toMatch(/^['"]use strict['"]/m)
 })
 
 test('obfuscate does not introduce "use strict" when input lacks one', () => {
-  const out = obfuscate(`log('hi');`)
+  const out = obfuscateAll(`log('hi');`)
   expect(out).not.toMatch(/['"]use strict['"]/)
 })
 
 test('obfuscate propagates parse errors instead of swallowing them', () => {
-  expect(() => obfuscate(`var = ;`)).toThrow()
+  expect(() => obfuscateAll(`var = ;`)).toThrow()
 })
 
 test('obfuscate of arithmetic preserves observable result', () => {
-  const out = obfuscate(`var x = 1 + 2 * 3 - 4; var y = x % 3; var z = x ** 2;
+  const out = obfuscateAll(`var x = 1 + 2 * 3 - 4; var y = x % 3; var z = x ** 2;
 log(x); log(y); log(z);`)
   const calls: unknown[] = []
   evalProgram(out, { log: (v: unknown) => calls.push(v) })
@@ -104,7 +98,7 @@ log(x); log(y); log(z);`)
 })
 
 test('obfuscate of a recursive factorial preserves observable result', () => {
-  const out = obfuscate(`function fact(n) {
+  const out = obfuscateAll(`function fact(n) {
   return n <= 1 ? 1 : n * fact(n - 1);
 }
 log(fact(6));`)
@@ -114,7 +108,7 @@ log(fact(6));`)
 })
 
 test('obfuscate of a closure-counter preserves observable result', () => {
-  const out = obfuscate(`function makeCounter() {
+  const out = obfuscateAll(`function makeCounter() {
   var n = 0;
   return function () {
     n = n + 1;
@@ -129,7 +123,7 @@ log(c()); log(c()); log(c());`)
 })
 
 test('obfuscate of an early-return function preserves both branches', () => {
-  const out = obfuscate(`function pick(x) {
+  const out = obfuscateAll(`function pick(x) {
   if (x > 0) return 'pos';
   if (x < 0) return 'neg';
   return 'zero';
@@ -141,7 +135,7 @@ log(pick(5)); log(pick(-3)); log(pick(0));`)
 })
 
 test('obfuscate of switch with fallthrough and default-not-last preserves dispatch', () => {
-  const out = obfuscate(`function classify(x) {
+  const out = obfuscateAll(`function classify(x) {
   var s = '';
   switch (x) {
     case 1: s += 'a';
@@ -161,7 +155,7 @@ log(classify(99));`)
 })
 
 test('obfuscate of a for loop with continue preserves loop semantics', () => {
-  const out = obfuscate(`var total = 0;
+  const out = obfuscateAll(`var total = 0;
 for (var i = 0; i < 10; i++) {
   if (i % 2 === 0) continue;
   total = total + i;
@@ -173,7 +167,7 @@ log(total);`)
 })
 
 test('obfuscate of a labeled break across nested loops preserves control flow', () => {
-  const out = obfuscate(`var pairs = [];
+  const out = obfuscateAll(`var pairs = [];
 outer: for (var i = 0; i < 3; i++) {
   for (var j = 0; j < 3; j++) {
     if (i === 1 && j === 1) break outer;
@@ -194,7 +188,7 @@ log(pairs);`)
 })
 
 test('obfuscate of optional chaining preserves null short-circuit', () => {
-  const out = obfuscate(`function getX(o) {
+  const out = obfuscateAll(`function getX(o) {
   return o?.a?.b;
 }
 log(getX({ a: { b: 7 } }));
@@ -206,7 +200,7 @@ log(getX(null));`)
 })
 
 test('obfuscate of an optional call preserves the receiver this-binding', () => {
-  const out = obfuscate(`var calls = 0;
+  const out = obfuscateAll(`var calls = 0;
 var obj = {
   v: 7,
   m: function () { calls++; return this.v; }
@@ -219,7 +213,7 @@ log(calls);`)
 })
 
 test('obfuscate of an optional chain with side-effectful receiver evaluates once when nullish', () => {
-  const out = obfuscate(`var calls = 0;
+  const out = obfuscateAll(`var calls = 0;
 function get() { calls++; return null; }
 log(get()?.foo?.bar);
 log(calls);`)
@@ -229,7 +223,7 @@ log(calls);`)
 })
 
 test('obfuscate of logical-assignment with side-effectful object and key caches both', () => {
-  const out = obfuscate(`var objCalls = 0, keyCalls = 0;
+  const out = obfuscateAll(`var objCalls = 0, keyCalls = 0;
 var obj = { ks: ['x'] };
 function recv() { objCalls++; return obj.ks; }
 function k() { keyCalls++; return 0; }
@@ -243,7 +237,7 @@ log(keyCalls);`)
 })
 
 test('obfuscate of nullish coalescing preserves null/undefined-only fallback', () => {
-  const out = obfuscate(`function fb(x) {
+  const out = obfuscateAll(`function fb(x) {
   return x ?? 'default';
 }
 log(fb(null));
@@ -256,7 +250,7 @@ log(fb(''));`)
 })
 
 test('obfuscate of logical assignment preserves single-evaluation semantics', () => {
-  const out = obfuscate(`var sideEffects = 0;
+  const out = obfuscateAll(`var sideEffects = 0;
 function recv() { sideEffects++; return obj; }
 var obj = { x: null };
 recv().x ??= 42;
@@ -268,7 +262,7 @@ log(sideEffects);`)
 })
 
 test('obfuscate of a closure-capturing loop preserves per-iteration captures', () => {
-  const out = obfuscate(`var fns = [];
+  const out = obfuscateAll(`var fns = [];
 for (let i = 0; i < 3; i++) {
   fns.push(function () { return i; });
 }
@@ -281,7 +275,7 @@ log(fns[2]());`)
 })
 
 test('obfuscate of a side-effectful argument evaluates it once', () => {
-  const out = obfuscate(`function f(x) { return x + x; }
+  const out = obfuscateAll(`function f(x) { return x + x; }
 var calls = 0;
 function side() { calls++; return 5; }
 log(f(side()));
@@ -292,7 +286,7 @@ log(calls);`)
 })
 
 test('obfuscate of a try/catch/finally preserves completion order', () => {
-  const out = obfuscate(`var trace = [];
+  const out = obfuscateAll(`var trace = [];
 function run() {
   try {
     trace.push('try');
@@ -311,7 +305,7 @@ log(run());`)
 })
 
 test('obfuscate of an arrow with this-capture preserves the captured receiver', () => {
-  const out = obfuscate(`function Outer(x) { this.x = x; }
+  const out = obfuscateAll(`function Outer(x) { this.x = x; }
 Outer.prototype.run = function () {
   var self = this;
   var arrow = () => self.x;
@@ -324,7 +318,7 @@ log(new Outer(42).run());`)
 })
 
 test('obfuscate is stable on a small real-world snippet (event-emitter shape)', () => {
-  const out = obfuscate(`function EE() { this.h = {}; }
+  const out = obfuscateAll(`function EE() { this.h = {}; }
 EE.prototype.on = function (e, cb) {
   (this.h[e] || (this.h[e] = [])).push(cb);
   return this;
@@ -348,7 +342,7 @@ log(trace);`)
 })
 
 test('obfuscate of a derived class with instance fields synthesizes a forwarding super constructor', () => {
-  const out = obfuscate(`class Base {
+  const out = obfuscateAll(`class Base {
   constructor(x) { this.x = x; }
 }
 class Derived extends Base {
@@ -362,7 +356,7 @@ log(new Derived(7).y);`)
 })
 
 test('obfuscate of a destructure-default does not double-evaluate a getter', () => {
-  const out = obfuscate(`var reads = 0;
+  const out = obfuscateAll(`var reads = 0;
 var obj = Object.defineProperty({}, 'a', {
   get: function () { reads++; return undefined; },
 });
@@ -375,7 +369,7 @@ log(reads);`)
 })
 
 test('obfuscate of a switch case containing a function declaration keeps it visible across cases', () => {
-  const out = obfuscate(`function go(x) {
+  const out = obfuscateAll(`function go(x) {
   switch (x) {
     case 1:
       function helper(n) { return n * 10; }
@@ -394,7 +388,7 @@ log(go(3));`)
 })
 
 test('obfuscate of an inline candidate whose body reads this through a nested arrow does not inline', () => {
-  const out = obfuscate(`function f() {
+  const out = obfuscateAll(`function f() {
   return (function () { return (() => this.x)(); }).call({ x: 'inner' });
 }
 log(f());`)
@@ -409,14 +403,14 @@ test('obfuscate handles a deeply nested binary expression without overflowing ou
     src = `(${src} + 1)`
   }
   const code = `log(${src});`
-  const out = obfuscate(code)
+  const out = obfuscateAll(code)
   const observed: unknown[] = []
   evalProgram(out, { log: (v: unknown) => observed.push(v) })
   expect(observed).toEqual([1000])
 })
 
 test('obfuscate converges on inlined-body wrapper extraction without an iteration cap', () => {
-  const out = obfuscate(`function makeWrapper() {
+  const out = obfuscateAll(`function makeWrapper() {
   var u = { f: function () { return 5; } };
   return u.f();
 }
@@ -437,7 +431,7 @@ test('obfuscate converges on a chain of N inlines that each surface a wrapper', 
 }`)
   }
   const src = `${fns.join('\n')}\nlog(f0());`
-  const out = obfuscate(src)
+  const out = obfuscateAll(src)
   const observed: unknown[] = []
   evalProgram(out, { log: (v: unknown) => observed.push(v) })
   expect(observed).toEqual([5])
@@ -448,7 +442,7 @@ test('obfuscate converges on a deeply-nested constant-fold chain', () => {
   for (let i = 0; i < 50; i++) {
     src = `((${src} + 1) + 1)`
   }
-  const out = obfuscate(`var x = ${src}; log(x);`)
+  const out = obfuscateAll(`var x = ${src}; log(x);`)
   const observed: unknown[] = []
   evalProgram(out, { log: (v: unknown) => observed.push(v) })
   expect(observed).toEqual([100])

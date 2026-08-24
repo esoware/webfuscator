@@ -9,7 +9,7 @@ import type { File } from '@babel/types'
 export function run(code: string, fn: (ast: File) => void): string {
   const ast = parse(code, { sourceType: 'unambiguous' })
   fn(ast)
-  return generate(ast, { comments: false }).code
+  return generate(ast, { comments: false, shouldPrintComment: () => false }).code
 }
 
 /**
@@ -51,6 +51,7 @@ export function defineCases<T extends Record<string, FixtureCase>>(
   for (const c of Object.values(cases)) {
     const before = generate(parse(c.input, { sourceType: 'unambiguous' }), {
       comments: false,
+      shouldPrintComment: () => false,
     }).code
     const after = run(c.input, transform)
     blocks.push(`/// ${c.name}\n// ◀️ before\n${before}\n\n// ▶️ after\n${after}\n`)

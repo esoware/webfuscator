@@ -1,48 +1,22 @@
 import { obfuscate } from '../src/index'
-import type { ObfuscatorOptions } from '../src/index'
+import type { ObfuscatorOptions, TransformName } from '../src/index'
+import { CONFIGURABLE_TRANSFORM_NAMES } from '../src/obfuscator'
 
-const TRANSFORM_PIPELINE = {
-  argumentsToParameters: true,
-  arrowToFunction: true,
-  collapseSingleUseTemps: true,
-  constLetToVar: true,
-  constToLet: true,
-  doWhileToWhile: true,
-  dropConsole: true,
-  dropDebugger: true,
-  expandBinaryAssignment: true,
-  expandLogicalAssignment: true,
-  extractObjectProperties: true,
-  foldBuiltinMethods: true,
-  foldConstants: true,
-  forToWhile: true,
-  functionDeclarationToExpression: true,
-  inlineFunctions: true,
-  logicalToTernary: true,
-  mangleProperties: false,
-  nullishCoalescingToTernary: true,
-  numbersToStrings: true,
-  objectMethodToProperty: true,
-  optionalChainingToTernary: true,
-  pack: false,
-  packDeclarationsIntoParameters: true,
-  removeAnonymousFunctionNames: true,
-  removeUnreachableCode: true,
-  removeUnusedCode: true,
-  renameIdentifiers: true,
-  specialsToStrings: true,
-  switchToIf: true,
-  ternaryToIf: true,
-  updateToAssignment: true,
-  yodifyConditions: true,
-} satisfies NonNullable<ObfuscatorOptions['transforms']>
+// Arbitrary fixtures cannot supply the boundary required by `mangleProperties`
+// or preserve every program after `pack` moves it into a `Function` body. Their
+// own suites enable them explicitly.
+const BLANKET_UNSAFE = new Set<TransformName>(['mangleProperties', 'pack'])
 
-export function obfuscateWithTransformPipeline(
-  code: string,
-  options: ObfuscatorOptions = {},
-): string {
+// Derive the map from the phase tables so new transforms enter these suites when
+// they enter the pipeline.
+const ALL_TRANSFORMS = Object.fromEntries(
+  CONFIGURABLE_TRANSFORM_NAMES.map((name) => [name, !BLANKET_UNSAFE.has(name)]),
+) as NonNullable<ObfuscatorOptions['transforms']>
+
+/** Enables every integration-safe transform, then applies `options`. */
+export function obfuscateAll(code: string, options: ObfuscatorOptions = {}): string {
   return obfuscate(code, {
     ...options,
-    transforms: { ...TRANSFORM_PIPELINE, ...options.transforms },
+    transforms: { ...ALL_TRANSFORMS, ...options.transforms },
   })
 }

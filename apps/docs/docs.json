@@ -60,10 +60,13 @@
             "pages": [
               "reference/transforms/const-to-let",
               "reference/transforms/const-let-to-var",
+              "reference/transforms/hoist-variables",
+              "reference/transforms/merge-variable-declarations",
               "reference/transforms/object-method-to-property",
               "reference/transforms/arrow-to-function",
               "reference/transforms/function-declaration-to-expression",
-              "reference/transforms/pack-declarations-into-parameters"
+              "reference/transforms/pack-declarations-into-parameters",
+              "reference/transforms/reorder-function-declarations"
             ]
           },
           {
@@ -92,6 +95,7 @@
             "pages": [
               "reference/transforms/specials-to-strings",
               "reference/transforms/numbers-to-strings",
+              "reference/transforms/conceal-strings",
               "reference/transforms/mangle-properties",
               "reference/transforms/rename-identifiers"
             ]

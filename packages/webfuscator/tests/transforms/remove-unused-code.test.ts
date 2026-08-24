@@ -370,9 +370,11 @@ function preservesUnused(code: string): void {
   expect(trace(run(code, removeUnusedCode))).toEqual(trace(code))
 }
 
-test('removeUnusedCode keeps a binding reachable through direct eval (F3)', () => {
-  preservesUnused("var x = 7; log(eval('x'));")
-  preservesUnused("function h(){ return 3; } log(eval('h()'));")
+test('removeUnusedCode removes bindings referenced only by eval source text', () => {
+  expect(run("var x = 7; log(eval('x'));", removeUnusedCode)).not.toContain('var x')
+  expect(run("function h(){ return 3; } log(eval('h()'));", removeUnusedCode)).not.toContain(
+    'function h',
+  )
 })
 
 test('removeUnusedCode keeps an Annex-B block function referenced at function level (F4)', () => {

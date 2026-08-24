@@ -14,6 +14,7 @@ import { wrapSingleStatements } from './preparation/wrap-single-statements'
 import { argumentsToParameters } from './transforms/arguments-to-parameters'
 import { arrowToFunction } from './transforms/arrow-to-function'
 import { collapseSingleUseTemps } from './transforms/collapse-single-use-temps'
+import { concealStrings } from './transforms/conceal-strings'
 import { constLetToVar } from './transforms/const-let-to-var'
 import { constToLet } from './transforms/const-to-let'
 import { doWhileToWhile } from './transforms/do-while-to-while'
@@ -26,9 +27,11 @@ import { foldBuiltinMethods } from './transforms/fold-builtin-methods'
 import { foldConstants } from './transforms/fold-constants'
 import { forToWhile } from './transforms/for-to-while'
 import { functionDeclarationToExpression } from './transforms/function-declaration-to-expression'
+import { hoistVariables } from './transforms/hoist-variables'
 import { inlineFunctions } from './transforms/inline-functions'
 import { logicalToTernary } from './transforms/logical-to-ternary'
 import { mangleProperties } from './transforms/mangle-properties'
+import { mergeVariableDeclarations } from './transforms/merge-variable-declarations'
 import { nullishCoalescingToTernary } from './transforms/nullish-coalescing-to-ternary'
 import { numbersToStrings } from './transforms/numbers-to-strings'
 import { objectMethodToProperty } from './transforms/object-method-to-property'
@@ -39,6 +42,7 @@ import { removeAnonymousFunctionNames } from './transforms/remove-anonymous-func
 import { removeUnreachableCode } from './transforms/remove-unreachable-code'
 import { removeUnusedCode } from './transforms/remove-unused-code'
 import { renameIdentifiers } from './transforms/rename-identifiers'
+import { reorderFunctionDeclarations } from './transforms/reorder-function-declarations'
 import { specialsToStrings } from './transforms/specials-to-strings'
 import { switchToIf } from './transforms/switch-to-if'
 import { ternaryToIf } from './transforms/ternary-to-if'
@@ -47,8 +51,6 @@ import { yodifyConditions } from './transforms/yodify-conditions'
 import type { StringGeneratorModeOption } from './utils/string-generator'
 
 const parserOptions: ParserOptions = { sourceType: 'unambiguous' }
-
-const PRESERVED_COMMENT_RE = /^!|@(?:license|preserve)\b|^#\s*source(?:Mapping)?URL=/iu
 
 const DEFAULT_STRING_GENERATOR_MODE: StringGeneratorModeOption = 'mangled'
 const DEFAULT_SEED = 0
@@ -76,11 +78,10 @@ const PREPARATION: readonly Phase[] = [
   ['dotToBracket', asBoolean(dotToBracket)],
 ]
 
-// These one-shot passes prepare the fixed point. Lexical declarations become
-// foldable function-scoped bindings, except at script top level where `var`
-// would create a global property. `argumentsToParameters` precedes parameter
-// renaming. Method demotion precedes extraction because any surviving
-// `ObjectMethod` makes extraction refuse the whole literal.
+// `constLetToVar` must precede the fixed point because folds need function-scoped
+// bindings. `argumentsToParameters` must precede parameter renaming.
+// `objectMethodToProperty` must precede extraction because one `ObjectMethod`
+// blocks the whole object literal.
 const PRE_LOOP: readonly ConfigurablePhase[] = [
   ['dropDebugger', dropDebugger],
   ['dropConsole', dropConsole],
@@ -124,14 +125,24 @@ const LOWERING: readonly ConfigurablePhase[] = [
   ['ternaryToIf', ternaryToIf],
 ]
 
-// Yodification and folding need raw numeric literals. Special-value lowering
-// comes next, then number lowering also handles the `1` created for `Infinity`.
+// `packDeclarationsIntoParameters` must precede declaration motion and merging.
+// `reorderFunctionDeclarations` follows `functionDeclarationToExpression`, so it
+// moves only declarations still needed for hoisting. `hoistVariables` must run
+// before `mergeVariableDeclarations`. `numbersToStrings` follows the fixed point,
+// yodification, and `specialsToStrings` because they need or create numbers.
 const POST_PROCESS: readonly ConfigurablePhase[] = [
   ['packDeclarationsIntoParameters', packDeclarationsIntoParameters],
+  ['reorderFunctionDeclarations', reorderFunctionDeclarations],
+  ['hoistVariables', hoistVariables],
+  ['mergeVariableDeclarations', mergeVariableDeclarations],
   ['yodifyConditions', yodifyConditions],
   ['specialsToStrings', specialsToStrings],
   ['numbersToStrings', numbersToStrings],
 ]
+
+// Conceal strings after every string-producing pass, but before renaming so the
+// generated vault bindings use the caller's name generator.
+const PROTECTION: readonly ConfigurablePhase[] = [['concealStrings', concealStrings]]
 
 // Renaming runs last because later transforms depend on recognizable bindings.
 const RENAME: readonly ConfigurablePhase[] = [['renameIdentifiers', renameIdentifiers]]
@@ -140,6 +151,19 @@ const RENAME: readonly ConfigurablePhase[] = [['renameIdentifiers', renameIdenti
 // the Function constructor. It must see final names and shapes, so it runs after
 // every other rewrite, including renaming.
 const PACK: readonly ConfigurablePhase[] = [['pack', pack]]
+
+// Tests derive their all-transforms setup from this list. The phase tables remain
+// the only source of pipeline order.
+export const CONFIGURABLE_TRANSFORM_NAMES: readonly TransformName[] = [
+  ...BEFORE_PREPARATION,
+  ...PRE_LOOP,
+  ...FIXED_POINT,
+  ...LOWERING,
+  ...POST_PROCESS,
+  ...PROTECTION,
+  ...RENAME,
+  ...PACK,
+].map(([name]) => name)
 
 /** Parses, transforms, and prints JavaScript without mutating external state. */
 export function obfuscate(code: string, options: ObfuscatorOptions = {}): string {
@@ -184,6 +208,13 @@ export function obfuscate(code: string, options: ObfuscatorOptions = {}): string
     run(log, name, () => fn(ast, ctxFor(name, options, baseCtx)))
   }
 
+  for (const [name, fn] of PROTECTION) {
+    if (!isEnabled(name, options)) {
+      continue
+    }
+    run(log, name, () => fn(ast, ctxFor(name, options, baseCtx)))
+  }
+
   for (const [name, fn] of RENAME) {
     if (!isEnabled(name, options)) {
       continue
@@ -201,7 +232,13 @@ export function obfuscate(code: string, options: ObfuscatorOptions = {}): string
   return run(
     log,
     'generate',
-    () => generate(ast, { minified: options.minify ?? false, shouldPrintComment }).code,
+    () =>
+      generate(ast, {
+        comments: false,
+        minified: options.minify ?? false,
+        // `comments: false` still allows @license and @preserve.
+        shouldPrintComment: () => false,
+      }).code,
   )
 }
 
@@ -216,6 +253,10 @@ function ctxFor(
   options: ObfuscatorOptions,
   base: TransformContext,
 ): TransformContext {
+  if (name === 'concealStrings') {
+    const entry = options.transforms?.concealStrings
+    return entry && typeof entry === 'object' ? { ...base, concealStrings: entry } : base
+  }
   const entry = options.transforms?.[name]
   let context = base
   if (entry && typeof entry === 'object' && entry.stringGeneratorMode !== undefined) {
@@ -259,10 +300,6 @@ function asBoolean(fn: (ast: File) => unknown): TransformFn {
     fn(ast)
     return false
   }
-}
-
-function shouldPrintComment(value: string): boolean {
-  return PRESERVED_COMMENT_RE.test(value)
 }
 
 type Logger = <T>(name: string, fn: () => T) => T

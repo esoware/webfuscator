@@ -1,7 +1,7 @@
 import type { Binding, NodePath, Scope } from '@babel/traverse'
 import * as t from '@babel/types'
 
-import { enclosingScopeHasDirectEval, isInsideWith } from '../utils/ast'
+import { isInsideWith } from '../utils/ast'
 import {
   declarationReaches,
   initializerReaches,
@@ -141,11 +141,8 @@ function evaluateIdentifier(node: t.Node, env: Env): Evaluation {
     return UNKNOWN
   }
 
-  // `with` and direct `eval` can redirect names outside Babel's scope table.
-  if (
-    env.referencePath &&
-    (isInsideWith(env.referencePath) || enclosingScopeHasDirectEval(env.referencePath))
-  ) {
+  // Babel's scope table cannot account for properties supplied by `with`.
+  if (env.referencePath && isInsideWith(env.referencePath)) {
     return UNKNOWN
   }
   const binding = env.scope.getBinding(identifier.name)

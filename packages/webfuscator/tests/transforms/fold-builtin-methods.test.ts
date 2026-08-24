@@ -963,16 +963,13 @@ test('foldBuiltinMethods does not fold a read that has not executed yet', () => 
   expectFoldPreservesBehavior('foo: { break foo; var s = "ab"; } log(String(s));')
 })
 
-test('foldBuiltinMethods bails inside a scope with a direct eval', () => {
-  // A03-08: Sloppy direct eval can shadow an intrinsic root.
+test('foldBuiltinMethods does not skip a scope containing eval', () => {
   const out = run(
     'eval("var Math = { floor: function(){ return 42 } };"); log(Math.floor(1.5));',
     foldBuiltinMethods,
   )
-  expect(out).toContain('Math.floor(1.5)')
-  expectFoldPreservesBehavior(
-    'eval("var Math = { floor: function(){ return 42 } };"); log(Math.floor(1.5));',
-  )
+  expect(out).not.toContain('Math.floor(1.5)')
+  expect(out).toContain('log(1)')
 })
 
 test('foldBuiltinMethods does not fold an intrinsic the program patches indirectly', () => {
@@ -996,4 +993,86 @@ test('foldBuiltinMethods does not fold an intrinsic the program patches indirect
   expectFoldPreservesBehavior(
     'globalThis.Boolean = function () { return "patched"; }; log(Boolean(0));',
   )
+})
+
+test('foldBuiltinMethods folds array literal lengths without materializing holes', () => {
+  const literal = expectFoldPreservesBehavior(
+    'var n = 0; log([,,].length, [1,,3].length, [n++, {}].length, n);',
+  )
+  expect(literal).not.toContain('].length')
+
+  const spread = expectFoldPreservesBehavior('var items = [1, 2]; log([...items].length);')
+  expect(spread).toContain('[...items].length')
+})
+
+test('foldBuiltinMethods folds static string indices without creating references or directives', () => {
+  const reads = expectFoldPreservesBehavior('log("abc"[0], "abc"["1"], "💩"[0], "💩"[1]);')
+  expect(reads).not.toMatch(/"abc"\[/)
+
+  const directive = expectFoldPreservesBehavior(
+    'function f() { "abc"[0]; "use strict"; return this; } log(typeof f.call(7));',
+  )
+  expect(directive).not.toMatch(/\{\s*"a";/)
+
+  const assignment = expectFoldPreservesBehavior('var x = "abc"; x[1] = "z"; log(x);')
+  expect(assignment).toContain('x[1] = "z"')
+  const deletion = expectFoldPreservesBehavior('log(delete "abc"[9]);')
+  expect(deletion).toContain('delete "abc"[9]')
+
+  const outOfRange = expectFoldPreservesBehavior('log("a"[9]);')
+  expect(outOfRange).toContain('"a"[9]')
+})
+
+test('foldBuiltinMethods leaves explicitly excluded folds unchanged', () => {
+  const unchanged = [
+    'log(Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY);',
+    'log(BigInt("9007199254740993"), BigInt.asIntN(8, 255n));',
+    'log("x".bold(), "x".valueOf(), "x".toWellFormed(), String.raw({ raw: ["a"] }));',
+    'log(new ArrayBuffer(8).byteLength, ArrayBuffer.isView([]));',
+    'log(Object.keys({ a: 1 }), ({ a: 1 }).hasOwnProperty("a"));',
+    'log(Reflect.get({ a: 1 }, "a"));',
+    'log(Date.UTC(2020, 0), new Date(0).getUTCFullYear());',
+    'log(Array("x"), new Array(3).length, [1, 2].at(0));',
+    'log(Array.isArray([]), Number.isNaN({}), Number.isFinite([]));',
+    'log(Math.f16round(1.337));',
+    'log(Array.from("abc"), Array.from([1, 2]));',
+    'log(RegExp.escape("a+b"), /a/.test("a"), (/a/).source, "aba".replace("a", "x"));',
+    'log(Error.isError({}));',
+    'log(JSON.parse("1"), JSON.stringify({ a: 1 }));',
+    'log(Array(3));',
+    'log(Date.parse("2020-01-02T03:04:05Z"), new Date("2020-01-02").toISOString());',
+    'log(Object.assign({}, { a: 1 }), Object.freeze({}), Object.preventExtensions({}));',
+    'log(Reflect.set({}, "a", 1), Reflect.deleteProperty({ a: 1 }, "a"), Reflect.preventExtensions({}));',
+    'log(new Map([["a", 1]]).get("a"), new Map().size, new Set([1]).has(1));',
+    'log([1, 2].fill(9), [1, 2].pop(), [1, 2].push(3), [1, 2].reverse(), [1, 2].shift(), [2, 1].sort(), [1, 2].splice(0, 1), [1, 2].unshift(0));',
+  ]
+
+  for (const src of unchanged) {
+    expect(run(src, foldBuiltinMethods)).toBe(run(src, () => {}))
+  }
+})
+
+test('foldBuiltinMethods leaves over-budget materializations unchanged', () => {
+  const largeString = expectFoldPreservesBehavior(String.raw`log("\0".repeat(4096).length);`)
+  expect(largeString).toContain('.repeat(4096)')
+})
+
+test('foldBuiltinMethods leaves runtime, locale, callback, and unrepresentable results alone', () => {
+  const unchanged = [
+    'log(Math.random());',
+    'log(Date.now());',
+    'log(Date.parse("2020-01-02T03:04:05"));',
+    'log(new Date().getTime());',
+    'log(new Date(0).getFullYear());',
+    'log("a".localeCompare("b"));',
+    'log([1, 2].map(function (x) { return x + 1; }));',
+    'log(Reflect.getPrototypeOf({}));',
+    'log(JSON.rawJSON("1"));',
+    'log(new Map([[1, 2]]).entries());',
+    'log(new Set([1, 2]).union(new Set([2, 3])));',
+  ]
+
+  for (const src of unchanged) {
+    expect(run(src, foldBuiltinMethods)).toBe(run(src, () => {}))
+  }
 })

@@ -65,8 +65,8 @@ log(a, b, c);`,
     name: 'constToLet keeps a for-head const whose update reassigns it',
     input: `try { for (const i = 0; i < 3; i++) { log(i); } } catch (e) { log(e.constructor.name); }`,
   },
-  directEvalConstKept: {
-    name: 'constToLet keeps a const in a scope with direct eval',
+  evalConst: {
+    name: 'constToLet does not skip a scope containing eval',
     input: `const a = 1; try { eval("a = 2"); } catch (e) { log(e.constructor.name); } log(a);`,
   },
 })
@@ -128,8 +128,7 @@ test(cases.forHeadUpdateConstKept.name, () => {
   expect(out).toContain('const i = 0')
 })
 
-// Direct eval can reassign a constant by a name Babel does not track.
-test(cases.directEvalConstKept.name, () => {
-  const out = expectEquivalent(cases.directEvalConstKept.input)
-  expect(out).toContain('const a = 1')
+test(cases.evalConst.name, () => {
+  const out = run(cases.evalConst.input, constToLet)
+  expect(out).toContain('let a = 1')
 })

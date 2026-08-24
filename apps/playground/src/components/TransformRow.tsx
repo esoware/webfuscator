@@ -1,7 +1,12 @@
 import { Collapsible } from '@base-ui/react/collapsible'
 import { Field } from '@base-ui/react/field'
 import type { ReactNode } from 'react'
-import type { ManglePropertiesOptions, ObfuscatorOptions, PackOptions } from 'webfuscator'
+import type {
+  ConcealStringsOptions,
+  ManglePropertiesOptions,
+  ObfuscatorOptions,
+  PackOptions,
+} from 'webfuscator'
 
 import { ExternalLinkIcon } from '../lib/icons'
 import { transformDocsUrl } from '../lib/links'
@@ -93,18 +98,86 @@ export function TransformRow({ spec, options, onChange }: TransformRowProps) {
             <PackDetails pack={entryObject<PackOptions>(entry)} onPatch={patchDetails} />
           )}
 
-          {/* Every kind with a disclosure has this override, so it renders here
-              rather than inside each one. */}
-          <SelectField
-            label="Name style"
-            hint="Override the global generator style for this transform"
-            options={modeChoices(override, true)}
-            value={displayMode(override)}
-            onChange={setOverride}
-          />
+          {spec.kind === 'conceal' && (
+            <ConcealDetails
+              conceal={entryObject<ConcealStringsOptions>(entry)}
+              onPatch={patchDetails}
+            />
+          )}
+
+          {spec.kind !== 'conceal' && (
+            <SelectField
+              label="Name style"
+              hint="Override the global generator style for this transform"
+              options={modeChoices(override, true)}
+              value={displayMode(override)}
+              onChange={setOverride}
+            />
+          )}
         </Details>
       )}
     </div>
+  )
+}
+
+function ConcealDetails({
+  conceal,
+  onPatch,
+}: {
+  conceal: ConcealStringsOptions
+  onPatch: (patch: PatchOf<ConcealStringsOptions>) => void
+}) {
+  return (
+    <>
+      <SelectField
+        label="scope"
+        hint="Use one program vault or separate function vaults"
+        options={[
+          { value: 'program', label: 'Program' },
+          { value: 'function', label: 'Function' },
+        ]}
+        value={conceal.scope ?? 'program'}
+        onChange={(scope) => {
+          onPatch({ scope: scope === 'function' ? 'function' : undefined })
+        }}
+      />
+      <SelectField
+        label="cover"
+        hint="Pad the pool with used units, nearby pages, or every UTF-16 unit"
+        options={[
+          { value: 'regional', label: 'Regional' },
+          { value: 'used', label: 'Used only' },
+          { value: 'full', label: 'Full UTF-16' },
+        ]}
+        value={conceal.cover ?? 'regional'}
+        onChange={(cover) => {
+          onPatch({
+            cover: cover === 'used' || cover === 'full' ? cover : undefined,
+          })
+        }}
+      />
+      <SwitchField
+        label="cache"
+        hint="Retain each decoded value in its vault"
+        checked={conceal.cache !== false}
+        onChange={(checked) => {
+          onPatch({ cache: checked ? undefined : false })
+        }}
+      />
+      <SwitchField
+        label="deduplicate"
+        hint="Share one vault entry between equal literals"
+        checked={conceal.deduplicate !== false}
+        onChange={(checked) => {
+          onPatch({ deduplicate: checked ? undefined : false })
+        }}
+      />
+      <Caveat>
+        Function scope repeats the whole-program pool in each vault. Full cover includes all 65,536
+        UTF-16 units and produces much larger output.
+      </Caveat>
+      <Caveat>The decoder and numeric data can still recover every shipped string.</Caveat>
+    </>
   )
 }
 

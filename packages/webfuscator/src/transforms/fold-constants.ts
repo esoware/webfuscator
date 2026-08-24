@@ -131,6 +131,9 @@ function tryFoldToLiteral(
   if (!result.known) {
     return false
   }
+  if (typeof result.value === 'number' && !Number.isFinite(result.value)) {
+    return false
+  }
   const lit = valueToLiteral(result.value)
   if (!lit) {
     return false

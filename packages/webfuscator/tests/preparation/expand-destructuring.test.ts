@@ -226,10 +226,11 @@ test('expandDestructuring leaves a destructuring inside `with` intact', () => {
   )
 })
 
-// A09-10: Direct eval can observe a generated name Babel cannot see.
-test('expandDestructuring leaves a destructuring intact when the scope has a direct eval', () => {
-  const out = expectPreservesBehavior(
+test('expandDestructuring does not skip a scope containing eval', () => {
+  const out = run(
     'function f() { var { a, b } = { a: 1, b: 2 }; return eval("typeof _ref"); }\nlog(f());',
+    expandDestructuring,
   )
-  expect(out).toContain('var {')
+  expect(out).not.toContain('var {')
+  expect(out).toContain('var _ref =')
 })

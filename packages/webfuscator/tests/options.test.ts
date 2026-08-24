@@ -1,8 +1,8 @@
 import { expect, test } from 'vitest'
 
-import { obfuscate as obfuscateWithDefaults } from '../src/index'
+import { obfuscate } from '../src/index'
 import type { ObfuscatorOptions } from '../src/index'
-import { obfuscateWithTransformPipeline as obfuscate } from './obfuscator-helpers'
+import { obfuscateAll } from './obfuscator-helpers'
 
 function evalProgram(code: string, harness?: Record<string, unknown>): unknown {
   const keys = harness ? Object.keys(harness) : []
@@ -10,16 +10,18 @@ function evalProgram(code: string, harness?: Record<string, unknown>): unknown {
   return new Function(...keys, code).call(null, ...values)
 }
 
+const KEEP_RUNTIME_STRINGS = { concealStrings: false } as const
+
 test('obfuscate omitting transforms runs no configurable transforms', () => {
   const src = `function helper(x) { return x + 1; } log(helper(5));`
-  const defaultOut = obfuscateWithDefaults(src)
-  const explicitOut = obfuscateWithDefaults(src, { transforms: {} })
+  const defaultOut = obfuscate(src)
+  const explicitOut = obfuscate(src, { transforms: {} })
   expect(defaultOut).toBe(explicitOut)
   expect(defaultOut).toContain('function helper')
 })
 
 test('obfuscate keeps preparation enabled when transforms are omitted', () => {
-  const out = obfuscateWithDefaults(`const value = object.property;`)
+  const out = obfuscate(`const value = object.property;`)
   expect(out).toContain('const value')
   expect(out).toContain('object["property"]')
 })
@@ -27,7 +29,7 @@ test('obfuscate keeps preparation enabled when transforms are omitted', () => {
 test('obfuscate leaves class fields intact during preparation', () => {
   const source = `class Box { value = 1; static count = 2; }
 log(new Box().value, Box.count);`
-  const out = obfuscateWithDefaults(source)
+  const out = obfuscate(source)
   const evaluate = (code: string): unknown[] => {
     const calls: unknown[] = []
     evalProgram(code, { log: (...values: unknown[]) => calls.push(values) })
@@ -42,9 +44,9 @@ log(new Box().value, Box.count);`
 
 test('obfuscate minify selects Babel minified output without changing behavior', () => {
   const src = `function add(a, b) { return a + b; } log(add(2, 3));`
-  const formatted = obfuscateWithDefaults(src)
-  const explicitFormatted = obfuscateWithDefaults(src, { minify: false })
-  const minified = obfuscateWithDefaults(src, { minify: true })
+  const formatted = obfuscate(src)
+  const explicitFormatted = obfuscate(src, { minify: false })
+  const minified = obfuscate(src, { minify: true })
   const evaluate = (code: string): unknown[] => {
     const calls: unknown[] = []
     evalProgram(code, { log: (value: unknown) => calls.push(value) })
@@ -61,8 +63,10 @@ test('obfuscate minify selects Babel minified output without changing behavior',
 
 test('obfuscate with dropConsole disabled keeps console.* statements', () => {
   const src = `console.log("kept"); var x = 42; log(x);`
-  const enabled = obfuscate(src)
-  const disabled = obfuscate(src, { transforms: { dropConsole: false } })
+  const enabled = obfuscateAll(src)
+  const disabled = obfuscateAll(src, {
+    transforms: { ...KEEP_RUNTIME_STRINGS, dropConsole: false },
+  })
   // Preparation changes dot access regardless of this transform toggle.
   expect(enabled).not.toContain('console')
   expect(disabled).toContain('console')
@@ -71,17 +75,17 @@ test('obfuscate with dropConsole disabled keeps console.* statements', () => {
 
 test('obfuscate with dropDebugger disabled keeps debugger statements', () => {
   const src = `function f() { debugger; return 1; } log(f());`
-  const enabled = obfuscate(src)
-  const disabled = obfuscate(src, { transforms: { dropDebugger: false } })
+  const enabled = obfuscateAll(src)
+  const disabled = obfuscateAll(src, { transforms: { dropDebugger: false } })
   expect(enabled).not.toContain('debugger')
   expect(disabled).toContain('debugger')
 })
 
 test('obfuscate with foldConstants disabled leaves arithmetic literals untouched', () => {
   const src = `var x = 1 + 2 + 3; log(x);`
-  const enabled = obfuscate(src, { transforms: { numbersToStrings: false } })
+  const enabled = obfuscateAll(src, { transforms: { numbersToStrings: false } })
   // Single-use temporary collapse can perform the same constant propagation.
-  const disabled = obfuscate(src, {
+  const disabled = obfuscateAll(src, {
     transforms: { foldConstants: false, collapseSingleUseTemps: false, numbersToStrings: false },
   })
   expect(enabled).toContain('log(6)')
@@ -91,8 +95,8 @@ test('obfuscate with foldConstants disabled leaves arithmetic literals untouched
 
 test('obfuscate with inlineFunctions disabled keeps the function declaration', () => {
   const src = `function helper(a, b) { return a + b; } log(helper(2, 3));`
-  const enabled = obfuscate(src)
-  const disabled = obfuscate(src, {
+  const enabled = obfuscateAll(src)
+  const disabled = obfuscateAll(src, {
     transforms: {
       inlineFunctions: false,
       renameIdentifiers: false,
@@ -113,32 +117,32 @@ test('obfuscate with switchToIf disabled keeps the switch statement', () => {
     }
   }
   log(pick(2));`
-  const enabled = obfuscate(src)
-  const disabled = obfuscate(src, { transforms: { switchToIf: false } })
+  const enabled = obfuscateAll(src)
+  const disabled = obfuscateAll(src, { transforms: { switchToIf: false } })
   expect(enabled).not.toContain('switch (')
   expect(disabled).toContain('switch (')
 })
 
 test('obfuscate with arrowToFunction disabled keeps arrow expressions', () => {
   const src = `var f = (x) => x * 2; log(f(3));`
-  const enabled = obfuscate(src)
-  const disabled = obfuscate(src, { transforms: { arrowToFunction: false } })
+  const enabled = obfuscateAll(src)
+  const disabled = obfuscateAll(src, { transforms: { arrowToFunction: false } })
   expect(enabled).not.toContain('=>')
   expect(disabled).toContain('=>')
 })
 
 test('obfuscate with optionalChainingToTernary disabled keeps the optional chain', () => {
   const src = `function getX(o) { return o?.a?.b; } log(getX({a: {b: 7}}));`
-  const enabled = obfuscate(src)
-  const disabled = obfuscate(src, { transforms: { optionalChainingToTernary: false } })
+  const enabled = obfuscateAll(src)
+  const disabled = obfuscateAll(src, { transforms: { optionalChainingToTernary: false } })
   expect(enabled).not.toContain('?.')
   expect(disabled).toContain('?.')
 })
 
 test('obfuscate with yodifyConditions disabled leaves comparison operand order intact', () => {
   const src = `var x = read(); if (x === 1) emit(); else other();`
-  const enabled = obfuscate(src, { transforms: { numbersToStrings: false } })
-  const disabled = obfuscate(src, {
+  const enabled = obfuscateAll(src, { transforms: { numbersToStrings: false } })
+  const disabled = obfuscateAll(src, {
     transforms: { yodifyConditions: false, numbersToStrings: false },
   })
   expect(enabled).toContain('1 ===')
@@ -149,13 +153,14 @@ test('obfuscate disabling extractObjectProperties leaves the wrapper variable in
   const src = `var u = { f: function () { return 5; } };
 log(u.f());
 log(u.f());`
-  const enabled = obfuscate(src)
-  const disabled = obfuscate(src, {
+  const enabled = obfuscateAll(src)
+  const disabled = obfuscateAll(src, {
     transforms: {
       extractObjectProperties: false,
       inlineFunctions: false,
       collapseSingleUseTemps: false,
       renameIdentifiers: false,
+      hoistVariables: false,
     },
   })
   expect(disabled).toMatch(/var\s+u\s*=\s*\{/)
@@ -178,7 +183,7 @@ test('obfuscate with the entire fixed-point group disabled still produces a vali
       functionDeclarationToExpression: false,
     },
   }
-  const out = obfuscate(src, opts)
+  const out = obfuscateAll(src, opts)
   expect(out).toContain('function f')
   const observed: unknown[] = []
   evalProgram(out, { log: (v: unknown) => observed.push(v) })
@@ -199,7 +204,7 @@ log(v);
 log(pick(1));
 log(pick(99));`
   const trial = (opts?: ObfuscatorOptions): unknown[] => {
-    const out = obfuscate(src, opts)
+    const out = obfuscateAll(src, opts)
     const calls: unknown[] = []
     evalProgram(out, { log: (v: unknown) => calls.push(v) })
     return calls
@@ -214,9 +219,31 @@ log(pick(99));`
 
 test('obfuscate enabling a transform explicitly via true matches the default', () => {
   const src = `var x = 1 + 2; log(x);`
-  const def = obfuscate(src)
-  const explicitTrue = obfuscate(src, { transforms: { foldConstants: true } })
+  const def = obfuscateAll(src)
+  const explicitTrue = obfuscateAll(src, { transforms: { foldConstants: true } })
   expect(def).toBe(explicitTrue)
+})
+
+test('obfuscate enables concealStrings through its public boolean and object entries', () => {
+  const source = `function first() { return "first private value"; }
+function second() { return "second private value"; }
+log(first(), second());`
+  const shared = obfuscate(source, { transforms: { concealStrings: true } })
+  const scoped = obfuscate(source, {
+    transforms: { concealStrings: { cover: 'used', scope: 'function' } },
+  })
+  const evaluate = (code: string): unknown[] => {
+    const calls: unknown[] = []
+    evalProgram(code, { log: (...values: unknown[]) => calls.push(values) })
+    return calls
+  }
+
+  expect(evaluate(shared)).toEqual(evaluate(source))
+  expect(evaluate(scoped)).toEqual(evaluate(source))
+  expect(shared).not.toContain('first private value')
+  expect(scoped).not.toContain('second private value')
+  expect(shared.match(/const _stringPool/gu)).toHaveLength(1)
+  expect(scoped.match(/const _stringPool/gu)).toHaveLength(2)
 })
 
 // Disable inlining so the bindings under name-style tests survive.
@@ -237,7 +264,7 @@ const NO_INLINE = {
 } as const
 
 test('obfuscate global stringGeneratorMode: hexadecimal renames bindings to _0x... names', () => {
-  const out = obfuscate(RENAME_FIXTURE, {
+  const out = obfuscateAll(RENAME_FIXTURE, {
     stringGeneratorMode: 'hexadecimal',
     transforms: NO_INLINE,
   })
@@ -245,12 +272,12 @@ test('obfuscate global stringGeneratorMode: hexadecimal renames bindings to _0x.
 })
 
 test('obfuscate global stringGeneratorMode: number renames bindings to var_N names', () => {
-  const out = obfuscate(RENAME_FIXTURE, { stringGeneratorMode: 'number', transforms: NO_INLINE })
+  const out = obfuscateAll(RENAME_FIXTURE, { stringGeneratorMode: 'number', transforms: NO_INLINE })
   expect(out).toMatch(/function var_\d+\(var_\d+, var_\d+\)/)
 })
 
 test('obfuscate global stringGeneratorMode: randomized produces valid-identifier names', () => {
-  const out = obfuscate(RENAME_FIXTURE, {
+  const out = obfuscateAll(RENAME_FIXTURE, {
     stringGeneratorMode: 'randomized',
     transforms: NO_INLINE,
   })
@@ -258,7 +285,7 @@ test('obfuscate global stringGeneratorMode: randomized produces valid-identifier
 })
 
 test('obfuscate per-transform override: renameIdentifiers picks its own style over the global', () => {
-  const out = obfuscate(RENAME_FIXTURE, {
+  const out = obfuscateAll(RENAME_FIXTURE, {
     stringGeneratorMode: 'number',
     transforms: { ...NO_INLINE, renameIdentifiers: { stringGeneratorMode: 'hexadecimal' } },
   })
@@ -267,7 +294,7 @@ test('obfuscate per-transform override: renameIdentifiers picks its own style ov
 })
 
 test('obfuscate per-transform override: object form is enabled (not treated as falsy)', () => {
-  const out = obfuscate(RENAME_FIXTURE, {
+  const out = obfuscateAll(RENAME_FIXTURE, {
     transforms: { ...NO_INLINE, renameIdentifiers: { stringGeneratorMode: 'hexadecimal' } },
   })
   expect(out).toMatch(/function _0x[0-9a-f]+\(/)
@@ -275,9 +302,10 @@ test('obfuscate per-transform override: object form is enabled (not treated as f
 
 test('obfuscate per-transform override: specialsToStrings can use number style for its string contents', () => {
   const src = `var x = undefined; log(x);`
-  const out = obfuscate(src, {
+  const out = obfuscateAll(src, {
     transforms: {
       ...NO_INLINE,
+      ...KEEP_RUNTIME_STRINGS,
       renameIdentifiers: false,
       specialsToStrings: { stringGeneratorMode: 'number' },
     },
@@ -290,7 +318,7 @@ test('obfuscate global stringGeneratorMode: array mixes the supplied modes in th
     return a + b + c + d + e + f1 + g + h + i + j;
   }
   log(f(read(), read(), read(), read(), read(), read(), read(), read(), read(), read()));`
-  const out = obfuscate(src, {
+  const out = obfuscateAll(src, {
     stringGeneratorMode: ['hexadecimal', 'number'],
     transforms: NO_INLINE,
   })
@@ -299,7 +327,7 @@ test('obfuscate global stringGeneratorMode: array mixes the supplied modes in th
 })
 
 test('obfuscate per-transform `false` still disables, even when other transforms have object overrides', () => {
-  const out = obfuscate(RENAME_FIXTURE, {
+  const out = obfuscateAll(RENAME_FIXTURE, {
     transforms: {
       ...NO_INLINE,
       renameIdentifiers: false,
@@ -315,38 +343,46 @@ object.secret_ = read();
 log(object.secret_);`
 
 test('obfuscate leaves the unsafe property mangler disabled when omitted', () => {
-  const omitted = obfuscate(PROPERTY_FIXTURE)
-  const disabled = obfuscate(PROPERTY_FIXTURE, { transforms: { mangleProperties: false } })
+  const omitted = obfuscateAll(PROPERTY_FIXTURE, { transforms: KEEP_RUNTIME_STRINGS })
+  const disabled = obfuscateAll(PROPERTY_FIXTURE, {
+    transforms: { ...KEEP_RUNTIME_STRINGS, mangleProperties: false },
+  })
   expect(omitted).toBe(disabled)
   expect(omitted).toContain('secret_')
 })
 
 test('obfuscate enables mangleProperties with true', () => {
-  const out = obfuscate(PROPERTY_FIXTURE, { transforms: { mangleProperties: true } })
+  const out = obfuscateAll(PROPERTY_FIXTURE, {
+    transforms: { ...KEEP_RUNTIME_STRINGS, mangleProperties: true },
+  })
   expect(out).not.toContain('secret_')
 })
 
 test('obfuscate mangleProperties inherits the global stringGeneratorMode', () => {
-  const out = obfuscate(PROPERTY_FIXTURE, {
+  const out = obfuscateAll(PROPERTY_FIXTURE, {
     stringGeneratorMode: 'number',
-    transforms: { mangleProperties: true },
+    transforms: { ...KEEP_RUNTIME_STRINGS, mangleProperties: true },
   })
   expect(out).toMatch(/\["var_\d+"\]/)
 })
 
 test('obfuscate mangleProperties can override the global stringGeneratorMode', () => {
-  const out = obfuscate(PROPERTY_FIXTURE, {
+  const out = obfuscateAll(PROPERTY_FIXTURE, {
     stringGeneratorMode: 'hexadecimal',
-    transforms: { mangleProperties: { stringGeneratorMode: 'number' } },
+    transforms: {
+      ...KEEP_RUNTIME_STRINGS,
+      mangleProperties: { stringGeneratorMode: 'number' },
+    },
   })
   expect(out).toMatch(/\["var_\d+"\]/)
   expect(out).not.toMatch(/\["_0x[0-9a-f]+"\]/)
 })
 
 test('obfuscate mangleProperties custom nameGenerator takes precedence over string modes', () => {
-  const out = obfuscate(PROPERTY_FIXTURE, {
+  const out = obfuscateAll(PROPERTY_FIXTURE, {
     stringGeneratorMode: 'number',
     transforms: {
+      ...KEEP_RUNTIME_STRINGS,
       mangleProperties: {
         nameGenerator: () => 'customProperty',
         stringGeneratorMode: 'hexadecimal',
@@ -363,8 +399,9 @@ object.public = read();
 object.private_ = read();
 object.keep_ = read();
 log(object.public, object.private_, object.keep_);`
-  const out = obfuscate(src, {
+  const out = obfuscateAll(src, {
     transforms: {
+      ...KEEP_RUNTIME_STRINGS,
       mangleProperties: {
         builtins: true,
         nameGenerator: () => 'renamed',
@@ -386,8 +423,9 @@ var box = new Box();
 var { secret_: value } = box;
 log(box[\`secret_\`], box["sec" + "ret_"], box[key], value);`
   const logs: unknown[] = []
-  const out = obfuscate(src, {
+  const out = obfuscateAll(src, {
     transforms: {
+      ...KEEP_RUNTIME_STRINGS,
       mangleProperties: {
         builtins: true,
         nameGenerator: () => 'renamed',

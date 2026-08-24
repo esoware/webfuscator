@@ -3,7 +3,7 @@ import type { NodePath, Scope } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { enclosingScopeHasDirectEval, isInsideWith } from '../utils/ast'
+import { isInsideWith } from '../utils/ast'
 
 type Kind = t.VariableDeclaration['kind']
 
@@ -18,9 +18,9 @@ type BindingTarget = t.Identifier | t.ObjectPattern | t.ArrayPattern | t.Assignm
  * The source, computed keys, and getters keep their original evaluation counts.
  * Defaults compare against `void 0` because `undefined` can be shadowed.
  *
- * `with` and direct `eval` can expose synthesized names that Babel cannot see, so
- * those scopes are skipped. A `RequireObjectCoercible` guard runs before any
- * computed key, matching ObjectBindingPattern evaluation order.
+ * Patterns inside `with` stay untouched because an object property can capture
+ * a generated temporary. The `RequireObjectCoercible` guard runs before computed
+ * keys to preserve ObjectBindingPattern evaluation order.
  *
  * @example
  * // ◀️ before
@@ -42,8 +42,8 @@ const visitor = {
     if (typeof path.listKey !== 'string') {
       return
     }
-    // Babel cannot prove a generated name hidden from `with` or direct `eval`.
-    if (isInsideWith(path) || enclosingScopeHasDirectEval(path)) {
+    // A `with` property can capture the generated temporary.
+    if (isInsideWith(path)) {
       return
     }
 

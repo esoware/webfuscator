@@ -38,7 +38,7 @@ const output = obfuscate(source, {
     ```
   </Tab>
   <Tab title="Annotations">
-    Use `onlyAnnotated` when you want selection at individual declaration sites. `/*@__KEY__*/` marks a standalone string as a use of that property.
+    Use `onlyAnnotated` when you want selection at individual declaration sites. `/*@__KEY__*/` marks a standalone string as a use of that property. The obfuscator consumes these annotations and removes them from the output.
 
     ```js Annotated input
     const state = {
@@ -138,7 +138,7 @@ Receives a zero-based ordinal for each candidate and takes precedence over `stri
 
 Type: `boolean`<br />Default: `false`
 
-Limits mangling to names marked with `/*@__MANGLE_PROP__*/` or `/*#__MANGLE_PROP__*/`. Mark standalone property strings with `/*@__KEY__*/` or `/*#__KEY__*/`. Annotations bypass `regex`, but not `reserved`.
+Limits mangling to names marked with the exact standalone comment `/*@__MANGLE_PROP__*/` or `/*#__MANGLE_PROP__*/`. Mark standalone property strings with the exact comment `/*@__KEY__*/` or `/*#__KEY__*/`. Annotations bypass `regex`, but not `reserved`, and never appear in the generated output.
 
 ## `onlyCache`
 

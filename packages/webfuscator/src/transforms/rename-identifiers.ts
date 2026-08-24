@@ -4,7 +4,7 @@ import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
 import type { TransformContext } from '../options'
-import { isDirectEvalCall, isInsideWith } from '../utils/ast'
+import { isInsideWith } from '../utils/ast'
 import { hasAnnexBFunctionAlias, referencesOrWritesVariable } from '../utils/paths'
 import { mulberry32 } from '../utils/random'
 import { StringGenerator } from '../utils/string-generator'
@@ -31,6 +31,7 @@ import { StringGenerator } from '../utils/string-generator'
  */
 export function renameIdentifiers(ast: File, ctx: TransformContext): boolean {
   const generator = new StringGenerator(ctx.stringGeneratorMode, mulberry32(ctx.seed))
+  const separatedDirectExports = separateDirectExports(ast.program)
 
   let programScope: Scope | undefined
   traverse(ast, {
@@ -40,14 +41,14 @@ export function renameIdentifiers(ast: File, ctx: TransformContext): boolean {
     },
   })
   if (!programScope) {
-    return false
+    return separatedDirectExports
   }
   programScope.crawl()
 
   const liveAncestors = new Map<Scope, Set<Binding>>()
   // Reserve unbound names so generated bindings cannot capture them.
   const freeNames = new Set<string>()
-  // `with` and direct eval pin bindings to their source names.
+  // A reference inside `with` pins its binding to the source name.
   const unrenamable = new Set<Binding>()
   // Reserve pinned source names globally, including before their binding is seen.
   const pinnedNames = new Set<string>()
@@ -79,19 +80,6 @@ export function renameIdentifiers(ast: File, ctx: TransformContext): boolean {
           liveAncestors.set(scope, live)
         }
         live.add(binding)
-        scope = scope.parent
-      }
-    },
-    CallExpression(path) {
-      // Direct eval can read every visible binding by its source name.
-      if (!isDirectEvalCall(path.node)) {
-        return
-      }
-      let scope: Scope | undefined = path.scope
-      while (scope) {
-        for (const name of Object.keys(scope.bindings)) {
-          pin(scope.bindings[name]!, name)
-        }
         scope = scope.parent
       }
     },
@@ -169,7 +157,7 @@ export function renameIdentifiers(ast: File, ctx: TransformContext): boolean {
   })
 
   if (bindingToName.size === 0) {
-    return renameLabels(ast, generator)
+    return renameLabels(ast, generator) || separatedDirectExports
   }
 
   traverse(ast, {
@@ -197,6 +185,43 @@ export function renameIdentifiers(ast: File, ctx: TransformContext): boolean {
 
   renameLabels(ast, generator)
   return true
+}
+
+function separateDirectExports(program: t.Program): boolean {
+  const body: t.Program['body'] = []
+  let changed = false
+
+  for (const statement of program.body) {
+    const declaration = t.isExportNamedDeclaration(statement) ? statement.declaration : null
+    if (
+      !t.isVariableDeclaration(declaration) &&
+      !t.isFunctionDeclaration(declaration) &&
+      !t.isClassDeclaration(declaration)
+    ) {
+      body.push(statement)
+      continue
+    }
+
+    const names = Object.keys(t.getBindingIdentifiers(declaration))
+    if (names.length === 0) {
+      body.push(statement)
+      continue
+    }
+
+    body.push(
+      declaration,
+      t.exportNamedDeclaration(
+        null,
+        names.map((name) => t.exportSpecifier(t.identifier(name), t.identifier(name))),
+      ),
+    )
+    changed = true
+  }
+
+  if (changed) {
+    program.body = body
+  }
+  return changed
 }
 
 function isNonBindingPosition(path: { node: t.Identifier; parent: t.Node }): boolean {

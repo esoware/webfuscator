@@ -2,7 +2,7 @@ import type { Binding, NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { isDirectEvalCall, isInsideWith } from '../utils/ast'
+import { isInsideWith } from '../utils/ast'
 import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 
@@ -52,10 +52,6 @@ const visitor: Visitor<ChangeState> = {
     if (!isNumericBinding(binding)) {
       return
     }
-    // Direct eval anywhere in the binding's scope can change its type.
-    if (bindingScopeReachesDirectEval(binding!)) {
-      return
-    }
     const compound = operator === '++' ? '+=' : '-='
     path.replaceWith(t.assignmentExpression(compound, argument, t.numericLiteral(1)))
     state.changed = true
@@ -93,18 +89,6 @@ function isNumericBinding(binding: Binding | undefined): boolean {
     return false
   }
   return binding.constantViolations.every((violation) => keepsNumeric(violation.node))
-}
-
-// A sibling or nested direct eval can still close over and reassign the binding.
-function bindingScopeReachesDirectEval(binding: Binding): boolean {
-  let found = false
-  t.traverseFast(binding.scope.block, (node) => {
-    if (isDirectEvalCall(node)) {
-      found = true
-    }
-    return found ? t.traverseFast.stop : undefined
-  })
-  return found
 }
 
 function isForInOfLoopVariable(binding: Binding): boolean {

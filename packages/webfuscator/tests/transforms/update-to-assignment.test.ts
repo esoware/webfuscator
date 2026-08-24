@@ -142,20 +142,19 @@ test('updateToAssignment leaves a for-in loop variable alone', () => {
   expect(trace(out)).toEqual(trace(src))
 })
 
-test('updateToAssignment leaves an update inside a with block or an eval function alone', () => {
+test('updateToAssignment leaves an update inside a with block alone', () => {
   const withSrc = 'let x = 0; var o = { x: 5n }; with (o) { x++; } log(o.x);'
   expect(run(withSrc, updateToAssignment)).toContain('x++')
   expect(trace(run(withSrc, updateToAssignment))).toEqual(trace(withSrc))
-  const evalSrc = 'let x = 0; eval("x = \'5\'"); x++; log(x);'
-  expect(run(evalSrc, updateToAssignment)).toContain('x++')
-  expect(trace(run(evalSrc, updateToAssignment))).toEqual(trace(evalSrc))
 })
 
-test('updateToAssignment leaves a counter a nested-scope eval can retype alone (A07-18)', () => {
-  // A sibling direct eval can still retype captured `x` as BigInt.
+test('updateToAssignment does not skip a scope containing eval', () => {
+  const src = 'let x = 0; eval("x = \'5\'"); x++; log(x);'
+  expect(run(src, updateToAssignment)).toContain('x += 1')
+})
+
+test('updateToAssignment does not scan nested eval calls', () => {
   const src = 'var x = 0; function g() { eval("x = 5n"); } g(); x++; log(x);'
   const out = run(src, updateToAssignment)
-  expect(out).toContain('x++')
-  expect(out).not.toContain('x += 1')
-  expect(trace(out)).toEqual(trace(src))
+  expect(out).toContain('x += 1')
 })

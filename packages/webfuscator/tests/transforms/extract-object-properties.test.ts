@@ -398,7 +398,7 @@ test('extractObjectProperties handles a member listed twice in referencePaths', 
 
   expect(() => extractObjectProperties(ast)).not.toThrow()
 
-  const out = generate(ast, { comments: false }).code
+  const out = generate(ast, { comments: false, shouldPrintComment: () => false }).code
   expect(out).toContain('var a = 1')
   expect(out).toContain('var b = 2')
   expect(out).not.toMatch(/\bo\.[ab]\b/)

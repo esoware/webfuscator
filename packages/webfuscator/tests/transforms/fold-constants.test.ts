@@ -794,7 +794,7 @@ f();`
     },
   })
   foldConstants(ast)
-  const out = generate(ast, { comments: false }).code
+  const out = generate(ast, { comments: false, shouldPrintComment: () => false }).code
   expect(out).toContain('return !X')
 })
 

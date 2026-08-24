@@ -6,7 +6,7 @@ import type { File } from '@babel/types'
 import { analyzeInlineability } from '../analysis/inlineability'
 import type { InlineCandidate } from '../analysis/inlineability'
 import { isPure } from '../analysis/purity'
-import { enclosingScopeHasDirectEval, isInsideWith, walkOwnFunctionScope } from '../utils/ast'
+import { isInsideWith, walkOwnFunctionScope } from '../utils/ast'
 import { reorderableToStatement } from '../utils/evaluation-order'
 import { generateLoopLabel } from '../utils/loop-lowering'
 import { hasAnnexBFunctionAlias, isInStrictContext } from '../utils/paths'
@@ -135,9 +135,8 @@ function isSafeAtCallSite(
   callPath: NodePath<t.CallExpression>,
   candidates: Map<string, InlineCandidate>,
 ): boolean {
-  // `with`, direct eval, and Annex B aliases can redirect free names outside
-  // Babel's scope table.
-  if (isInsideWith(callPath) || enclosingScopeHasDirectEval(callPath)) {
+  // `with` and Annex B aliases can resolve a free name outside Babel's scope table.
+  if (isInsideWith(callPath)) {
     return false
   }
   if (annexBHoistShadowsFreeVar(callPath, freeVars)) {

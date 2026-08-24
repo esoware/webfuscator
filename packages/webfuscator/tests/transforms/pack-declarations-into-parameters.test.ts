@@ -289,10 +289,11 @@ test('pack does not pack a var sharing a name with a body function declaration (
   preserves(code, packDeclarationsIntoParameters)
 })
 
-test('pack does not unmap arguments observed through a direct eval (A02-20)', () => {
+test('pack does not skip a function containing eval', () => {
   const code = 'function f(a) { var x = 1; a = 9; log(eval("arguments[0]"), x); }\nf(7);'
-  expect(run(code, packDeclarationsIntoParameters)).toContain('var x = 1')
-  preserves(code, packDeclarationsIntoParameters)
+  const out = run(code, packDeclarationsIntoParameters)
+  expect(out).not.toContain('var x = 1')
+  expect(out).toContain('x = 1')
 })
 
 test('pack detects arguments read in a nested method computed key (A02-21)', () => {

@@ -13,6 +13,7 @@ const titles = {
   argumentsToParameters: 'Arguments to parameters',
   arrowToFunction: 'Arrow to function',
   collapseSingleUseTemps: 'Collapse single-use temporaries',
+  concealStrings: 'Conceal strings',
   constLetToVar: 'Const and let to var',
   constToLet: 'Const to let',
   doWhileToWhile: 'Do-while to while',
@@ -25,9 +26,11 @@ const titles = {
   foldConstants: 'Fold constants',
   forToWhile: 'For to while',
   functionDeclarationToExpression: 'Function declarations to expressions',
+  hoistVariables: 'Hoist variables',
   inlineFunctions: 'Inline functions',
   logicalToTernary: 'Logical expressions to ternaries',
   mangleProperties: 'Mangle properties',
+  mergeVariableDeclarations: 'Merge variable declarations',
   nullishCoalescingToTernary: 'Nullish coalescing to ternaries',
   numbersToStrings: 'Numbers to strings',
   objectMethodToProperty: 'Object methods to properties',
@@ -38,6 +41,7 @@ const titles = {
   removeUnreachableCode: 'Remove unreachable code',
   removeUnusedCode: 'Remove unused code',
   renameIdentifiers: 'Rename identifiers',
+  reorderFunctionDeclarations: 'Reorder function declarations',
   specialsToStrings: 'Special values to strings',
   switchToIf: 'Switch to if',
   ternaryToIf: 'Ternaries to if statements',
@@ -134,12 +138,16 @@ function publicBehavior(transformName, behavior) {
 }
 
 function configurationNote(transformName) {
+  if (transformName === 'concealStrings') {
+    return `Pass \`{ cache, cover, deduplicate, scope }\` instead of \`true\`. Program scope is the default and uses one vault. Function scope creates separate function vaults, each with the same whole-program pool. The default \`regional\` cover fills U+0000-00FF plus every 256-unit page touched anywhere in the program. Use \`used\` for compact output or \`full\` for all 65,536 UTF-16 units. Disable \`cache\` to decode on every evaluation, or disable \`deduplicate\` to give equal literals separate entries.`
+  }
+
   if (transformName === 'mangleProperties') {
     return `Pass [property-mangling options](/reference/property-mangling-options) instead of \`true\` when you need to limit which properties it changes.`
   }
 
   if (transformName === 'pack') {
-    return `Pass \`{ escapeStrict, skipGlobals, stringGeneratorMode }\` instead of \`true\`. Set \`escapeStrict\` to run the packed body in sloppy mode even when the source is strict, which deliberately changes behavior. Set \`skipGlobals\` to \`true\`, or to an array of names, to leave those free names bare instead of routing them through the accessor object; they resolve to the same global from inside the packed body, so this only trims the output.`
+    return `Pass \`{ escapeStrict, skipGlobals, stringGeneratorMode }\` instead of \`true\`. Set \`escapeStrict\` to run the packed body in sloppy mode even when the source is strict, which deliberately changes behavior. Packing also does not propagate a script's completion value, so a trailing expression that was observable through an embedding API becomes \`undefined\`. Set \`skipGlobals\` to \`true\`, or to an array of names, to leave those free names bare instead of routing them through the accessor object; they resolve to the same global from inside the packed body, so this only trims the output.`
   }
 
   if (configurableStringModeTransforms.has(transformName)) {

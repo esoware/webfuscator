@@ -30,40 +30,38 @@ The function does not return an AST or source map. If your build reads and write
 
 Babel parses the input with `sourceType: 'unambiguous'`, so both scripts and ECMAScript modules are accepted. Compile TypeScript, JSX, decorators, and other syntax extensions to JavaScript before calling `obfuscate`.
 
-<Warning>
-  The generator preserves `sourceMappingURL` comments but does not update the referenced map. Remove or regenerate stale maps in your build.
-</Warning>
+Direct `eval` is out of scope. Transforms rename and remove bindings without accounting for an `eval` argument that reads them at runtime, so a program whose behavior depends on a direct `eval` resolving names in its surrounding scope is not preserved.
+
+The generated program has new source text and locations. `Function.prototype.toString()` results and stack-trace formatting can therefore change even when runtime behavior does not. The API does not generate source maps.
 
 ## Errors
 
 `obfuscate` throws in three cases:
 
 - Babel cannot parse `code`.
-- A transform receives invalid configuration. `mangleProperties` validates its `cache` (entries must be strings, and outputs must be unique and cannot be `__proto__`, `constructor`, or `prototype`) and its `nameGenerator` (it must return an available, nonnumeric string). An empty `stringGeneratorMode` array is also rejected.
+- A transform receives invalid configuration. `concealStrings` validates `cache`, `cover`, `deduplicate`, and `scope`. `mangleProperties` validates its `cache` (entries must be strings, and outputs must be unique and cannot be `__proto__`, `constructor`, or `prototype`) and its `nameGenerator` (it must return an available, nonnumeric string). An empty `stringGeneratorMode` array is also rejected.
 - `pack` is enabled on a program that uses `export` statements. Export syntax cannot exist inside a `Function` body, so pack refuses it rather than emit output that fails to parse.
 
-Apart from that export case, no transform throws because a rewrite was hard. It leaves syntax it cannot prove safe unchanged and moves on. Enabling a transform that changes behavior by design still makes the output differ from the input: `dropConsole`, `dropDebugger`, `mangleProperties`, or `pack`.
+Apart from that export case, no transform throws because a rewrite was hard. It leaves syntax it cannot prove safe unchanged and moves on. `dropConsole` and `dropDebugger` deliberately remove their named effects. `mangleProperties` depends on the caller controlling the property boundary. `pack` moves the program into a `Function` body and has documented wrapper-boundary differences; only its `escapeStrict` option deliberately changes the body's strictness.
 
 The API does not catch or wrap these errors.
 
 ## Comment handling
 
-Ordinary comments are removed. The generator retains comments that match one of these forms:
+The generator removes every comment, including `/*!` banners, `@license`, `@preserve`, `sourceURL`, and `sourceMappingURL`. Keep required license text in a separate artifact or prepend it after obfuscation. Append a new source URL or map directive only when it describes the generated output.
 
-| Comment | Example |
-| --- | --- |
-| Bang comment | `/*! copyright */` |
-| License marker | `/** @license MIT */` |
-| Preserve marker | `/** @preserve fingerprint */` |
-| Source URL directive | `//# sourceURL=app.js` |
-| Source map directive | `//# sourceMappingURL=app.js.map` |
+Property-mangling annotations are input-only compiler instructions. `mangleProperties` reads exact standalone `@__MANGLE_PROP__`, `#__MANGLE_PROP__`, `@__KEY__`, and `#__KEY__` markers before the generator removes them.
+
+A hashbang such as `#!/usr/bin/env node` remains because Babel represents it as an interpreter directive rather than a comment. JavaScript directive prologues such as `"use strict"` also remain and keep their runtime semantics.
 
 ## Exported TypeScript types
 
 | Type | Purpose |
 | --- | --- |
 | `ObfuscatorOptions` | The optional second argument to `obfuscate`. |
+| `ConcealStringsOptions` | The object accepted by `transforms.concealStrings`. |
 | `ManglePropertiesOptions` | The object accepted by `transforms.mangleProperties`. |
+| `PackOptions` | The object accepted by `transforms.pack`. |
 | `PropertyNameGenerator` | The `(index: number) => string` callback used by `nameGenerator`. |
 
 The package exports these types from its root entry point. You do not need an internal import path.

@@ -1,5 +1,6 @@
 export { obfuscate } from './obfuscator'
 export type {
+  ConcealStringsOptions,
   ManglePropertiesOptions,
   ObfuscatorOptions,
   PackOptions,

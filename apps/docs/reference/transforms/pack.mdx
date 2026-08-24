@@ -19,7 +19,7 @@ const output = obfuscate(source, {
 })
 ```
 
-Pass `{ escapeStrict, skipGlobals, stringGeneratorMode }` instead of `true`. Set `escapeStrict` to run the packed body in sloppy mode even when the source is strict, which deliberately changes behavior. Set `skipGlobals` to `true`, or to an array of names, to leave those free names bare instead of routing them through the accessor object; they resolve to the same global from inside the packed body, so this only trims the output.
+Pass `{ escapeStrict, skipGlobals, stringGeneratorMode }` instead of `true`. Set `escapeStrict` to run the packed body in sloppy mode even when the source is strict, which deliberately changes behavior. Packing also does not propagate a script's completion value, so a trailing expression that was observable through an embedding API becomes `undefined`. Set `skipGlobals` to `true`, or to an array of names, to leave those free names bare instead of routing them through the accessor object; they resolve to the same global from inside the packed body, so this only trims the output.
 
 ## What it changes
 
@@ -29,13 +29,11 @@ and its own parameters. A free name might instead be a CommonJS `require`, a
 bundler-injected binding, or a live import, none reachable from the body and
 none distinguishable from a global at build time, so free names are routed
 through a parameter object whose accessors run in the original top-level scope
-and resolve each name there. Import declarations return above the call. `eval`
-is left un-routed so a direct eval still reads the body scope. Names inside a
-`with` stay un-routed too, since they may resolve against the with object at
-runtime. Export statements cannot live inside a Function body, so pack throws
-on them. It packs everything else as written. Code that needs `import.meta`,
-top-level await, dynamic `import()`, or a top-level `arguments` will not run
-once moved into a Function body.
+and resolve each name there. Imports remain above the call. Names inside
+`with` stay bare so the object still controls lookup. A Function body cannot
+contain exports, so pack throws when it finds one. Code that needs
+`import.meta`, top-level await, dynamic `import()`, or top-level `arguments`
+will not run after the move.
 
 <Warning>
   `pack` throws on `export` statements, which cannot exist inside a `Function` body. It packs everything else as written. Code that needs `import.meta`, top-level await, dynamic `import()`, or a top-level `arguments` will not run once packed. And in a script, top-level `var` and function declarations stop publishing as global-object properties like `globalThis.x`.

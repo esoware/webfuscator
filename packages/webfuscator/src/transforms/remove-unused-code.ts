@@ -1,10 +1,9 @@
 import traverse from '@babel/traverse'
-import type { NodePath, Scope, Visitor } from '@babel/traverse'
+import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
 import { isSideEffectFree } from '../analysis/purity'
-import { isDirectEvalCall } from '../utils/ast'
 import type { ChangeState } from '../utils/change-tracking'
 import { hasAnnexBFunctionAlias } from '../utils/paths'
 
@@ -28,10 +27,7 @@ export function removeUnusedCode(ast: File): boolean {
   // then maintain counts during removal.
   crawlProgramScope(ast)
   let anyChanged = false
-  const state: SweepState = {
-    changed: true,
-    evalReachableScopes: collectEvalReachableScopes(ast),
-  }
+  const state: ChangeState = { changed: true }
   while (state.changed) {
     state.changed = false
     traverse(ast, sweepVisitor, undefined, state)
@@ -51,49 +47,19 @@ function crawlProgramScope(ast: File): void {
   })
 }
 
-// Direct eval can read otherwise unreferenced bindings in its scope ancestry.
-// Sweep state keeps this set local to one pass.
-interface SweepState extends ChangeState {
-  evalReachableScopes: Set<t.Node>
-}
-
-function collectEvalReachableScopes(ast: File): Set<t.Node> {
-  const reachable = new Set<t.Node>()
-  traverse(ast, {
-    CallExpression(path) {
-      if (!isDirectEvalCall(path.node)) {
-        return
-      }
-      let scope: Scope | undefined = path.scope
-      while (scope) {
-        reachable.add(scope.block)
-        scope = scope.parent
-      }
-    },
-  })
-  return reachable
-}
-
-function bindingReachableByEval(
-  binding: { scope: Scope },
-  evalReachableScopes: Set<t.Node>,
-): boolean {
-  return evalReachableScopes.has(binding.scope.block)
-}
-
-const sweepVisitor: Visitor<SweepState> = {
+const sweepVisitor: Visitor<ChangeState> = {
   VariableDeclarator(path, state) {
-    if (tryRemoveDeclarator(path, state.evalReachableScopes)) {
+    if (tryRemoveDeclarator(path)) {
       state.changed = true
     }
   },
   FunctionDeclaration(path, state) {
-    if (tryRemoveFunctionDecl(path, state.evalReachableScopes)) {
+    if (tryRemoveFunctionDecl(path)) {
       state.changed = true
     }
   },
   ClassDeclaration(path, state) {
-    if (tryRemoveClassDecl(path, state.evalReachableScopes)) {
+    if (tryRemoveClassDecl(path)) {
       state.changed = true
     }
   },
@@ -126,10 +92,7 @@ function dereferenceSubtree(rootPath: NodePath): void {
   rootPath.traverse(dereferenceVisitor)
 }
 
-function tryRemoveDeclarator(
-  path: NodePath<t.VariableDeclarator>,
-  evalReachableScopes: Set<t.Node>,
-): boolean {
+function tryRemoveDeclarator(path: NodePath<t.VariableDeclarator>): boolean {
   const declaration = path.parentPath
   if (!declaration || !declaration.isVariableDeclaration()) {
     return false
@@ -170,10 +133,6 @@ function tryRemoveDeclarator(
   if (binding.constantViolations.length > 0) {
     return false
   }
-  if (bindingReachableByEval(binding, evalReachableScopes)) {
-    return false
-  }
-
   if (path.node.init) {
     dereferenceSubtree(path.get('init') as NodePath)
   }
@@ -185,10 +144,7 @@ function tryRemoveDeclarator(
   return true
 }
 
-function tryRemoveFunctionDecl(
-  path: NodePath<t.FunctionDeclaration>,
-  evalReachableScopes: Set<t.Node>,
-): boolean {
+function tryRemoveFunctionDecl(path: NodePath<t.FunctionDeclaration>): boolean {
   if (isExported(path)) {
     return false
   }
@@ -211,20 +167,13 @@ function tryRemoveFunctionDecl(
   if (binding.constantViolations.length > 0) {
     return false
   }
-  if (bindingReachableByEval(binding, evalReachableScopes)) {
-    return false
-  }
-
   dereferenceSubtree(path.get('body') as NodePath)
   path.scope.removeBinding(id.name)
   path.remove()
   return true
 }
 
-function tryRemoveClassDecl(
-  path: NodePath<t.ClassDeclaration>,
-  evalReachableScopes: Set<t.Node>,
-): boolean {
+function tryRemoveClassDecl(path: NodePath<t.ClassDeclaration>): boolean {
   if (isExported(path)) {
     return false
   }
@@ -265,10 +214,6 @@ function tryRemoveClassDecl(
   if (binding.constantViolations.length > 0) {
     return false
   }
-  if (bindingReachableByEval(binding, evalReachableScopes)) {
-    return false
-  }
-
   dereferenceSubtree(path.get('body') as NodePath)
   if (path.node.superClass) {
     dereferenceSubtree(path.get('superClass') as NodePath)

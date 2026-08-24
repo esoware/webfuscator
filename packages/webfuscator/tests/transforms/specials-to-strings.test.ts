@@ -205,7 +205,11 @@ test('specialsToStrings does not rewrite a special shadowed by a with object', (
   expectPreservesBehavior('with ({ Infinity: 3 }) { log(Infinity); }')
 })
 
-test('specialsToStrings does not rewrite a special in a function with direct eval', () => {
-  expectPreservesBehavior('(function () { eval("var undefined = 5"); log(undefined); })();')
-  expectPreservesBehavior('(function () { eval("var NaN = 5"); log(NaN); })();')
+test('specialsToStrings does not skip a scope containing eval', () => {
+  const out = run(
+    '(function () { eval("var undefined = 5; var NaN = 6"); log(undefined, NaN); })();',
+    transform,
+  )
+  expect(out).toContain('void "')
+  expect(out).toContain('+"')
 })

@@ -4,7 +4,8 @@ import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
 import { evaluateConstant, isOpaque } from '../analysis/constant'
-import { enclosingScopeHasDirectEval, isInDirectivePrologue, isInsideWith } from '../utils/ast'
+import { isSideEffectFree } from '../analysis/purity'
+import { isInDirectivePrologue, isInsideWith } from '../utils/ast'
 import type { ChangeState } from '../utils/change-tracking'
 import { valueToLiteral } from '../utils/literal'
 
@@ -104,16 +105,11 @@ function collectPatchedIntrinsics(ast: File): Set<string> {
       markMutationCall(path, poison)
     },
     Identifier(path) {
-      // Global eval and Function can patch any intrinsic outside this scan.
       const name = path.node.name
-      if (name !== 'eval' && name !== 'Function') {
+      if (name !== 'Function') {
         return
       }
       if (!path.isReferencedIdentifier() || path.scope.getBinding(name)) {
-        return
-      }
-      if (name === 'eval') {
-        poison(INTRINSIC_ROOTS)
         return
       }
       const parent = path.parentPath
@@ -496,7 +492,7 @@ function isReferenceRequiredPosition(path: NodePath<t.MemberExpression>): boolea
 }
 
 // Folding a leading call to a string can create a directive and change strictness.
-function foldsIntoDirective(path: NodePath<t.CallExpression>, replacement: t.Expression): boolean {
+function foldsIntoDirective(path: NodePath, replacement: t.Expression): boolean {
   if (!t.isStringLiteral(replacement)) {
     return false
   }
@@ -506,9 +502,61 @@ function foldsIntoDirective(path: NodePath<t.CallExpression>, replacement: t.Exp
   )
 }
 
+function replaceWithPreservedExpression(
+  path: NodePath<t.CallExpression | t.MemberExpression>,
+  expression: t.Expression,
+  result: t.Expression,
+): void {
+  if (!isSideEffectFree(expression, path.scope, path)) {
+    path.replaceWith(t.sequenceExpression([expression, result]))
+    return
+  }
+  if (foldsIntoDirective(path, result)) {
+    path.replaceWith(t.sequenceExpression([t.numericLiteral(0), result]))
+    return
+  }
+  path.replaceWith(result)
+}
+
+function foldArrayLiteralLength(
+  path: NodePath<t.MemberExpression>,
+  array: t.ArrayExpression,
+): boolean {
+  if (array.elements.some((element) => t.isSpreadElement(element))) {
+    return false
+  }
+  const effects = array.elements.filter(
+    (element): element is t.Expression =>
+      element !== null && t.isExpression(element) && !isSideEffectFree(element, path.scope, path),
+  )
+  const length = t.numericLiteral(array.elements.length)
+  path.replaceWith(effects.length === 0 ? length : t.sequenceExpression([...effects, length]))
+  return true
+}
+
+function foldStringIndex(
+  path: NodePath<t.MemberExpression>,
+  receiverNode: t.Expression,
+  propertyName: string,
+): boolean {
+  const index = Number(propertyName)
+  if (!Number.isSafeInteger(index) || index < 0 || String(index) !== propertyName) {
+    return false
+  }
+  const receiver = evaluateConstant(receiverNode, path.scope, path)
+  if (!receiver.known || typeof receiver.value !== 'string') {
+    return false
+  }
+  if (index >= receiver.value.length) {
+    return false
+  }
+  replaceWithPreservedExpression(path, receiverNode, t.stringLiteral(receiver.value[index]!))
+  return true
+}
+
 function handleCall(path: NodePath<t.CallExpression>, patchedRoots: Set<string>): void {
-  // `with` and direct eval can shadow names outside Babel's scope table.
-  if (isInsideWith(path) || enclosingScopeHasDirectEval(path)) {
+  // `with` can replace an intrinsic that Babel treats as an unbound global.
+  if (isInsideWith(path)) {
     return
   }
   const callee = path.node.callee
@@ -559,7 +607,7 @@ function handleMember(path: NodePath<t.MemberExpression>, patchedRoots: Set<stri
     return
   }
   // Delay the ancestor walk until cheap shape checks pass.
-  if (isInsideWith(path) || enclosingScopeHasDirectEval(path)) {
+  if (isInsideWith(path)) {
     return
   }
 
@@ -589,10 +637,18 @@ function handleMember(path: NodePath<t.MemberExpression>, patchedRoots: Set<stri
   }
 
   if (propName === 'length') {
+    if (t.isArrayExpression(obj) && foldArrayLiteralLength(path, obj)) {
+      return
+    }
     const recv = evaluateConstant(obj, path.scope, path)
     if (recv.known && typeof recv.value === 'string') {
       path.replaceWith(t.numericLiteral(recv.value.length))
     }
+    return
+  }
+
+  if (t.isExpression(obj)) {
+    foldStringIndex(path, obj, propName)
   }
 }
 
@@ -625,7 +681,6 @@ function foldGlobalCall(
     foldNumberCtor(path)
     return
   }
-
   if (GLOBAL_FUNCTIONS.has(name)) {
     if (path.scope.getBinding(name)) {
       return

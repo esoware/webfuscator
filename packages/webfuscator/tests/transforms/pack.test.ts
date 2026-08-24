@@ -6,7 +6,7 @@ import { expect, test } from 'vitest'
 import { obfuscate } from '../../src/index'
 import { pack } from '../../src/transforms/pack'
 import { defineCases, run } from '../helpers'
-import { obfuscateWithTransformPipeline } from '../obfuscator-helpers'
+import { obfuscateAll } from '../obfuscator-helpers'
 
 const packMangled = (ast: File): void => {
   pack(ast, { seed: 0, stringGeneratorMode: 'mangled' })
@@ -73,6 +73,12 @@ test('pack output is a Function constructor call', () => {
   const out = packOnly(`log("hi");`)
   expect(out.trimStart().startsWith('Function(')).toBe(true)
   expect(traceWith(out).logs).toEqual(['hi'])
+})
+
+test('pack strips comments before embedding the body source', () => {
+  const src = `/** @license hidden */ log("hi");`
+  const out = expectEquivalent(src)
+  expect(out).not.toContain('@license')
 })
 
 test(cases.globalCall.name, () => {
@@ -284,12 +290,6 @@ log(createHash("sha256").update("payload").digest("hex"));`
   expect(logs).toEqual([createHash('sha256').update('payload').digest('hex')])
 })
 
-test('pack preserves the completion value through an eval of the output', () => {
-  const packed = packOnly(`3 * 4;`)
-  // oxlint-disable-next-line no-eval
-  expect((0, eval)(packed)).toBe(12)
-})
-
 test('pack composes with the full transform pipeline without changing behavior', () => {
   const src = `function classify(n) {
   switch (n % 3) {
@@ -301,7 +301,7 @@ test('pack composes with the full transform pipeline without changing behavior',
 var out = [];
 for (var i = 0; i < 5; i++) { out.push(classify(i)); }
 log(out.join(","));`
-  const packed = obfuscateWithTransformPipeline(src, { transforms: { pack: true } })
+  const packed = obfuscateAll(src, { transforms: { pack: true } })
   expect(traceWith(packed)).toEqual(traceWith(src))
 })
 
@@ -332,25 +332,16 @@ test('pack no longer bails on module-only constructs', () => {
   expect(packOnly(`log(arguments.length);`)).toContain('Function(')
 })
 
-test('pack wraps a direct eval and leaves eval un-routed', () => {
-  const packed = expectEquivalent(`log(eval("1 + 1"));`)
-  expect(packed).toContain('Function(')
-  expect(packed).toContain('eval(')
+test('pack routes eval like every other free identifier', () => {
+  const packed = packOnly(`log(eval("1 + 1"));`)
+  expect(packed).toContain('return eval;')
+  expect(packed).not.toMatch(/\beval\(/u)
 })
 
-test('pack wraps an optional direct eval', () => {
-  const packed = expectEquivalent(`log(eval?.("2 + 3"));`)
-  expect(packed).toContain('Function(')
-})
-
-test('pack keeps a direct eval reading a local body binding', () => {
-  expectEquivalent(`var n = 4; log(eval("n + 1"));`)
-})
-
-test('pack wraps a call to a local binding named eval', () => {
-  // A local `eval` is an ordinary function, not the global. It has a binding, so
-  // the router leaves it alone and pack wraps the program normally.
-  expectEquivalent(`function eval(x) { return x + 1; } log(eval(41));`)
+test('pack leaves a trailing expression as a statement', () => {
+  const packed = packOnly(`3 * 4;`)
+  expect(packed).toContain('3*4;')
+  expect(packed).not.toContain('return 3*4')
 })
 
 test('pack keeps a bare delete operating on the global binding', () => {
