@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build": "pnpm --recursive --if-present run build",
-    "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run knip && pnpm --filter @webfuscator/docs run generate:check && pnpm run test",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run knip && pnpm --filter @webfuscator/docs run generate:check && pnpm run package-files:check && pnpm run test",
     "deploy:playground": "pnpm --filter @webfuscator/playground run deploy",
     "dev": "pnpm --filter @webfuscator/playground run dev",
     "docs:check": "pnpm --filter @webfuscator/docs run check",
@@ -15,6 +15,8 @@
     "knip": "knip",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
+    "package-files:check": "pnpm --filter webfuscator run package-files:check",
+    "package-files:sync": "pnpm --filter webfuscator run package-files:sync",
     "preview": "pnpm --filter @webfuscator/playground run preview",
     "test": "pnpm --recursive --if-present run test",
     "test:watch": "pnpm --filter webfuscator run test:watch",

@@ -24,6 +24,8 @@
   },
   "files": [
     "DISCLOSURE",
+    "LICENSE",
+    "README.md",
     "dist",
     "src"
   ],
@@ -43,8 +45,10 @@
   },
   "scripts": {
     "prepublishOnly": "pnpm --workspace-root check",
-    "prepack": "pnpm run build",
+    "prepack": "pnpm run package-files:check && pnpm run build",
     "build": "node --eval \"require('node:fs').rmSync('dist', { force: true, recursive: true })\" && tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json && node scripts/verify-dist.mjs",
+    "package-files:check": "node scripts/sync-package-files.mjs --check",
+    "package-files:sync": "node scripts/sync-package-files.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"

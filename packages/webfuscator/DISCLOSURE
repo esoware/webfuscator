@@ -1,0 +1,9 @@
+webfuscator transforms and obfuscates JavaScript source code. Its features
+include identifier and property-name mangling, constant folding, dead-code
+removal, and control-flow and literal rewrites.
+
+These capabilities can make JavaScript harder to inspect and may have both
+legitimate and harmful uses. The intended use is transforming software that
+the user owns or is authorized to modify. This package is not intended to
+create, conceal, distribute, or operate malware, or to interfere with systems
+without authorization.

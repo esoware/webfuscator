@@ -29,6 +29,7 @@ Every task runs from the root. A workspace script is the real command, a root sc
 
 - `pnpm test` runs the full suite. Run it after every meaningful change.
 - `pnpm check` runs the typecheck, lint, format check, knip, generated-docs check, and tests. It must pass before the task is done.
+- `pnpm package-files:sync` copies `README.md`, `LICENSE`, and `DISCLOSURE` into the published package. Run it after changing any of those files; `pnpm check` rejects stale copies.
 - `pnpm docs:check` validates links, snippets, redirects, and accessibility. It needs the network, so it stays out of `pnpm check`.
 - `pnpm dev` and `pnpm preview` serve the playground, `pnpm docs:dev` the docs. `pnpm build`, `pnpm typecheck`, and `pnpm test:watch` cover the rest.
 - The deploy script is `deploy:playground`, not `deploy`, because `pnpm deploy` is a built-in pnpm command that never reaches a script by that name.

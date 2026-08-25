@@ -56,12 +56,12 @@ pnpm check        # typecheck, lint, format, knip, generated docs, tests
 pnpm docs:check   # links, snippets, redirects, accessibility
 ```
 
-[AGENTS.md](./AGENTS.md) lists the rest and explains which workspace owns what. Read it before changing transforms or analysis code.
+[AGENTS.md](https://github.com/esoware/webfuscator/blob/main/AGENTS.md) lists the rest and explains which workspace owns what. Read it before changing transforms or analysis code.
 
 ## Responsible use
 
-Use `webfuscator` only on software you own or are authorized to modify. Read [DISCLOSURE](./DISCLOSURE) for the project's dual-use policy.
+Use `webfuscator` only on software you own or are authorized to modify. Read [DISCLOSURE](https://github.com/esoware/webfuscator/blob/main/DISCLOSURE) for the project's dual-use policy.
 
 ## License
 
-[MIT](./LICENSE)
+[MIT](https://github.com/esoware/webfuscator/blob/main/LICENSE)
