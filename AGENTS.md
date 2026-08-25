@@ -29,7 +29,7 @@ Every task runs from the root. A workspace script is the real command, a root sc
 
 - `pnpm test` runs the full suite. Run it after every meaningful change.
 - `pnpm check` runs the typecheck, lint, format check, knip, generated-docs check, and tests. It must pass before the task is done.
-- `pnpm package-files:sync` copies `README.md`, `LICENSE`, and `DISCLOSURE` into the published package. Run it after changing any of those files; `pnpm check` rejects stale copies.
+- `pnpm package:pack` builds the npm package, assembles an ignored staging directory, creates one tarball, validates its contents and integrity, installs it in a temporary project, and exercises the installed API. `pnpm package:verify` repeats the artifact checks without rebuilding.
 - `pnpm docs:check` validates links, snippets, redirects, and accessibility. It needs the network, so it stays out of `pnpm check`.
 - `pnpm dev` and `pnpm preview` serve the playground, `pnpm docs:dev` the docs. `pnpm build`, `pnpm typecheck`, and `pnpm test:watch` cover the rest.
 - The deploy script is `deploy:playground`, not `deploy`, because `pnpm deploy` is a built-in pnpm command that never reaches a script by that name.
@@ -43,6 +43,8 @@ Keep `knip` at zero. Delete dead code instead of exporting it.
 `packages/webfuscator/vitest.config.ts` raises the worker stack with `--stack-size`. The deep-nesting tests need the larger stack because `@babel/parser` exhausts Node's default while parsing them.
 
 `build` removes `packages/webfuscator/dist` through Node's filesystem API so the script works in both Windows and POSIX shells. It then compiles, runs `tsc-alias`, and runs `packages/webfuscator/scripts/verify-dist.mjs`. Keep all three. `tsc` copies relative specifiers into its output unchanged, `tsc-alias` adds the extensions Node needs, and the verifier imports the built entry point and fails the build if any specifier is still extensionless. Nothing else reads `dist`, so dropping the verifier is how a broken build reaches npm.
+
+`README.md`, `LICENSE`, and `DISCLOSURE` are canonical at the repository root. Do not commit copies under `packages/webfuscator`. The package staging script copies them into `packages/webfuscator/.release/stage`, and the release workflow publishes the exact verified `.tgz` from `packages/webfuscator/.release`. Never publish or pack `packages/webfuscator` directly.
 
 ## Pipeline and transforms
 

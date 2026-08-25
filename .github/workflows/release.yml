@@ -37,8 +37,12 @@ jobs:
         run: |
           package_version="$(node -p "require('./packages/webfuscator/package.json').version")"
           test "$RELEASE_TAG" = "v$package_version"
+      - run: pnpm check
+      - name: Build and verify package
+        run: pnpm package:pack
       - name: Stage package
-        working-directory: packages/webfuscator
         env:
           NPM_DIST_TAG: ${{ github.event.release.prerelease && 'next' || 'latest' }}
-        run: npm stage publish --access public --foreground-scripts --tag "$NPM_DIST_TAG"
+        run: |
+          package_version="$(node -p "require('./packages/webfuscator/package.json').version")"
+          npm stage publish "packages/webfuscator/.release/webfuscator-$package_version.tgz" --access public --provenance --tag "$NPM_DIST_TAG"

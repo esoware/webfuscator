@@ -2,6 +2,7 @@ node_modules/
 dist/
 own/
 packages/webfuscator/tests/fixtures/output/
+packages/webfuscator/.release/
 *.tsbuildinfo
 .DS_Store
 package-lock.json
