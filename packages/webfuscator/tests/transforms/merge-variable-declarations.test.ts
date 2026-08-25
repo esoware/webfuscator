@@ -11,6 +11,18 @@ function expectEquivalent(input: string): string {
   return out
 }
 
+function runtimeSupportsExplicitResourceManagement(): boolean {
+  try {
+    // oxlint-disable-next-line no-new-func
+    const parsed = new Function(
+      'using resource = null; return async function () { await using resource = null; }',
+    )
+    return typeof parsed === 'function'
+  } catch {
+    return false
+  }
+}
+
 defineCases('merge-variable-declarations', mergeVariableDeclarations, {
   adjacentLets: {
     name: 'mergeVariableDeclarations fuses consecutive let declarations',
@@ -135,9 +147,13 @@ const resourceB = { [Symbol.dispose]() { log("b"); } };
   using b = resourceB;
   log("body");
 }`
-  const out = expectEquivalent(src)
+  const out = run(src, mergeVariableDeclarations)
   expect(out).toContain('using a =')
   expect(out).not.toMatch(/\n\s*using b/)
+  if (!runtimeSupportsExplicitResourceManagement()) {
+    return
+  }
+  expect(trace(out)).toEqual(trace(src))
   expect(trace(out)).toEqual({ logs: ['body', 'b', 'a'], threw: null })
 })
 
@@ -151,6 +167,9 @@ async function f() {
 }`
   const out = run(src, mergeVariableDeclarations)
   expect(out).not.toMatch(/\n\s*await using b/)
+  if (!runtimeSupportsExplicitResourceManagement()) {
+    return
+  }
 
   const evaluate = async (code: string): Promise<string[]> => {
     const logs: string[] = []
