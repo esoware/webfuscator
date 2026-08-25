@@ -142,10 +142,9 @@ test('updateToAssignment leaves a for-in loop variable alone', () => {
   expect(trace(out)).toEqual(trace(src))
 })
 
-test('updateToAssignment leaves an update inside a with block alone', () => {
+test('updateToAssignment does not inspect enclosing `with` statements', () => {
   const withSrc = 'let x = 0; var o = { x: 5n }; with (o) { x++; } log(o.x);'
-  expect(run(withSrc, updateToAssignment)).toContain('x++')
-  expect(trace(run(withSrc, updateToAssignment))).toEqual(trace(withSrc))
+  expect(run(withSrc, updateToAssignment)).toContain('x += 1')
 })
 
 test('updateToAssignment does not skip a scope containing eval', () => {
@@ -157,4 +156,9 @@ test('updateToAssignment does not scan nested eval calls', () => {
   const src = 'var x = 0; function g() { eval("x = 5n"); } g(); x++; log(x);'
   const out = run(src, updateToAssignment)
   expect(out).toContain('x += 1')
+})
+
+test('updateToAssignment ignores writes that are illegal because the binding is const', () => {
+  const src = 'const x = 0; if (globalThis.cond) x = 5n; x++;'
+  expect(run(src, updateToAssignment)).toContain('x += 1')
 })

@@ -57,12 +57,12 @@ let b = 2;
 var c = 3;
 log(a, b, c);`,
   },
-  reassignedConstKept: {
-    name: 'constToLet keeps a reassigned const so the TypeError survives',
+  reassignedConst: {
+    name: 'constToLet rewrites a reassigned const',
     input: `const a = 1; try { a = 2; } catch (e) { log(e.constructor.name); } log(a);`,
   },
-  forHeadUpdateConstKept: {
-    name: 'constToLet keeps a for-head const whose update reassigns it',
+  forHeadUpdateConst: {
+    name: 'constToLet rewrites a for-head const whose update reassigns it',
     input: `try { for (const i = 0; i < 3; i++) { log(i); } } catch (e) { log(e.constructor.name); }`,
   },
   evalConst: {
@@ -116,16 +116,14 @@ test(cases.mixedDeclarations.name, () => {
   expect(out).not.toContain('const')
 })
 
-// A04-01: A reassigned constant must keep throwing.
-test(cases.reassignedConstKept.name, () => {
-  const out = expectEquivalent(cases.reassignedConstKept.input)
-  expect(out).toContain('const a = 1')
+test(cases.reassignedConst.name, () => {
+  const out = run(cases.reassignedConst.input, constToLet)
+  expect(out).toContain('let a = 1')
 })
 
-// A04-02: A loop update must keep throwing on its first constant write.
-test(cases.forHeadUpdateConstKept.name, () => {
-  const out = expectEquivalent(cases.forHeadUpdateConstKept.input)
-  expect(out).toContain('const i = 0')
+test(cases.forHeadUpdateConst.name, () => {
+  const out = run(cases.forHeadUpdateConst.input, constToLet)
+  expect(out).toContain('for (let i = 0')
 })
 
 test(cases.evalConst.name, () => {

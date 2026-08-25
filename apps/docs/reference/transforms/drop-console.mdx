@@ -27,7 +27,7 @@ Leaves indirect uses alone (`console.log.call(...)`, assignments,
 `await console.log(...)`).
 
 <Note>
-  Dropping `console.*(...)` output is the point, so this changes behavior. It deletes the statement only when the arguments and any computed key are side-effect-free, so it never drops observable work. If any of them could do observable work, or `console` is shadowed or reassigned, it leaves the call alone.
+  This option removes console output. It removes a call only when evaluating its arguments and computed key has no other side effects. Calls through a shadowed or reassigned `console` stay unchanged.
 </Note>
 
 ## Before and after

@@ -2,7 +2,6 @@ import type { Binding, NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { isInsideWith } from '../utils/ast'
 import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 
@@ -44,10 +43,6 @@ const visitor: Visitor<ChangeState> = {
     if (!prefix && !valueIsDiscarded(path)) {
       return
     }
-    // `with` can retarget the name and defeat the numeric proof.
-    if (isInsideWith(path)) {
-      return
-    }
     const binding = path.scope.getBinding(argument.name)
     if (!isNumericBinding(binding)) {
       return
@@ -75,18 +70,21 @@ function valueIsDiscarded(path: NodePath<t.UpdateExpression>): boolean {
   return false
 }
 
-// The initializer and every mutation must keep the binding numeric.
+// Mutable bindings must stay numeric. A const write cannot change its value.
 function isNumericBinding(binding: Binding | undefined): boolean {
-  if (!binding || (binding.kind !== 'var' && binding.kind !== 'let')) {
+  if (!binding || (binding.kind !== 'var' && binding.kind !== 'let' && binding.kind !== 'const')) {
     return false
   }
   const declarator = binding.path.node
   if (!t.isVariableDeclarator(declarator) || !t.isNumericLiteral(declarator.init)) {
     return false
   }
-  // Babel misses the string writes from an Annex B `for-in` initializer.
+  // Babel does not record each value assigned by a `for-in` or `for-of` head.
   if (isForInOfLoopVariable(binding)) {
     return false
+  }
+  if (binding.kind === 'const') {
+    return true
   }
   return binding.constantViolations.every((violation) => keepsNumeric(violation.node))
 }

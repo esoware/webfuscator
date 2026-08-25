@@ -3,8 +3,6 @@ import type { NodePath, Scope } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { isInsideWith } from '../utils/ast'
-
 type Kind = t.VariableDeclaration['kind']
 
 // Babel 8 omits `AssignmentPattern` from `LVal`, so list these targets directly.
@@ -18,9 +16,8 @@ type BindingTarget = t.Identifier | t.ObjectPattern | t.ArrayPattern | t.Assignm
  * The source, computed keys, and getters keep their original evaluation counts.
  * Defaults compare against `void 0` because `undefined` can be shadowed.
  *
- * Patterns inside `with` stay untouched because an object property can capture
- * a generated temporary. The `RequireObjectCoercible` guard runs before computed
- * keys to preserve ObjectBindingPattern evaluation order.
+ * The `RequireObjectCoercible` guard runs before computed keys to preserve
+ * ObjectBindingPattern evaluation order.
  *
  * @example
  * // ◀️ before
@@ -42,11 +39,6 @@ const visitor = {
     if (typeof path.listKey !== 'string') {
       return
     }
-    // A `with` property can capture the generated temporary.
-    if (isInsideWith(path)) {
-      return
-    }
-
     const kind = path.node.kind
     const replacement: t.Statement[] = []
     let changed = false

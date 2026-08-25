@@ -69,32 +69,3 @@ export function isNonComputedKey(path: NodePath): boolean {
     'key' in parent && parent.key === path.node && 'computed' in parent && parent.computed === false
   )
 }
-
-// `with` can shadow names outside Babel's scope table.
-export function isInsideWith(path: NodePath): boolean {
-  if (!programHasWith(path.scope.getProgramParent().block)) {
-    return false
-  }
-  return path.findParent((ancestor) => ancestor.isWithStatement()) !== null
-}
-
-// Cache the program-wide scan because `isInsideWith` runs for many identifiers.
-// Transforms never add `with`, so a cached miss remains valid.
-const programWith = new WeakMap<t.Node, boolean>()
-
-function programHasWith(programNode: t.Node): boolean {
-  const cached = programWith.get(programNode)
-  if (cached !== undefined) {
-    return cached
-  }
-  let found = false
-  t.traverseFast(programNode, (node) => {
-    if (!t.isWithStatement(node)) {
-      return
-    }
-    found = true
-    return t.traverseFast.stop
-  })
-  programWith.set(programNode, found)
-  return found
-}

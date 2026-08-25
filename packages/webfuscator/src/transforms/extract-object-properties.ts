@@ -3,7 +3,7 @@ import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
 import { initializerReaches } from '../analysis/document-order'
-import { isInsideWith, isProtoKey } from '../utils/ast'
+import { isProtoKey } from '../utils/ast'
 import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 import { isCalleeOrTagOf } from '../utils/paths'
@@ -172,12 +172,7 @@ function performExtraction(
   if (!binding) {
     return false
   }
-  if (!binding.constant) {
-    return false
-  }
-
-  // `with` can shadow a synthesized entry binding.
-  if (isInsideWith(path)) {
+  if (path.node.kind !== 'const' && !binding.constant) {
     return false
   }
 
@@ -196,15 +191,11 @@ function performExtraction(
   const seenMembers = new Set<t.MemberExpression>()
 
   for (const ref of binding.referencePaths) {
-    // Before initialization, a wrapper read throws while a bare binding may not.
-    if (!initializerReaches(path, ref)) {
+    // A pre-initializer `var` wrapper read sees `undefined`, while an extracted
+    // binding read would not perform the member access.
+    if (path.node.kind === 'var' && !initializerReaches(path, ref)) {
       return false
     }
-    // `with` can redirect the rewritten reference.
-    if (isInsideWith(ref)) {
-      return false
-    }
-
     const parent = ref.parentPath
     if (!parent || !parent.isMemberExpression()) {
       return false

@@ -2,9 +2,9 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { isInsideWith } from '../utils/ast'
 import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
+import { buildNullishCheck } from '../utils/nullish'
 
 /**
  * Rewrites optional chains as nested ternaries. Side-effectful receivers are
@@ -18,9 +18,10 @@ import type { ChangeState } from '../utils/change-tracking'
  * a?.b?.c;
  *
  * // ▶️ after
- * obj == null ? void 0 : (_m = obj.m).call(obj, arg);
- * obj == null ? true : delete obj.x;
- * a == null ? void 0 : (_b = a.b) == null ? void 0 : _b.c;
+ * (obj === null ? true : obj === void 0) ? void 0 : (_m = obj.m).call(obj, arg);
+ * (obj === null ? true : obj === void 0) ? true : delete obj.x;
+ * (a === null ? true : a === void 0) ? void 0 :
+ *   ((_b = a.b) === null ? true : _b === void 0) ? void 0 : _b.c;
  */
 export function optionalChainingToTernary(ast: File): boolean {
   return traverseForChanges(ast, visitor)
@@ -40,10 +41,6 @@ const visitor: Visitor<ChangeState> = {
 }
 
 function lowerOptionalChain(path: OptionalPath): boolean {
-  // `with` can make a repeated receiver name invoke a getter twice.
-  if (isInsideWith(path)) {
-    return false
-  }
   if (isInsideOptionalChain(path)) {
     return false
   }
@@ -173,16 +170,19 @@ function transformChain(path: OptionalPath): boolean {
     }
 
     let check: t.Expression
+    let repeatedCheck: t.Expression
 
     if (path.scope.isStatic(chain)) {
       // The receiver stays in the member expression, so the check needs its own
       // node. One node under two parents is visited twice, and a later in-place
       // rewrite such as renameIdentifiers then applies itself twice to it.
       check = t.cloneNode(chain)
+      repeatedCheck = t.cloneNode(chain)
     } else {
       const tmp = path.scope.generateUidIdentifierBasedOnNode(chain)
       path.scope.push({ id: t.cloneNode(tmp) })
       check = t.assignmentExpression('=', t.cloneNode(tmp), chain)
+      repeatedCheck = t.cloneNode(tmp)
       if (isCall) {
         ;(node as t.CallExpression).callee = t.cloneNode(tmp)
       } else {
@@ -208,7 +208,7 @@ function transformChain(path: OptionalPath): boolean {
       }
     }
 
-    const condition = t.binaryExpression('==', check, t.nullLiteral())
+    const condition = buildNullishCheck(check, repeatedCheck)
 
     let alternate = replacementPath.node as t.Expression
     if (isDelete && i === optionals.length - 1) {

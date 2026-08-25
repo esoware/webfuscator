@@ -47,8 +47,7 @@ const visitor: Visitor<ChangeState> = {
 
 function transformSwitch(path: NodePath<t.SwitchStatement>): boolean {
   const node = path.node
-  // Separate `if` blocks cannot preserve cross-case lexical scope or Annex B
-  // function hoisting.
+  // Separate `if` blocks cannot preserve cross-case lexical scope.
   if (hasBlockScopedDeclaration(node)) {
     return false
   }
@@ -56,7 +55,7 @@ function transformSwitch(path: NodePath<t.SwitchStatement>): boolean {
     lowerToIfElseChain(path)
     return true
   }
-  if (!labeledLoweringIsSafe(node, path.scope, path)) {
+  if (!labeledLoweringIsSafe(node, path.scope)) {
     return false
   }
   lowerToLabeledBlock(path)
@@ -69,8 +68,7 @@ function hasBlockScopedDeclaration(node: t.SwitchStatement): boolean {
       if (
         (t.isVariableDeclaration(stmt) && stmt.kind !== 'var') ||
         t.isClassDeclaration(stmt) ||
-        t.isFunctionDeclaration(stmt) ||
-        isLabeledFunctionDeclaration(stmt)
+        t.isFunctionDeclaration(stmt)
       ) {
         return true
       }
@@ -79,29 +77,14 @@ function hasBlockScopedDeclaration(node: t.SwitchStatement): boolean {
   return false
 }
 
-// Babel hides an Annex B.3.4 labeled function under LabeledStatement wrappers.
-function isLabeledFunctionDeclaration(stmt: t.Statement): boolean {
-  let current: t.Statement = stmt
-  while (t.isLabeledStatement(current)) {
-    current = current.body
-  }
-  return t.isFunctionDeclaration(current)
-}
-
 // A non-final default needs match results from later cases. Precomputing that
 // result rereads tests, so every test must be pure in this shape.
-function labeledLoweringIsSafe(
-  node: t.SwitchStatement,
-  scope: Scope,
-  referencePath: NodePath,
-): boolean {
+function labeledLoweringIsSafe(node: t.SwitchStatement, scope: Scope): boolean {
   const defaultIndex = node.cases.findIndex((caseClause) => caseClause.test === null)
   if (defaultIndex === -1 || defaultIndex === node.cases.length - 1) {
     return true
   }
-  return node.cases.every(
-    (caseClause) => caseClause.test == null || isPure(caseClause.test, scope, referencePath),
-  )
+  return node.cases.every((caseClause) => caseClause.test == null || isPure(caseClause.test, scope))
 }
 
 function canLowerToIfElseChain(node: t.SwitchStatement): boolean {

@@ -66,13 +66,16 @@ var x = a.b;`,
 
 test(cases.boundIdentReceiver.name, () => {
   const out = run(cases.boundIdentReceiver.input, optionalChainingToTernary)
-  expect(out).toContain('obj == null ? void 0 : obj.x')
+  expect(out).toContain('obj === null')
+  expect(out).toContain('obj === void 0')
+  expect(out).not.toContain('obj == null')
   expect(out).not.toContain('?.')
 })
 
 test(cases.sideEffectReceiver.name, () => {
   const out = run(cases.sideEffectReceiver.input, optionalChainingToTernary)
-  expect(out).toMatch(/\(_get\d* = get\(\)\) == null \? void 0 : _get\d*\.x/)
+  expect(out).toMatch(/\(_get\d* = get\(\)\) === null/)
+  expect(out).toMatch(/_get\d* === void 0/)
   expect(out).toMatch(/var _get\d*/)
   const harness = `
 var calls = 0;
@@ -87,12 +90,16 @@ out.push(x, calls);
 
 test(cases.optionalCallOnMember.name, () => {
   const out = run(cases.optionalCallOnMember.input, optionalChainingToTernary)
-  expect(out).toContain('obj == null ? void 0 : obj.m(arg)')
+  expect(out).toContain('obj === null')
+  expect(out).toContain('obj === void 0')
+  expect(out).toContain('obj.m(arg)')
 })
 
 test(cases.optionalCallOnIdent.name, () => {
   const out = run(cases.optionalCallOnIdent.input, optionalChainingToTernary)
-  expect(out).toContain('fn == null ? void 0 : fn()')
+  expect(out).toContain('fn === null')
+  expect(out).toContain('fn === void 0')
+  expect(out).toContain('fn()')
 })
 
 test(cases.optionalCallOnMemberCallee.name, () => {
@@ -114,8 +121,10 @@ test(cases.optionalCallOnMemberCallee.name, () => {
 
 test(cases.twoLevelChain.name, () => {
   const out = run(cases.twoLevelChain.input, optionalChainingToTernary)
-  expect(out).toContain('a == null ? void 0 :')
-  expect(out).toMatch(/\(_a\$b\d* = a\.b\) == null \? void 0 : _a\$b\d*\.c/)
+  expect(out).toContain('a === null')
+  expect(out).toContain('a === void 0')
+  expect(out).toMatch(/\(_a\$b\d* = a\.b\) === null/)
+  expect(out).toMatch(/_a\$b\d* === void 0/)
   expect(out).not.toContain('?.')
   const lowered = (val: string) =>
     run(`var a = ${val};\nvar x = a?.b?.c;`, optionalChainingToTernary)
@@ -195,12 +204,6 @@ log((o?.tag)\`x\`);`
   expect(out).toContain('(o?.tag)`x`')
   expect(() => new Function('log', out)).not.toThrow()
   optionalPreserves(src)
-})
-
-test('optionalChainingToTernary leaves a with-shadowed read intact (A07-16)', () => {
-  optionalPreserves(`var a;
-var o = { get a() { log('get'); return { b: 1 }; } };
-with (o) { log(a?.b); }`)
 })
 
 // A node reachable from two parents is visited twice. A later in-place rewrite

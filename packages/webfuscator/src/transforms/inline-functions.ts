@@ -6,10 +6,10 @@ import type { File } from '@babel/types'
 import { analyzeInlineability } from '../analysis/inlineability'
 import type { InlineCandidate } from '../analysis/inlineability'
 import { isPure } from '../analysis/purity'
-import { isInsideWith, walkOwnFunctionScope } from '../utils/ast'
+import { walkOwnFunctionScope } from '../utils/ast'
 import { reorderableToStatement } from '../utils/evaluation-order'
 import { generateLoopLabel } from '../utils/loop-lowering'
-import { hasAnnexBFunctionAlias, isInStrictContext } from '../utils/paths'
+import { isInStrictContext } from '../utils/paths'
 
 /**
  * Replaces eligible calls with function bodies, working from inner calls out.
@@ -135,13 +135,6 @@ function isSafeAtCallSite(
   callPath: NodePath<t.CallExpression>,
   candidates: Map<string, InlineCandidate>,
 ): boolean {
-  // `with` and Annex B aliases can resolve a free name outside Babel's scope table.
-  if (isInsideWith(callPath)) {
-    return false
-  }
-  if (annexBHoistShadowsFreeVar(callPath, freeVars)) {
-    return false
-  }
   // Spliced code inherits call-site strictness, so it must match the callee.
   if (isInStrictContext(candidate.fnPath) !== isInStrictContext(callPath)) {
     return false
@@ -190,32 +183,6 @@ function isSafeAtCallSite(
   }
 
   return true
-}
-
-// ECMA-262 B.3.2.1 creates a sloppy block-function alias that Babel misses in
-// the enclosing scope.
-function annexBHoistShadowsFreeVar(
-  callPath: NodePath<t.CallExpression>,
-  freeVars: Set<string>,
-): boolean {
-  if (freeVars.size === 0 || isInStrictContext(callPath)) {
-    return false
-  }
-  const owner = callPath.getFunctionParent() ?? callPath.scope.getProgramParent().path
-  let found = false
-  owner.traverse({
-    Function(path) {
-      path.skip()
-    },
-    FunctionDeclaration(path) {
-      const id = path.node.id
-      if (id && freeVars.has(id.name) && hasAnnexBFunctionAlias(path)) {
-        found = true
-        path.stop()
-      }
-    },
-  })
-  return found
 }
 
 // Only loops in the same function repeat the spliced body.
@@ -580,7 +547,9 @@ function inlineCallSite(
     const replacement: t.Statement[] = []
     if (directTarget.kind === 'declarator') {
       replacement.push(
-        t.variableDeclaration('var', [t.variableDeclarator(t.identifier(directTarget.name))]),
+        t.variableDeclaration(directTarget.declarationKind, [
+          t.variableDeclarator(t.identifier(directTarget.name)),
+        ]),
       )
     }
     if (needsLabel) {
@@ -620,7 +589,9 @@ function inlineCallSite(
   return true
 }
 
-type DirectTarget = { kind: 'declarator'; name: string } | { kind: 'assign'; name: string }
+type DirectTarget =
+  | { kind: 'declarator'; name: string; declarationKind: 'let' | 'var' }
+  | { kind: 'assign'; name: string }
 
 function identifyDirectAssignmentTarget(
   callPath: NodePath<t.CallExpression>,
@@ -641,9 +612,8 @@ function identifyDirectAssignmentTarget(
     if (!declPath || !declPath.isVariableDeclaration() || declPath.node.declarations.length !== 1) {
       return null
     }
-    // Only `var` can become an uninitialized direct target without changing TDZ
-    // or block scope.
-    if (declPath.node.kind !== 'var') {
+    const declarationKind = declPath.node.kind
+    if (declarationKind !== 'var' && declarationKind !== 'let') {
       return null
     }
     const owner = declPath.parentPath
@@ -666,7 +636,7 @@ function identifyDirectAssignmentTarget(
     if (argsContainIdentName(args, name)) {
       return null
     }
-    return { kind: 'declarator', name }
+    return { kind: 'declarator', name, declarationKind }
   }
 
   if (
@@ -713,10 +683,10 @@ function argEligibleForElision(argPath: NodePath, scope: Scope): boolean {
     return false
   }
   const binding = scope.getBinding(argPath.node.name)
-  if (!binding || binding.constantViolations.length > 0) {
+  if (!binding || (binding.kind !== 'const' && binding.constantViolations.length > 0)) {
     return false
   }
-  return isPure(argPath.node, scope, argPath)
+  return isPure(argPath.node, scope)
 }
 
 // Catch parameters stay scoped to their copied handlers. Counting them here
@@ -930,8 +900,8 @@ function isNonReferenceSlot(parent: t.Node, key: string): boolean {
 interface StatementWalkContext {
   insideNestedLoop: boolean
   insideNestedSwitch: boolean
-  // Tail position propagates through final blocks, branches, and labels. Try,
-  // switch, loops, and `with` interrupt it because more code may run afterward.
+  // Tail position propagates through final blocks, branches, labels, and `with`.
+  // Try, switch, and loops interrupt it because more code may run afterward.
   tailPosition: boolean
 }
 
@@ -1051,7 +1021,7 @@ function walkIntoCompound(
   }
 
   if (t.isWithStatement(node)) {
-    node.body = walkSingleChild(node.body, hooks, { ...ctx, tailPosition: false })
+    node.body = walkSingleChild(node.body, hooks, ctx)
   }
 }
 

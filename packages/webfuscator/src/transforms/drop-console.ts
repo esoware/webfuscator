@@ -4,7 +4,6 @@ import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
 import { isSideEffectFree } from '../analysis/purity'
-import { isInsideWith } from '../utils/ast'
 import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 
@@ -90,8 +89,7 @@ const visitor: Visitor<ChangeState> = {
     if (!t.isIdentifier(object) || object.name !== 'console') {
       return
     }
-    // `with` can supply a different `console` outside Babel's scope table.
-    if (path.scope.getBinding('console') || isInsideWith(path)) {
+    if (path.scope.getBinding('console')) {
       return
     }
     // Removing the call also removes argument and computed-key evaluation.
@@ -108,11 +106,11 @@ function callArgumentsAreInert(
   callee: t.MemberExpression | t.OptionalMemberExpression,
   path: NodePath<t.ExpressionStatement>,
 ): boolean {
-  if (callee.computed && !isSideEffectFree(callee.property, path.scope, path)) {
+  if (callee.computed && !isSideEffectFree(callee.property, path.scope)) {
     return false
   }
   for (const arg of expr.arguments) {
-    if (!t.isExpression(arg) || !isSideEffectFree(arg, path.scope, path)) {
+    if (!t.isExpression(arg) || !isSideEffectFree(arg, path.scope)) {
       return false
     }
   }

@@ -20,8 +20,7 @@ const RECORD_WIDTH = 4
  * `scope: 'program'` creates one vault. `scope: 'function'` creates a vault per
  * function but repeats the program-wide pool in each one. Parameter defaults and
  * computed keys use the enclosing vault because they run before the function
- * body. Code inside `with` gets a lexical vault so the object cannot capture
- * decoder references.
+ * body.
  *
  * Directives, module specifiers, import attributes, and non-computed keys are not
  * runtime expressions, so they stay unchanged.
@@ -91,7 +90,7 @@ interface ResolvedOptions {
   scope: 'function' | 'program'
 }
 
-type VaultOwner = t.Program | t.Function | t.BlockStatement
+type VaultOwner = t.Program | t.Function
 type VaultOwnerPath = NodePath<VaultOwner>
 
 interface Occurrence {
@@ -207,10 +206,6 @@ function findVaultOwner(
   while (current) {
     if (current.isFunction() && child.key === 'body' && scope === 'function') {
       return current as VaultOwnerPath
-    }
-    if (current.isWithStatement() && child.key === 'body') {
-      const body = current.get('body')
-      return body.isBlockStatement() ? (body as VaultOwnerPath) : null
     }
     if (current.isProgram()) {
       return current
@@ -375,7 +370,7 @@ function maskPosition(position: number, key: number, step: number, indexMask: nu
 }
 
 function statementBody(owner: VaultOwnerPath): NodePath<t.Program | t.BlockStatement> {
-  if (owner.isProgram() || owner.isBlockStatement()) {
+  if (owner.isProgram()) {
     return owner
   }
   const body = owner.get('body') as NodePath

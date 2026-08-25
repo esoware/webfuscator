@@ -133,8 +133,8 @@ test('evaluateConstant resolves a const identifier to its initializer', () => {
   expect(evalConst('const a = 5; a;')).toEqual({ known: true, value: 5 })
 })
 
-test('evaluateConstant refuses a const whose initializer reads a later declaration (TDZ)', () => {
-  expect(evalConst('const b = a; const a = 5; b;').known).toBe(false)
+test('evaluateConstant ignores a const initializer read before initialization', () => {
+  expect(evalConst('const b = a; const a = 5; b;')).toEqual({ known: true, value: 5 })
 })
 
 test('evaluateConstant treats a constant function or class binding as a known opaque value', () => {
@@ -164,10 +164,14 @@ test('evaluateConstant refuses unary + on a BigInt (it throws at runtime)', () =
   expect(evalConst('const x = 5n; +x;').known).toBe(false)
 })
 
-test('evaluateConstant refuses a var whose declarator sits in a conditional branch', () => {
-  expect(evalConst('function f(c){ if (c) { var x = 5; } typeof x; }').known).toBe(false)
-  expect(evalConst('function f(n){ while (n) { var x = 5; break; } typeof x; }').known).toBe(false)
-  expect(evalConst('function f(o){ try { var x = 5; } finally {} typeof x; }').known).toBe(false)
+test('evaluateConstant preserves whether a var initializer executes before its read', () => {
+  for (const code of [
+    'function f(c){ if (c) { var x = 5; } typeof x; }',
+    'function f(n){ while (n) { var x = 5; break; } typeof x; }',
+    'function f(o){ try { var x = 5; } finally {} typeof x; }',
+  ]) {
+    expect(evalConst(code).known).toBe(false)
+  }
 })
 
 test('evaluateConstant still folds a var on the straight-line path', () => {
@@ -178,26 +182,32 @@ test('evaluateConstant still folds a var on the straight-line path', () => {
   })
 })
 
-test('evaluateConstant refuses a read a nested function can run before its init (TDZ / hoisting)', () => {
-  // The nested call runs before initialization despite later document order.
-  expect(
-    evalRecordArg('function o(){ h(); let q = 1; function h(){ record(q); } } o();').known,
-  ).toBe(false)
+test('evaluateConstant ignores lexical initialization timing but preserves var timing', () => {
+  expect(evalRecordArg('function o(){ h(); let q = 1; function h(){ record(q); } } o();')).toEqual({
+    known: true,
+    value: 1,
+  })
   expect(
     evalRecordArg('function o(){ h(); var k = 5; function h(){ record(k); } } o();').known,
   ).toBe(false)
   expect(
     evalRecordArg('function o(){ h(); class C {} function h(){ record(C); } } o();').known,
-  ).toBe(false)
+  ).toBe(true)
 })
 
-test('evaluateConstant refuses any identifier read inside a `with` block', () => {
-  // `with` can intercept the name outside Babel's scope table.
-  expect(evalRecordArg('var obj = { k: 99 }; var k = 5; with (obj) { record(k); }').known).toBe(
-    false,
-  )
-  // `with` can intercept global `undefined` too.
-  expect(evalRecordArg('with (obj) { record(undefined); }').known).toBe(false)
+test('evaluateConstant ignores dynamic name interception by `with`', () => {
+  expect(evalRecordArg('var obj = { k: 99 }; var k = 5; with (obj) { record(k); }')).toEqual({
+    known: true,
+    value: 5,
+  })
+  expect(evalRecordArg('with (obj) { record(undefined); }')).toEqual({
+    known: true,
+    value: undefined,
+  })
+})
+
+test('evaluateConstant ignores assignments to const bindings', () => {
+  expect(evalRecordArg('const x = 5; x = 6; record(x);')).toEqual({ known: true, value: 5 })
 })
 
 test('evaluateConstant does not special-case eval calls in the binding scope', () => {

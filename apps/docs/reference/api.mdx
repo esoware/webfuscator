@@ -30,9 +30,22 @@ The function does not return an AST or source map. If your build reads and write
 
 Babel parses the input with `sourceType: 'unambiguous'`, so both scripts and ECMAScript modules are accepted. Compile TypeScript, JSX, decorators, and other syntax extensions to JavaScript before calling `obfuscate`.
 
-Direct `eval` is out of scope. Transforms rename and remove bindings without accounting for an `eval` argument that reads them at runtime, so a program whose behavior depends on a direct `eval` resolving names in its surrounding scope is not preserved.
+## Behavior limits
 
-The generated program has new source text and locations. `Function.prototype.toString()` results and stack-trace formatting can therefore change even when runtime behavior does not. The API does not generate source maps.
+Transforms do not preserve behavior that depends on any of these details:
+
+- Code created from strings with direct `eval` or `Function` reading names or scopes changed by a transform.
+- A `with` statement changing which variable an identifier resolves to.
+- The outer alias that sloppy-mode Annex B semantics create for a block-level function declaration.
+- The error from reading a lexical binding before initialization or assigning to `const`, including code that catches the error.
+- The completion value returned by evaluating an entire script or eval. This includes the value of `pack`'s generated `Function` call.
+- A top-level script declaration creating, removing, renaming, or changing a property on `globalThis`.
+- Generated text, comments, source locations, identifier and label spellings, transformed function or class names, `Function.prototype.toString()`, stack text, or engine-generated error wording.
+- Standard built-ins patched before the obfuscated input runs. Patches made by the input itself remain observable.
+
+Outside these cases, a transform preserves runtime behavior or leaves the site unchanged. `dropConsole`, `dropDebugger`, `mangleProperties`, and `pack` are off by default and have additional effects described on their transform pages.
+
+The API does not generate source maps.
 
 ## Errors
 
@@ -42,7 +55,7 @@ The generated program has new source text and locations. `Function.prototype.toS
 - A transform receives invalid configuration. `concealStrings` validates `cache`, `cover`, `deduplicate`, and `scope`. `mangleProperties` validates its `cache` (entries must be strings, and outputs must be unique and cannot be `__proto__`, `constructor`, or `prototype`) and its `nameGenerator` (it must return an available, nonnumeric string). An empty `stringGeneratorMode` array is also rejected.
 - `pack` is enabled on a program that uses `export` statements. Export syntax cannot exist inside a `Function` body, so pack refuses it rather than emit output that fails to parse.
 
-Apart from that export case, no transform throws because a rewrite was hard. It leaves syntax it cannot prove safe unchanged and moves on. `dropConsole` and `dropDebugger` deliberately remove their named effects. `mangleProperties` depends on the caller controlling the property boundary. `pack` moves the program into a `Function` body and has documented wrapper-boundary differences; only its `escapeStrict` option deliberately changes the body's strictness.
+Apart from that export case, a transform normally leaves a site unchanged when it cannot handle it. `dropConsole` and `dropDebugger` intentionally remove their named effects. Property mangling cannot account for uses outside the input. `pack` runs the program inside a generated `Function`; its transform page lists the resulting restrictions.
 
 The API does not catch or wrap these errors.
 

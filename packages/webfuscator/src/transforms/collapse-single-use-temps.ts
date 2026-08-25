@@ -10,14 +10,14 @@ import {
   readCrossesFunctionBoundary,
 } from '../analysis/document-order'
 import { isPure } from '../analysis/purity'
-import { isInsideWith } from '../utils/ast'
 import { reorderableToStatement } from '../utils/evaluation-order'
 import { valueToLiteral } from '../utils/literal'
 import { isCalleeOrTagOf } from '../utils/paths'
 
 /**
  * Drops single-use temporaries through substitution, direct branch writes, or
- * constant replacement. Sweeps continue until no shape exposes another.
+ * constant replacement. It repeats these rewrites so one removal can expose
+ * another.
  *
  * @example
  * // ◀️ before
@@ -94,19 +94,7 @@ function resolveSingleUseBinding(path: NodePath<t.VariableDeclarator>): Binding 
   if (binding.references === 0) {
     return null
   }
-  // `with` can redirect the temporary or its consumer outside Babel's scope table.
-  if (bindingTouchesWith(binding)) {
-    return null
-  }
   return binding
-}
-
-function bindingTouchesWith(binding: Binding): boolean {
-  return (
-    isInsideWith(binding.path) ||
-    binding.referencePaths.some((ref) => isInsideWith(ref)) ||
-    binding.constantViolations.some((violation) => isInsideWith(violation))
-  )
 }
 
 function findProgramScope(ast: File): Scope | undefined {
@@ -145,7 +133,7 @@ function trySubstituteSingleUse(
   let removeWriteStmt: boolean
 
   if (init) {
-    if (binding.constantViolations.length > 0) {
+    if (binding.kind !== 'const' && binding.constantViolations.length > 0) {
       return false
     }
     writeStmt = declStmt
@@ -333,8 +321,9 @@ function tryRenameWritesToReader(
       return false
     }
 
-    // Redirecting into a later lexical binding could write it in TDZ.
-    if (!declarationReaches(yBinding.path, violation)) {
+    // A later `var` initializer can overwrite a redirected write. Writes before
+    // lexical initialization are intentionally ignored.
+    if (yBinding.kind === 'var' && !declarationReaches(yBinding.path, violation)) {
       return false
     }
   }
@@ -662,7 +651,7 @@ function spanStatementIsInert(path: NodePath, tempBinding: Binding): boolean {
   }
   if (t.isIfStatement(node)) {
     const test = path.get('test') as NodePath
-    if (!isPure(test.node, test.scope, test)) {
+    if (!isPure(test.node, test.scope)) {
       return false
     }
     if (!spanStatementIsInert(path.get('consequent') as NodePath, tempBinding)) {
@@ -675,9 +664,9 @@ function spanStatementIsInert(path: NodePath, tempBinding: Binding): boolean {
     const expr = path.get('expression') as NodePath
     if (isTempWrite(expr.node, tempBinding)) {
       const rhs = expr.get('right') as NodePath
-      return isPure(rhs.node, rhs.scope, rhs)
+      return isPure(rhs.node, rhs.scope)
     }
-    return isPure(expr.node, expr.scope, expr)
+    return isPure(expr.node, expr.scope)
   }
   return false
 }
@@ -723,7 +712,7 @@ function tryPropagateConstant(
   let writeSourcePath: NodePath
 
   if (init) {
-    if (binding.constantViolations.length > 0) {
+    if (binding.kind !== 'const' && binding.constantViolations.length > 0) {
       return false
     }
     if (!isUnconditionallyExecuted(declStmt, declaratorPath.scope)) {
@@ -890,10 +879,10 @@ function isStatementMovementSafe(path: NodePath): boolean {
   if (t.isEmptyStatement(node)) {
     return true
   }
-  // Crossing a declaration can change name resolution or TDZ.
+  // Only inert expression statements are safe to cross.
   if (t.isExpressionStatement(node)) {
     const expr = path.get('expression') as NodePath
-    return isPure(expr.node, expr.scope, expr)
+    return isPure(expr.node, expr.scope)
   }
   return false
 }

@@ -6,14 +6,13 @@ import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 
 /**
- * Rewrites safe function declarations as `var` initializers. The function value
- * is no longer hoisted, so nothing may observe the binding before assignment.
+ * Rewrites function declarations at script top level or directly inside a
+ * function body as `var` initializers. It leaves a declaration unchanged when
+ * an earlier statement could execute user code before the assignment.
  *
- * Preceding statements must be inert. Name inference and recursive references
- * still use the `var` binding.
+ * Name inference and recursive references still use the `var` binding.
  *
- * Block-level declarations and module top-level declarations stay unchanged due
- * to Annex B aliases and live exports.
+ * Block-level and module top-level declarations stay unchanged.
  *
  * @example
  * // ◀️ before

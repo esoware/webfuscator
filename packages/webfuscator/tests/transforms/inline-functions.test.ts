@@ -923,12 +923,15 @@ try { var v = f(nope); log(v); } catch (e) { log(e.constructor.name); }`,
   expect(out).toContain('nope')
 })
 
-test('inlineFunctions preserves TDZ evaluation of an elided argument (A01-01b)', () => {
-  preservesInline(
+test('inlineFunctions ignores TDZ evaluation of an elided argument (A01-01b)', () => {
+  const out = run(
     `function f(a) { return 7; }
 try { var v = f(later); log(v); } catch (e) { log(e.constructor.name); }
 let later = 1;`,
+    inlineFunctions,
   )
+  expect(out).not.toMatch(/function f\(/)
+  expect(out).not.toContain('f(later)')
 })
 
 test('inlineFunctions reads an aliased argument before the body mutates it (A01-06)', () => {
@@ -981,15 +984,16 @@ log(t);`,
   expect(out).not.toMatch(/function f\(/)
 })
 
-test('inlineFunctions does not splice a body into a with block (A01-08)', () => {
-  const out = preservesInline(
+test('inlineFunctions splices a body into a with block', () => {
+  const out = run(
     `var v = 'outer';
 function f() { return v; }
 var o = { v: 'inner' };
 with (o) { var r = f(); }
 log(r);`,
+    inlineFunctions,
   )
-  expect(out).toContain('function f')
+  expect(out).not.toContain('function f')
 })
 
 test('inlineFunctions does not skip a call site in a scope containing eval', () => {
@@ -1003,14 +1007,15 @@ log(g());`,
   expect(out).not.toContain('function f')
 })
 
-test('inlineFunctions does not splice across an Annex B block-function hoist (A01-09b)', () => {
-  const out = preservesInline(
+test('inlineFunctions ignores block-function aliases outside Babel bindings', () => {
+  const out = run(
     `var v = 1;
 function f() { return v; }
 function g() { { function v() { return 'fn'; } log(typeof v); } return f(); }
 log(typeof g());`,
+    inlineFunctions,
   )
-  expect(out).toContain('function f')
+  expect(out).not.toContain('function f')
 })
 
 test('inlineFunctions does not inline a sloppy callee into a strict caller (A01-10d)', () => {
@@ -1031,16 +1036,17 @@ try { var v = f(); log(v); } catch (e) { log(e.constructor.name); }`,
   )
 })
 
-test('inlineFunctions keeps a zero-reference block-level function and its Annex B var (A01-11)', () => {
-  const out = preservesInline(
+test('inlineFunctions drops a block function with no Babel references', () => {
+  const out = run(
     `function id(x) { return x; }
 var y = id(5);
 var v = 1;
 function g() { { function w() {} } return typeof w; }
 log(y, g());`,
+    inlineFunctions,
   )
   expect(out).not.toMatch(/function id\(/)
-  expect(out).toContain('function w')
+  expect(out).not.toContain('function w')
 })
 
 test('inlineFunctions lets a bare return reset the return slot (A01-12)', () => {
@@ -1062,6 +1068,19 @@ for (var i = 0; i < 3; i++) { flag = i === 0; r = f(); results.push(r); }
 log(results);`,
   )
   expect(out).toContain('function f')
+})
+
+test('inlineFunctions ignores assignments to a const function binding', () => {
+  const out = run(
+    'const f = function () { log(1); }; f = function () { log(2); }; f();',
+    inlineFunctions,
+  )
+  expect(out).not.toContain('f();')
+})
+
+test('inlineFunctions ignores assignments to a const argument binding', () => {
+  const out = run('function f(a) { log(a, a); } const x = 1; x = 2; f(x);', inlineFunctions)
+  expect(out).toContain('log(x, x)')
 })
 
 // Every body below reaches `f` again only through a nested function. Inlining

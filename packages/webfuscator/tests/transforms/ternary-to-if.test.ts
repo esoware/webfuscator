@@ -359,7 +359,8 @@ function ternaryPreserves(code: string): void {
 
 test('ternaryToIf handles a const ternary init (F1)', () => {
   const out = run("const v = 1 ? 'y' : 'n'; log(v);", ternaryToIf)
-  expect(() => new Function('log', out)).not.toThrow()
+  expect(out).toContain('let v;')
+  expect(out).not.toContain('_ternaryResult')
   ternaryPreserves("const v = 1 ? 'y' : 'n'; log(v);")
 })
 
@@ -432,10 +433,12 @@ test('ternaryToIf does not hoist an unreached switch-case test (A07-05)', () => 
   )
 })
 
-test('ternaryToIf preserves the let TDZ of a declarator initializer (A07-06)', () => {
-  ternaryPreserves(
+test('ternaryToIf splits a let declarator without preserving initialization timing (A07-06)', () => {
+  const out = run(
     `function probe() { try { log(typeof x); } catch (e) { log('TDZ'); } return 1; }
 let x = true ? probe() : 0;
 log(x);`,
+    ternaryToIf,
   )
+  expect(out).toContain('let x;')
 })

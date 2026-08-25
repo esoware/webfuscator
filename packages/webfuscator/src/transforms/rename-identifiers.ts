@@ -4,15 +4,14 @@ import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
 import type { TransformContext } from '../options'
-import { isInsideWith } from '../utils/ast'
-import { hasAnnexBFunctionAlias, referencesOrWritesVariable } from '../utils/paths'
+import { referencesOrWritesVariable } from '../utils/paths'
 import { mulberry32 } from '../utils/random'
 import { StringGenerator } from '../utils/string-generator'
 
 /**
- * Renames bindings and labels with a fresh `StringGenerator`. Each scope avoids
- * live ancestor names but otherwise restarts the cursor, allowing safe reuse in
- * sibling scopes.
+ * Renames bindings and labels with the configured string generator. Generated
+ * names do not capture unresolved names or bindings still used from an outer
+ * scope. Separate sibling scopes may reuse the same names.
  *
  * @example
  * // ◀️ before
@@ -48,7 +47,6 @@ export function renameIdentifiers(ast: File, ctx: TransformContext): boolean {
   const liveAncestors = new Map<Scope, Set<Binding>>()
   // Reserve unbound names so generated bindings cannot capture them.
   const freeNames = new Set<string>()
-  // A reference inside `with` pins its binding to the source name.
   const unrenamable = new Set<Binding>()
   // Reserve pinned source names globally, including before their binding is seen.
   const pinnedNames = new Set<string>()
@@ -69,9 +67,6 @@ export function renameIdentifiers(ast: File, ctx: TransformContext): boolean {
         }
         return
       }
-      if (isInsideWith(path)) {
-        pin(binding, path.node.name)
-      }
       let scope: Scope | undefined = path.scope
       while (scope && scope !== binding.scope) {
         let live = liveAncestors.get(scope)
@@ -81,17 +76,6 @@ export function renameIdentifiers(ast: File, ctx: TransformContext): boolean {
         }
         live.add(binding)
         scope = scope.parent
-      }
-    },
-    FunctionDeclaration(path) {
-      // ECMA-262 B.3.3 gives sloppy block functions an alias Babel does not model.
-      if (!hasAnnexBFunctionAlias(path)) {
-        return
-      }
-      const name = path.node.id?.name
-      const binding = name === undefined ? undefined : path.scope.getBinding(name)
-      if (binding && name !== undefined) {
-        pin(binding, name)
       }
     },
     CatchClause(path) {

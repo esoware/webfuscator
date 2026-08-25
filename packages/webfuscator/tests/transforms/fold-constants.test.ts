@@ -231,25 +231,25 @@ var x = !f;`,
 const { a } = obj;
 var y = !a;`,
   },
-  doesNotResolveForwardConst: {
-    name: 'foldConstants does not resolve a forward const reference (TDZ)',
+  resolvesForwardConst: {
+    name: 'foldConstants resolves a forward const reference without a TDZ guard',
     input: `const a = !b;
 const b = 5;`,
   },
-  doesNotFoldClassTdzSameScope: {
-    name: 'foldConstants does not fold a same-scope class reference declared later',
+  foldsLaterClass: {
+    name: 'foldConstants folds a same-scope class reference declared later',
     input: `var x = !C;
 class C {}`,
   },
-  doesNotFoldForwardClosure: {
-    name: 'foldConstants does not fold a closure reference whose binding is declared after the closure',
+  foldsForwardClosure: {
+    name: 'foldConstants folds a closure reference whose binding is declared after the closure',
     input: `function g() {
   return !y;
 }
 const y = 5;`,
   },
-  doesNotFoldBackwardClosure: {
-    name: 'foldConstants does not fold a closure reference whose binding is declared before the closure',
+  foldsBackwardClosure: {
+    name: 'foldConstants folds a closure reference whose binding is declared before the closure',
     input: `const y = 5;
 function g() {
   return !y;
@@ -296,8 +296,8 @@ function g() {
   }
 }`,
   },
-  doesNotChainLoopBodyVarThroughCrossFunctionConst: {
-    name: 'foldConstants does not chain a loop-body var init through an outer const read across a function boundary',
+  chainsLoopBodyVarThroughCrossFunctionConst: {
+    name: 'foldConstants chains a loop-body var init through an outer const read across a function boundary',
     input: `const RING_COLOR = 16720418;
 function f() {
   for (var i = 0; i < 3; i++) {
@@ -556,22 +556,21 @@ test(cases.doesNotResolveDestructuredConst.name, () => {
   expect(out).not.toContain('var y = true')
 })
 
-test(cases.doesNotResolveForwardConst.name, () => {
-  const out = run(cases.doesNotResolveForwardConst.input, foldConstants)
-  expect(out).toContain('!b')
+test(cases.resolvesForwardConst.name, () => {
+  const out = run(cases.resolvesForwardConst.input, foldConstants)
+  expect(out).toContain('const a = false')
 })
 
-test(cases.doesNotFoldClassTdzSameScope.name, () => {
-  expect(run(cases.doesNotFoldClassTdzSameScope.input, foldConstants)).toContain('!C')
+test(cases.foldsLaterClass.name, () => {
+  expect(run(cases.foldsLaterClass.input, foldConstants)).toContain('var x = false')
 })
 
-test(cases.doesNotFoldForwardClosure.name, () => {
-  expect(run(cases.doesNotFoldForwardClosure.input, foldConstants)).toContain('return !y')
+test(cases.foldsForwardClosure.name, () => {
+  expect(run(cases.foldsForwardClosure.input, foldConstants)).toContain('return false')
 })
 
-// A hoisted closure can read a lexical binding before initialization.
-test(cases.doesNotFoldBackwardClosure.name, () => {
-  expect(run(cases.doesNotFoldBackwardClosure.input, foldConstants)).toContain('return !y')
+test(cases.foldsBackwardClosure.name, () => {
+  expect(run(cases.foldsBackwardClosure.input, foldConstants)).toContain('return false')
 })
 
 test(cases.leavesUnboundIdentifierNegationAlone.name, () => {
@@ -599,11 +598,9 @@ test(cases.doesNotResolveVarInLoopBodyWithExtraAssignment.name, () => {
   expect(out).not.toMatch(/log\(\d+\)/)
 })
 
-// The initializer crosses a function boundary to a lexical binding that may
-// still be in TDZ.
-test(cases.doesNotChainLoopBodyVarThroughCrossFunctionConst.name, () => {
-  const out = run(cases.doesNotChainLoopBodyVarThroughCrossFunctionConst.input, foldConstants)
-  expect(out).toContain('c >> 8 & 255')
+test(cases.chainsLoopBodyVarThroughCrossFunctionConst.name, () => {
+  const out = run(cases.chainsLoopBodyVarThroughCrossFunctionConst.input, foldConstants)
+  expect(out).toContain('log(34)')
 })
 
 test(cases.doesNotFoldArithmeticWithUnknown.name, () => {
@@ -772,9 +769,7 @@ test('foldConstants does not fold a var declared only in a conditional branch', 
   expect(switchOut).not.toContain('"number"')
 })
 
-// Cloned nodes lack source offsets, and the nested read can still run while `X`
-// is in TDZ. Path order must handle both without folding or crashing.
-test('foldConstants leaves a cross-function reference unfolded even when source positions are stripped', () => {
+test('foldConstants folds a cross-function reference when source positions are stripped', () => {
   const code = `const X = 5;
 function f() {
   return !X;
@@ -795,7 +790,7 @@ f();`
   })
   foldConstants(ast)
   const out = generate(ast, { comments: false, shouldPrintComment: () => false }).code
-  expect(out).toContain('return !X')
+  expect(out).toContain('return false')
 })
 
 // A05-01/02/03: Delete distinguishes a value from an identifier or member

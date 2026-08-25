@@ -316,11 +316,10 @@ test('pack throws on an export statement', () => {
   expect(() => packOnly(`export const value = 1;`)).toThrow(/export/u)
 })
 
-test('pack wraps a with statement and routes only names outside it', () => {
-  // Names inside `with` may resolve against the with object at runtime, so they
-  // stay bare; only `log`, outside the with, is routed.
-  const packed = expectEquivalent(`var out; with ({ x: 41 }) { out = x + 1; } log(out);`)
+test('pack routes names without inspecting enclosing `with` statements', () => {
+  const packed = packOnly(`var out; with ({ x: 41 }) { out = x + 1; } log(out);`)
   expect(packed).toContain('Function(')
+  expect(packed).toContain('return x;')
 })
 
 test('pack no longer bails on module-only constructs', () => {

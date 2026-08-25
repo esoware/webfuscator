@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 
 import { expandLogicalAssignment } from '../../src/transforms/expand-logical-assignment'
-import { defineCases, run, trace } from '../helpers'
+import { defineCases, run } from '../helpers'
 
 const cases = defineCases('expand-logical-assignment', expandLogicalAssignment, {
   identOr: {
@@ -81,17 +81,11 @@ test(cases.plainAssignment.name, () => {
   expect(out).toContain('a += 1')
 })
 
-function logicalAssignmentPreserves(code: string): void {
-  expect(trace(run(code, expandLogicalAssignment))).toEqual(trace(code))
-}
-
-test('expandLogicalAssignment does not duplicate a with-shadowed object read', () => {
+test('expandLogicalAssignment does not inspect enclosing `with` statements', () => {
   const src = `var a;
 var holder = { n: 0 };
 var o = { get a() { log('get'); return holder; } };
 with (o) { a.n ||= 5; }
 log(holder.n);`
-  // `with` can make a duplicated object read invoke its getter twice.
-  expect(run(src, expandLogicalAssignment)).toContain('a.n ||= 5')
-  logicalAssignmentPreserves(src)
+  expect(run(src, expandLogicalAssignment)).toContain('a.n || (a.n = 5)')
 })

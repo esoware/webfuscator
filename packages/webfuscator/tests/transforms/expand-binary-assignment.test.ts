@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 
 import { expandBinaryAssignment } from '../../src/transforms/expand-binary-assignment'
-import { defineCases, run, trace } from '../helpers'
+import { defineCases, run } from '../helpers'
 
 const cases = defineCases('expand-binary-assignment', expandBinaryAssignment, {
   identArith: {
@@ -116,17 +116,11 @@ test(cases.leavesLogical.name, () => {
   expect(out).toContain('||=')
 })
 
-function binaryPreserves(code: string): void {
-  expect(trace(run(code, expandBinaryAssignment))).toEqual(trace(code))
-}
-
-test('expandBinaryAssignment does not duplicate a with-shadowed object read (A07-17)', () => {
+test('expandBinaryAssignment does not inspect enclosing `with` statements', () => {
   const src = `var a;
 var holder = { n: 1 };
 var o = { get a() { log('get'); return holder; } };
 with (o) { a.n += 1; }
 log(holder.n);`
-  // `with` can make a duplicated object read invoke its getter twice.
-  expect(run(src, expandBinaryAssignment)).toContain('a.n += 1')
-  binaryPreserves(src)
+  expect(run(src, expandBinaryAssignment)).toContain('a.n = a.n + 1')
 })

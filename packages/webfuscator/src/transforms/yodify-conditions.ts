@@ -7,10 +7,9 @@ import type { ChangeState } from '../utils/change-tracking'
 import { isLiteralShaped } from '../utils/literal'
 
 /**
- * Moves a safe literal-shaped right operand to the left of a comparison.
- * Relational operators are flipped after swapping.
- *
- * Unary operations over literals also count when their coercion cannot act.
+ * Moves a right operand made from literals and unary operators to the left of a
+ * comparison when swapping does not change coercion order. Relational operators
+ * are flipped after swapping.
  *
  * @example
  * // ◀️ before

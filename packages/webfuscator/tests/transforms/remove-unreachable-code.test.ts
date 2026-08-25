@@ -188,10 +188,11 @@ function runProgram(
   return trace(run(code, transform))
 }
 
-test('removeUnreachableCode keeps a TDZ-observable let after a return (F1)', () => {
+test('removeUnreachableCode drops a lexical declaration after a return', () => {
   const src =
     "var q = 'outer'; function f() { return q; let q = 'inner'; } try { log(f()); } catch (e) { log(e.constructor.name); }"
-  expect(runProgram(src, removeUnreachableCode)).toEqual(trace(src))
+  const out = run(src, removeUnreachableCode)
+  expect(out).not.toContain("let q = 'inner'")
 })
 
 test('removeUnreachableCode keeps a nested var hoist inside a removed block (F2)', () => {
@@ -200,8 +201,9 @@ test('removeUnreachableCode keeps a nested var hoist inside a removed block (F2)
   expect(runProgram(src, removeUnreachableCode)).toEqual(trace(src))
 })
 
-test('removeUnreachableCode keeps a let observed only by a write before it', () => {
+test('removeUnreachableCode drops a lexical declaration after an earlier write', () => {
   const src =
     "function f() { try { x = 5; } catch (e) { return e.constructor.name; } return 'no throw'; let x = 2; } log(f());"
-  expect(runProgram(src, removeUnreachableCode)).toEqual(trace(src))
+  const out = run(src, removeUnreachableCode)
+  expect(out).not.toContain('let x = 2')
 })

@@ -32,8 +32,7 @@ all 65,536 code units.
 `scope: 'program'` creates one vault. `scope: 'function'` creates a vault per
 function but repeats the program-wide pool in each one. Parameter defaults and
 computed keys use the enclosing vault because they run before the function
-body. Code inside `with` gets a lexical vault so the object cannot capture
-decoder references.
+body.
 
 Directives, module specifiers, import attributes, and non-computed keys are not
 runtime expressions, so they stay unchanged.

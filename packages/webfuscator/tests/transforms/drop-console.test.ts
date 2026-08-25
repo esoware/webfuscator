@@ -154,10 +154,13 @@ test('dropConsole keeps argument side effects (F9)', () => {
   preservesConsole("function s() { log('side'); return 1 } console.log(s());")
 })
 
-test('dropConsole does not drop a with-shadowed console (F10)', () => {
-  preservesConsole(
-    "var o = { console: { log: function (v) { log('kept', v) } } }; with (o) { console.log(1) }",
-  )
+test('dropConsole does not inspect enclosing `with` statements', () => {
+  expect(
+    run(
+      "var o = { console: { log: function (v) { log('kept', v) } } }; with (o) { console.log(1) }",
+      dropConsole,
+    ),
+  ).not.toContain('console.log(1)')
 })
 
 test('dropConsole keeps a call when the global console is reassigned (A10-15)', () => {

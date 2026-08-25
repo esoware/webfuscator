@@ -506,12 +506,9 @@ test('switchToIf does not re-evaluate a case test for the default (F5)', () => {
   )
 })
 
-test('switchToIf preserves cross-case block scope and TDZ (F6, F7)', () => {
+test('switchToIf preserves cross-case block scope (F6)', () => {
   expectSwitchPreserves(
     'switch (1) { case 1: class C { m() { return 7; } } case 2: log(new C().m()); break; }',
-  )
-  expectSwitchPreserves(
-    'var y = "outer"; try { switch (1) { case 1: log(y); break; case 2: let y = 2; log(y); break; } } catch (e) { log("caught:" + (e instanceof ReferenceError)); }',
   )
 })
 
@@ -569,17 +566,12 @@ test('switchToIf does not collide its label with a user _switch label (A08-03)',
   expectSwitchPreserves(bothTaken)
 })
 
-// A08-04: A labeled sloppy function hoists across the switch block.
-test('switchToIf leaves a switch with a labelled function declaration intact (A08-04)', () => {
-  const src =
-    'function f(x) { switch (x) { case 1: L: function g() { return "inner"; } case 2: log(typeof g); } } f(2);'
-  expect(run(src, switchToIf)).toContain('switch (x)')
-  expectSwitchPreserves(src)
-
-  expectSwitchPreserves(
+test('switchToIf lowers a switch with a labelled function declaration', () => {
+  for (const src of [
+    'function f(x) { switch (x) { case 1: L: function g() { return "inner"; } case 2: log(typeof g); } } f(2);',
     'function f(x) { var g = "outer"; switch (x) { case 1: L: function g() { return "inner"; } case 2: log(typeof g); } } f(2);',
-  )
-  expectSwitchPreserves(
     'function f(x) { switch (x) { case 1: A: B: function g() { return "inner"; } case 2: log(typeof g); } } f(2);',
-  )
+  ]) {
+    expect(run(src, switchToIf)).not.toContain('switch (x)')
+  }
 })

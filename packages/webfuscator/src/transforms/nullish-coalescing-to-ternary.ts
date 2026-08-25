@@ -2,15 +2,14 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { isInsideWith } from '../utils/ast'
 import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 import { lowerLogicalWriteStatement } from '../utils/logical-lowering'
+import { buildNonNullishCheck, buildNullishCheck } from '../utils/nullish'
 
 /**
- * Rewrites `a ?? b` as a guarded assignment or `a != null ? a : b`. A
- * side-effectful left side is cached. Loose inequality checks both nullish
- * values in one comparison.
+ * Rewrites `a ?? b` as a guarded assignment or strict null and undefined
+ * checks. A side-effectful left side is cached.
  *
  * @example
  * // ◀️ before
@@ -19,8 +18,8 @@ import { lowerLogicalWriteStatement } from '../utils/logical-lowering'
  *
  * // ▶️ after
  * var x = a;
- * if (x == null) x = b;
- * f((_t = get()) != null ? _t : fallback);
+ * if (x === null ? true : x === void 0) x = b;
+ * f(((_t = get()) !== null ? _t !== void 0 : false) ? _t : fallback);
  */
 export function nullishCoalescingToTernary(ast: File): boolean {
   return traverseForChanges(ast, visitor)
@@ -39,11 +38,6 @@ function lowerNullishCoalescing(path: NodePath<t.LogicalExpression>): boolean {
   if (node.operator !== '??') {
     return false
   }
-  // `with` can turn a repeated name into a getter and shadow a cache temp.
-  if (isInsideWith(path)) {
-    return false
-  }
-
   if (lowerLogicalWriteStatement(path, nullishFallbackTest)) {
     return true
   }
@@ -64,7 +58,7 @@ function lowerNullishCoalescing(path: NodePath<t.LogicalExpression>): boolean {
 
   path.replaceWith(
     t.conditionalExpression(
-      t.binaryExpression('!=', test, t.nullLiteral()),
+      buildNonNullishCheck(test, t.cloneNode(consequent)),
       consequent,
       node.right,
     ),
@@ -73,5 +67,5 @@ function lowerNullishCoalescing(path: NodePath<t.LogicalExpression>): boolean {
 }
 
 function nullishFallbackTest(target: t.Identifier): t.Expression {
-  return t.binaryExpression('==', target, t.nullLiteral())
+  return buildNullishCheck(target, t.cloneNode(target))
 }

@@ -5,7 +5,7 @@ import type { File } from '@babel/types'
 
 import { evaluateConstant, isOpaque } from '../analysis/constant'
 import { isSideEffectFree } from '../analysis/purity'
-import { isInDirectivePrologue, isInsideWith } from '../utils/ast'
+import { isInDirectivePrologue } from '../utils/ast'
 import type { ChangeState } from '../utils/change-tracking'
 import { valueToLiteral } from '../utils/literal'
 
@@ -507,7 +507,7 @@ function replaceWithPreservedExpression(
   expression: t.Expression,
   result: t.Expression,
 ): void {
-  if (!isSideEffectFree(expression, path.scope, path)) {
+  if (!isSideEffectFree(expression, path.scope)) {
     path.replaceWith(t.sequenceExpression([expression, result]))
     return
   }
@@ -527,7 +527,7 @@ function foldArrayLiteralLength(
   }
   const effects = array.elements.filter(
     (element): element is t.Expression =>
-      element !== null && t.isExpression(element) && !isSideEffectFree(element, path.scope, path),
+      element !== null && t.isExpression(element) && !isSideEffectFree(element, path.scope),
   )
   const length = t.numericLiteral(array.elements.length)
   path.replaceWith(effects.length === 0 ? length : t.sequenceExpression([...effects, length]))
@@ -555,10 +555,6 @@ function foldStringIndex(
 }
 
 function handleCall(path: NodePath<t.CallExpression>, patchedRoots: Set<string>): void {
-  // `with` can replace an intrinsic that Babel treats as an unbound global.
-  if (isInsideWith(path)) {
-    return
-  }
   const callee = path.node.callee
 
   if (t.isIdentifier(callee)) {
@@ -606,11 +602,6 @@ function handleMember(path: NodePath<t.MemberExpression>, patchedRoots: Set<stri
   if (isReferenceRequiredPosition(path)) {
     return
   }
-  // Delay the ancestor walk until cheap shape checks pass.
-  if (isInsideWith(path)) {
-    return
-  }
-
   const obj = path.node.object
 
   if (t.isIdentifier(obj) && !path.scope.getBinding(obj.name) && !patchedRoots.has(obj.name)) {

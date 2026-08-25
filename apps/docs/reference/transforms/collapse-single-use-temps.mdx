@@ -22,7 +22,8 @@ const output = obfuscate(source, {
 ## What it changes
 
 Drops single-use temporaries through substitution, direct branch writes, or
-constant replacement. Sweeps continue until no shape exposes another.
+constant replacement. It repeats these rewrites so one removal can expose
+another.
 
 ## Before and after
 

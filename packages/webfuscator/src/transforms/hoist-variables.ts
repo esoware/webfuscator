@@ -9,8 +9,7 @@ import type { ChangeState } from '../utils/change-tracking'
  * Moves `var` declarations to the start of their var scope without moving
  * initializer evaluation.
  *
- * Direct exports and declarations inside `with` stay in place. Static blocks
- * keep separate declarations.
+ * Direct exports stay in place. Static blocks keep separate declarations.
  *
  * @example
  * // ◀️ before
@@ -43,7 +42,7 @@ export function hoistVariables(ast: File): boolean {
         return
       }
       const owner = ownerPath(path)
-      if (owner === null || isInsideOwnerWith(path, owner)) {
+      if (owner === null) {
         return
       }
 
@@ -96,15 +95,6 @@ function ownerPath(path: NodePath<t.VariableDeclaration>): OwnerPath | null {
     current = current.parentPath
   }
   return null
-}
-
-function isInsideOwnerWith(path: NodePath, owner: OwnerPath): boolean {
-  for (let current = path.parentPath; current && current !== owner; current = current.parentPath) {
-    if (current.isWithStatement()) {
-      return true
-    }
-  }
-  return false
 }
 
 function hoistedScope(scopes: Map<t.Node, HoistedScope>, owner: OwnerPath): HoistedScope {

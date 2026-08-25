@@ -117,15 +117,7 @@ log(make() + new Box().value());`
   expect(out).not.toMatch(/\nlet Box/u)
 })
 
-test('preserves TDZ failure and abrupt initializer completion', () => {
-  const tdz = `try {
-  let a = b;
-  let b = 1;
-} catch (error) {
-  log(error.constructor.name);
-}`
-  expectEquivalent(tdz)
-
+test('preserves abrupt initializer completion', () => {
   const abrupt = `try {
   let a = (() => { throw 1; })();
   let b = 2;

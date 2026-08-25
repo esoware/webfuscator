@@ -1,12 +1,7 @@
 import type { Binding, NodePath, Scope } from '@babel/traverse'
 import * as t from '@babel/types'
 
-import { isInsideWith } from '../utils/ast'
-import {
-  declarationReaches,
-  initializerReaches,
-  readCrossesFunctionBoundary,
-} from './document-order'
+import { initializerReaches, readCrossesFunctionBoundary } from './document-order'
 import { isSideEffectFree } from './purity'
 
 export type Evaluation = { known: true; value: unknown } | { known: false }
@@ -24,7 +19,7 @@ export function isOpaque(value: unknown): boolean {
 interface Env {
   scope: Scope | undefined
   seen: Set<Binding>
-  // Use the binding path while recursing so later declarations still hit TDZ.
+  // Only `var` reads need proof that their initializer ran.
   referencePath: NodePath | undefined
 }
 
@@ -74,9 +69,7 @@ function run(node: t.Node, env: Env): Evaluation {
 function evaluateUnary(node: t.Node, env: Env): Evaluation {
   const unary = node as t.UnaryExpression
   if (unary.operator === 'void') {
-    return isSideEffectFree(unary.argument, env.scope, env.referencePath)
-      ? { known: true, value: undefined }
-      : UNKNOWN
+    return isSideEffectFree(unary.argument, env.scope) ? { known: true, value: undefined } : UNKNOWN
   }
   if (unary.operator === 'delete' || unary.operator === 'throw') {
     return UNKNOWN
@@ -141,10 +134,6 @@ function evaluateIdentifier(node: t.Node, env: Env): Evaluation {
     return UNKNOWN
   }
 
-  // Babel's scope table cannot account for properties supplied by `with`.
-  if (env.referencePath && isInsideWith(env.referencePath)) {
-    return UNKNOWN
-  }
   const binding = env.scope.getBinding(identifier.name)
 
   // Only an unbound `undefined` names the immutable global property.
@@ -160,16 +149,7 @@ function evaluateIdentifier(node: t.Node, env: Env): Evaluation {
     return binding.constant ? { known: true, value: OPAQUE_TRUTHY } : UNKNOWN
   }
   if (t.isClassDeclaration(binding.path.node)) {
-    if (!binding.constant) {
-      return UNKNOWN
-    }
-    // A nested function can read the class before its declaration runs.
-    if (readCrossesFunctionBoundary(binding, env.referencePath)) {
-      return UNKNOWN
-    }
-    return declarationReaches(binding.path, env.referencePath)
-      ? { known: true, value: OPAQUE_TRUTHY }
-      : UNKNOWN
+    return binding.constant ? { known: true, value: OPAQUE_TRUTHY } : UNKNOWN
   }
 
   if (binding.kind === 'var' || binding.kind === 'let' || binding.kind === 'const') {
@@ -180,16 +160,18 @@ function evaluateIdentifier(node: t.Node, env: Env): Evaluation {
     if (!t.isIdentifier(declarator.id) || declarator.id.name !== identifier.name) {
       return UNKNOWN
     }
-    // A nested function can read the binding before its initializer runs.
-    if (readCrossesFunctionBoundary(binding, env.referencePath)) {
-      return UNKNOWN
-    }
-    // A preceding `var` initializer may still sit on an untaken branch.
-    if (!initializerReaches(binding.path, env.referencePath)) {
+    // A nested function can run before a `var` initializer, and a conditional
+    // initializer may not run at all.
+    if (
+      binding.kind === 'var' &&
+      (readCrossesFunctionBoundary(binding, env.referencePath) ||
+        !initializerReaches(binding.path, env.referencePath))
+    ) {
       return UNKNOWN
     }
     // Babel counts a looped `var` initializer as its own constant violation.
     if (
+      binding.kind !== 'const' &&
       !binding.constant &&
       !(
         binding.constantViolations.length === 1 &&

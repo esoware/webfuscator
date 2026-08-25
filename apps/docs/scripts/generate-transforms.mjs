@@ -111,10 +111,6 @@ function publicBehavior(transformName, behavior) {
         'A\nside-effectful left side is cached in the ternary test for later hoisting.',
         'A side-effectful left side is cached so it is evaluated once.',
       )
-    case 'mangleProperties':
-      return behavior
-        .replace('that this pipeline must leave unchanged.', 'that must remain unchanged.')
-        .replace(/\n\nThis pass runs before shape preparation,[\s\S]*?source keys\./u, '')
     case 'numbersToStrings':
       return behavior.replace(
         '\n\nPreparation has already converted numeric object keys to strings.',
@@ -147,7 +143,7 @@ function configurationNote(transformName) {
   }
 
   if (transformName === 'pack') {
-    return `Pass \`{ escapeStrict, skipGlobals, stringGeneratorMode }\` instead of \`true\`. Set \`escapeStrict\` to run the packed body in sloppy mode even when the source is strict, which deliberately changes behavior. Packing also does not propagate a script's completion value, so a trailing expression that was observable through an embedding API becomes \`undefined\`. Set \`skipGlobals\` to \`true\`, or to an array of names, to leave those free names bare instead of routing them through the accessor object; they resolve to the same global from inside the packed body, so this only trims the output.`
+    return `Pass \`{ escapeStrict, skipGlobals, stringGeneratorMode }\` instead of \`true\`. Set \`escapeStrict\` to remove strict mode from the generated function. Set \`skipGlobals\` to \`true\`, or to an array of names, to leave those free names unchanged instead of routing them through accessors. Use it only for names that a generated \`Function\` can read directly.`
   }
 
   if (configurableStringModeTransforms.has(transformName)) {
@@ -172,12 +168,11 @@ const output = obfuscate(source, {
 \`\`\`${note ? `\n\n${note}` : ''}`
 }
 
-// Only the passes that change behavior, or whose safety depends on the caller,
-// get a callout. The behavior-preserving majority gets none.
+// Only transforms with a public warning need a callout.
 function behaviorCallout(transformName) {
   if (transformName === 'dropConsole') {
     return `<Note>
-  Dropping \`console.*(...)\` output is the point, so this changes behavior. It deletes the statement only when the arguments and any computed key are side-effect-free, so it never drops observable work. If any of them could do observable work, or \`console\` is shadowed or reassigned, it leaves the call alone.
+  This option removes console output. It removes a call only when evaluating its arguments and computed key has no other side effects. Calls through a shadowed or reassigned \`console\` stay unchanged.
 </Note>`
   }
 
@@ -189,13 +184,13 @@ function behaviorCallout(transformName) {
 
   if (transformName === 'mangleProperties') {
     return `<Warning>
-  A renamed property can still be read from outside the input: another bundle, a JSON payload, a template, the DOM, or reflection. The obfuscator cannot see those uses, so this is safe only for names whose full boundary you control. Scope the selection with \`regex\`, \`reserved\`, annotations, or a reviewed \`cache\`.
+  Another file, a JSON payload, a template, the DOM, or reflection can still use a renamed property. The transform cannot see those uses. Restrict mangling to names whose reads and writes you control, using \`regex\`, \`reserved\`, annotations, or a reviewed \`cache\`.
 </Warning>`
   }
 
   if (transformName === 'pack') {
     return `<Warning>
-  \`pack\` throws on \`export\` statements, which cannot exist inside a \`Function\` body. It packs everything else as written. Code that needs \`import.meta\`, top-level await, dynamic \`import()\`, or a top-level \`arguments\` will not run once packed. And in a script, top-level \`var\` and function declarations stop publishing as global-object properties like \`globalThis.x\`.
+  \`pack\` runs the generated string as a \`Function\` body. \`import.meta\` and top-level \`await\` are syntax errors there. A top-level \`arguments\` refers to the generated function. \`pack\` rejects export statements before producing output.
 </Warning>`
   }
 

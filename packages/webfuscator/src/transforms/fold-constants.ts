@@ -190,7 +190,7 @@ function tryReassociateCommutative(path: NodePath<t.BinaryExpression>, op: Commu
   }
   // Grouping constants can move one operand's coercion past another operand's
   // evaluation. Multiple non-constant operands must therefore be pure.
-  if (others.length > 1 && !others.every((leaf) => isPure(leaf, path.scope, path))) {
+  if (others.length > 1 && !others.every((leaf) => isPure(leaf, path.scope))) {
     return false
   }
 
@@ -296,7 +296,7 @@ function tryReassociateSubtract(path: NodePath<t.BinaryExpression>): boolean {
   }
   // Reassociation can move `base` coercion past a subtractee's evaluation.
   // Non-constant subtractees must be pure.
-  if (!otherSubs.every((leaf) => isPure(leaf, path.scope, path))) {
+  if (!otherSubs.every((leaf) => isPure(leaf, path.scope))) {
     return false
   }
   const sum = combineConstants(constSubs, '+')

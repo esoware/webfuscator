@@ -6,7 +6,6 @@ import { hasDuplicateParamNames } from '../utils/ast'
 import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 import { isLiteralShaped } from '../utils/literal'
-import { hasAnnexBFunctionAlias } from '../utils/paths'
 
 /**
  * Moves leading literal-valued `var` declarations into trailing default
@@ -48,10 +47,6 @@ function packLeadingIntoParams(path: NodePath<t.Function>): boolean {
     path.isClassMethod() ||
     path.isClassPrivateMethod()
   ) {
-    return false
-  }
-  // An Annex B alias splits call sites across bindings Babel does not connect.
-  if (hasAnnexBFunctionAlias(path)) {
     return false
   }
   const params = path.node.params
@@ -159,7 +154,11 @@ function methodComputedKey(path: NodePath<t.Function>): NodePath | null {
 // arity and without spread.
 function allCallSitesRespectArity(path: NodePath<t.Function>, arity: number): boolean {
   const external = functionBinding(path)
-  if (!external || !external.constant || !bindingCallsRespectArity(external, arity)) {
+  if (
+    !external ||
+    (external.kind !== 'const' && !external.constant) ||
+    !bindingCallsRespectArity(external, arity)
+  ) {
     return false
   }
   if (path.isFunctionExpression() && path.node.id) {
@@ -189,17 +188,12 @@ function bindingCallsRespectArity(binding: Binding, arity: number): boolean {
   return true
 }
 
-// Annex B can hoist function names from nested blocks into this function scope.
 function functionDeclarationNames(body: t.BlockStatement): Set<string> {
-  const names = new Set<string>()
-  t.traverseFast(body, (node) => {
-    if (t.isFunctionDeclaration(node) && node.id) {
-      names.add(node.id.name)
-      return t.traverseFast.skip
-    }
-    return node !== body && t.isFunction(node) ? t.traverseFast.skip : undefined
-  })
-  return names
+  return new Set(
+    body.body.flatMap((statement) =>
+      t.isFunctionDeclaration(statement) && statement.id ? [statement.id.name] : [],
+    ),
+  )
 }
 
 function functionBinding(path: NodePath<t.Function>): Binding | null {

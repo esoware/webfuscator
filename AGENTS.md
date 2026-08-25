@@ -4,18 +4,24 @@
 
 Published packages live in `packages/`, so the npm package is `packages/webfuscator/`. Everything that deploys without being published lives in `apps/`: the documentation site in `apps/docs/` and the playground in `apps/playground/`. Each workspace owns the commands it runs, and the root delegates to every one. The repository root holds configuration and no source.
 
-## Behavior contracts
+## What transforms may ignore
 
-Every pass honors one of these four contracts. Most honor the first. A pass that wants another must justify why the first is physically impossible, not merely inconvenient.
+Do not add guards, scans, or bailouts for anything in this list:
 
-1. **Behavior-preserving.** The default. For every legal JavaScript program the rewrite either preserves observable behavior exactly or does not happen. If a pass cannot prove a rewrite safe, it leaves the code alone. A missed rewrite is fine. A rewrite that changes behavior is a bug. Generated source text, `Function.prototype.toString()` results, stack traces, source locations, and comments are outside this contract. The printer strips every comment after transforms consume any annotations they use. Direct `eval` is also out of scope. A pass treats it as an ordinary call and never preserves the scope its argument reads, so a program that relies on a direct `eval` observing a renamed or removed binding is not covered. No pass carries an eval guard.
-2. **Effect-removing.** The pass exists to delete one named observable effect and preserve everything else. It removes only that effect and bails when it cannot isolate it. `dropConsole` and `dropDebugger` are the only two. Off by default.
-3. **Boundary-dependent.** Correctness depends on a fact outside the input that the AST cannot show, so the pass cannot prove the rewrite safe on its own. It refuses every hazard it can see and gives the caller the controls to scope the rest. The caller owns the boundary promise. `mangleProperties` is the only one. Off by default.
-4. **Opt-in behavior change.** An off-by-default option that deliberately changes semantics when set. The default preserves behavior; the option documents the change. `pack`'s `escapeStrict` is the only one.
+- Code created from strings with direct `eval` or `Function` depending on names or scope changed by a transform.
+- `with` changing which variable an identifier refers to.
+- The extra outer alias that sloppy Annex B creates for a block-level function declaration.
+- Errors from accessing a lexical binding before initialization or assigning to `const`, including code that catches those errors.
+- The final value returned by evaluating an entire script or eval, including the return value of `pack`'s generated `Function` call.
+- Whether a top-level script declaration creates, removes, renames, or changes a property on `globalThis`.
+- Generated text, comments, source locations, identifier and label spellings, the `.name` of a transformed function or class, `Function.prototype.toString()`, stack text, or the wording of an engine-generated error.
+- Standard built-ins patched by code that runs before the obfuscated input. Patches made by the input itself still matter.
 
-One rule holds across all four. A pass never silently changes observable behavior. It proves a rewrite safe and applies it, proves it unsafe and declines, or is an off-by-default feature whose named change the caller chose.
+Everything else must be preserved or the rewrite must be skipped. That includes evaluation order, effects, laziness, coercion, getters, setters, proxies, ordinary exceptions other than the binding errors above, closures, per-iteration bindings, ordinary `var` and function hoisting, strict mode, directives, modules, calls, construction, iterators, external calls, and host values such as `document.all`.
 
-Throwing is for invalid caller configuration and for the one construct `pack` cannot represent. `mangleProperties` throws on a malformed `cache` or `nameGenerator`, `StringGenerator` on an empty mode list, and `pack` on a program that uses `export` statements, which cannot exist inside a `Function` body. Otherwise a hard case is a skip, not an exception.
+`dropConsole`, `dropDebugger`, `mangleProperties`, and `pack` are off by default. `dropConsole` removes eligible console calls. `dropDebugger` removes `debugger` statements. `mangleProperties` cannot account for property uses outside the input. `pack` runs the program inside a generated `Function`, and `pack.escapeStrict` removes strict mode from it. Their generated pages state these effects.
+
+Transforms do not throw because a rewrite is difficult; they leave that site unchanged. Invalid options throw, and `pack` throws on export statements because they cannot appear inside a `Function` body. In particular, `mangleProperties` rejects a malformed `cache` or `nameGenerator`, and `StringGenerator` rejects an empty mode list.
 
 ## Commands
 
@@ -44,7 +50,7 @@ The phase tables in `packages/webfuscator/src/obfuscator.ts` define which passes
 - Synthesize every identifier and label with `scope.generateUid('purpose')` on the owning scope. No transform carries its own counter or prefix scheme.
 - Track changes through `traverseForChanges` and `ChangeState` in `packages/webfuscator/src/utils/change-tracking.ts`. A pass with its own traversal loop keeps state in an object that extends `ChangeState`.
 - Give every new pass in `packages/webfuscator/src/transforms/` or `packages/webfuscator/src/preparation/` a mirror test at the same path under `packages/webfuscator/tests/`. If the pass is configurable, add it to `TransformName` in `packages/webfuscator/src/options.ts`.
-- Default a new configurable pass to the behavior-preserving contract. A pass on any other contract needs the justification above, an off-by-default toggle, and a caveat callout in `apps/docs/scripts/generate-transforms.mjs` so its page flags the change.
+- A new transform must follow the rules above. If it changes another behavior or relies on facts outside the input, keep it off by default and state the exact effect in `apps/docs/scripts/generate-transforms.mjs`.
 - Most helpers in `packages/webfuscator/src/utils/` and `packages/webfuscator/src/analysis/` get coverage from their transforms. The rewrite safety predicates in `packages/webfuscator/src/analysis/purity.ts`, `packages/webfuscator/src/analysis/constant.ts`, and `packages/webfuscator/src/analysis/document-order.ts` need direct mirror tests. So do the value builders in `packages/webfuscator/src/utils/literal.ts` and `packages/webfuscator/src/utils/string-generator.ts`. Transitive tests miss too many of their branches, and a wrong answer can change program behavior.
 - `packages/webfuscator/src/index.ts` exports the public API and nothing else.
 
@@ -61,13 +67,13 @@ The phase tables in `packages/webfuscator/src/obfuscator.ts` define which passes
 
 ## Comments
 
-Comments explain why, not what. Delete any comment that a reader familiar with JavaScript and Babel could infer from the code. Good reasons for a comment include a TDZ rule, an ECMA-262 reference, a Babel scope-table quirk, an aliasing risk that TypeScript cannot catch, or a deliberate fallthrough that a later pass needs.
+Comments explain why, not what. Delete any comment that a reader familiar with JavaScript and Babel could infer from the code. Good reasons for a comment include a `var`-hoisting rule, an ECMA-262 reference, a Babel scope-table quirk, an aliasing risk that TypeScript cannot catch, or a deliberate fallthrough that a later pass needs.
 
 Use ASCII punctuation in comments: `-`, `->`, `...`, and straight quotes. The `@example` banner markers are the only exception. Prefer a single line. In a multi-line `//` block, capitalize the first line and let the rest read as continuous prose. Do not leave commented-out code, `// TODO`, `// FIXME`, type-signature restatements, values that will go stale, or change history. Git holds the history.
 
 ## Tests and examples
 
-- Prove behavior. Output shape is not enough. Parse, transform, generate, evaluate with `new Function`, and compare the observable result with the original. Assertions such as `toContain` and `toMatch` may pin a specific rewrite after that comparison. Alone, they prove nothing about behavior.
+- For behavior not excluded above, output shape is not enough. Parse, transform, generate, evaluate with `new Function`, and compare the observable result with the original. Assertions such as `toContain` and `toMatch` may pin a specific rewrite after that comparison. Tests for an excluded behavior should instead prove that the transform does not scan for it or bail because of it.
 - Direct predicate tests in `packages/webfuscator/tests/analysis/` and `packages/webfuscator/tests/utils/` should cover a range of inputs, with extra weight on cases the helper must refuse. An over-eager `true` can break observational equivalence.
 - Fix the code, not the test. If an assertion is wrong, replace it with a stronger one and explain why in the commit message.
 - Every entry point in `packages/webfuscator/src/transforms/` and `packages/webfuscator/src/preparation/` needs an `@example` that demonstrates real behavior. Match the fixtures: `// ◀️ before`, the input, a blank line, `// ▶️ after`, then the output.

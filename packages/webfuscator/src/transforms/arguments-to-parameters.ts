@@ -8,10 +8,11 @@ import type { ChangeState } from '../utils/change-tracking'
 import { isInStrictContext } from '../utils/paths'
 
 /**
- * Replaces `arguments[i]` reads with their mapped parameter in sloppy functions
- * with simple parameter lists. Writes, deletion, reassigned parameters, and any
- * escape of the arguments object make the mapping unsafe. Missing parameters
- * are never added because that would change `fn.length`.
+ * Replaces numeric `arguments[i]` reads with the corresponding parameter in
+ * sloppy functions with simple parameter lists. It leaves a read unchanged when
+ * that index is written or its parameter is reassigned. Reassigning, deleting,
+ * or passing around `arguments` disables the rewrite. Missing parameters are
+ * never added because that would change `fn.length`.
  *
  * @example
  * // ◀️ before

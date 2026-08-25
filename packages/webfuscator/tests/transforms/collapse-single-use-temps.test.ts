@@ -487,10 +487,12 @@ test('collapse does not rebind this by substituting a member into a callee (F4)'
   collapsePreserves('var o = { m: function () { log(this === o); } }; var t = o.m; t();')
 })
 
-test('collapse does not move a read past its binding let (F5 TDZ)', () => {
-  collapsePreserves(
+test('collapse ignores a lexical read before initialization (F5)', () => {
+  const out = run(
     'function f() { var t = x; let x = 1; return t; } try { log(f()); } catch (e) { log(e.constructor.name); }',
+    collapseSingleUseTemps,
   )
+  expect(out).not.toContain('var t')
 })
 
 test('collapse does not rename a non-dominating conditional write (F6)', () => {
@@ -563,9 +565,14 @@ test('flavor C does not propagate a constant to a hoisted function read before t
   collapsePreserves('g(); var t; t = 1; function g() { log(t); }')
 })
 
-test('collapse bails on a binding whose declaration or use sits inside a `with` (A09-12)', () => {
+test('collapse does not inspect enclosing `with` statements', () => {
   const code =
     'var scope = { a: 0 }; var src = { a: 1 }; function fn() { with (scope) { var a = src.a; return a; } } log(fn(), scope.a);'
-  collapsePreserves(code)
-  expect(run(code, collapseSingleUseTemps)).toMatch(/var a = src\.a/)
+  expect(run(code, collapseSingleUseTemps)).not.toMatch(/var a = src\.a/)
+})
+
+test('collapse ignores assignments to a const binding', () => {
+  const out = run('const x = 1; log(x); x = 2;', collapseSingleUseTemps)
+  expect(out).toContain('log(1)')
+  expect(out).not.toContain('const x')
 })

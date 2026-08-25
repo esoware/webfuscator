@@ -61,7 +61,7 @@ export const TRANSFORM_GROUPS = [
       {
         name: 'removeAnonymousFunctionNames',
         kind: 'boolean',
-        description: 'Drops function expression names nothing can observe.',
+        description: 'Drops unused function expression names.',
       },
     ],
   },
@@ -106,12 +106,12 @@ export const TRANSFORM_GROUPS = [
       {
         name: 'constToLet',
         kind: 'boolean',
-        description: 'Changes const to let where no read can observe the difference.',
+        description: 'Changes const declarations to let.',
       },
       {
         name: 'constLetToVar',
         kind: 'boolean',
-        description: 'Lifts safe lexical declarations to function-scoped var.',
+        description: 'Converts lexical declarations to var when loop bindings still work.',
       },
       {
         name: 'objectMethodToProperty',
@@ -126,7 +126,7 @@ export const TRANSFORM_GROUPS = [
       {
         name: 'functionDeclarationToExpression',
         kind: 'boolean',
-        description: 'Rewrites safe function declarations as var initializers.',
+        description: 'Rewrites script and function-body declarations as var initializers.',
       },
       {
         name: 'reorderFunctionDeclarations',
@@ -237,7 +237,7 @@ export const TRANSFORM_GROUPS = [
         name: 'mangleProperties',
         kind: 'mangle',
         description:
-          'Renames statically known properties through one mapping. Boundary-dependent: outside code using the same names breaks.',
+          'Renames statically known properties. External code must use the same mapping.',
       },
       {
         name: 'renameIdentifiers',
@@ -288,7 +288,7 @@ export const KEEP_QUOTED_CHOICES = [
   { value: 'true', label: 'On' },
 ] as const
 
-/** The starter preset. Every pass here is behavior-preserving. */
+/** The starter preset excludes the transforms with named external effects. */
 export const DEFAULT_OPTIONS: ObfuscatorOptions = {
   transforms: {
     foldConstants: true,

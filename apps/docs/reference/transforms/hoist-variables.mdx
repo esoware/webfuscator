@@ -24,8 +24,7 @@ const output = obfuscate(source, {
 Moves `var` declarations to the start of their var scope without moving
 initializer evaluation.
 
-Direct exports and declarations inside `with` stay in place. Static blocks
-keep separate declarations.
+Direct exports stay in place. Static blocks keep separate declarations.
 
 ## Before and after
 

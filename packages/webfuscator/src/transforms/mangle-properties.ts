@@ -13,11 +13,8 @@ import { StringGenerator } from '../utils/string-generator'
 
 /**
  * Renames statically known public properties through one program-wide mapping.
- * Property selection follows Terser, with extra collision checks for names
- * that this pipeline must leave unchanged.
- *
- * This pass runs before shape preparation, while Babel still distinguishes
- * `obj.name` from `obj["name"]`.
+ * Options select or reserve names, and collision checks keep every unchanged
+ * property distinct from the generated names.
  *
  * @example
  * // ◀️ before

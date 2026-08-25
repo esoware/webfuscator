@@ -191,9 +191,11 @@ test('drops a bare declaration into the merged top declaration', () => {
   expect(out).toContain('var x;')
 })
 
-test('leaves a var inside `with` untouched', () => {
+test('hoists a var without inspecting enclosing `with` statements', () => {
   const src = `function f(o) {\n  with (o) {\n    var x = 1;\n  }\n  return x;\n}\nlog(f({}));`
-  expect(run(src, hoistVariables)).toEqual(run(src, () => {}))
+  const out = run(src, hoistVariables)
+  expect(out).toContain('var x;')
+  expect(out).toContain('x = 1;')
 })
 
 test('eval does not block variable hoisting', () => {
@@ -203,7 +205,7 @@ test('eval does not block variable hoisting', () => {
   expect(out).toContain('x = 1;')
 })
 
-test('an outer with statement does not block a nested function scope', () => {
+test('an outer `with` still permits hoisting in a nested function scope', () => {
   const src = `function outer(o) {
   with (o) {
     return function inner() {

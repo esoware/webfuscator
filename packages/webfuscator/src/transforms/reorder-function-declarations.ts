@@ -2,14 +2,12 @@ import type { NodePath } from '@babel/traverse'
 import type * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { hasAnnexBFunctionAlias } from '../utils/paths'
 import { rewriteStatementLists } from '../utils/statement-lists'
 import type { StatementListContainer } from '../utils/statement-lists'
 
 /**
  * Moves hoisted function declarations to the end of each program, block, switch
- * case, or static block. It keeps declaration order, including duplicate names,
- * and leaves sloppy Annex B block functions in place.
+ * case, or static block. It keeps declaration order, including duplicate names.
  *
  * If moving every declaration would turn a string expression into a directive,
  * one declaration stays before the string. Direct exports stay in place.
@@ -76,5 +74,5 @@ function createsDirective(statements: readonly t.Statement[]): boolean {
 }
 
 function isMovable(child: NodePath<t.Statement>): boolean {
-  return child.isFunctionDeclaration() && child.node.id !== null && !hasAnnexBFunctionAlias(child)
+  return child.isFunctionDeclaration() && child.node.id !== null
 }

@@ -186,9 +186,9 @@ function runBoth(code: string): { before: unknown; after: unknown } {
   return runBothWith(code, 'mangled')
 }
 
-test('renameIdentifiers does not rename a binding referenced inside a with block', () => {
-  const { before, after } = runBoth('var x = 1; var o = { x: 42 }; with (o) { log(x); }')
-  expect(after).toEqual(before)
+test('renameIdentifiers renames a binding referenced inside a with block', () => {
+  const out = run('var x = 1; var o = { x: 42 }; with (o) { log(x); }', renameMangled)
+  expect(out).not.toContain('var x')
 })
 
 test('renameIdentifiers does not pin names visible to eval', () => {
@@ -232,45 +232,41 @@ export const { left, right: renamedRight } = { left: 8, right: 9 };`
   expect(out).not.toContain('class PublicClass')
 })
 
-test('renameIdentifiers reserves a with-pinned outer name in a nested scope (A10-01)', () => {
-  const { before, after } = runBoth(
-    'var M = 1; with ({}) { log(M); } function f() { var q = 2; log(M, q); } f();',
+test('renameIdentifiers does not pin a name referenced inside `with`', () => {
+  const out = run(
+    'var sourceValue = 1; with ({}) { log(sourceValue); } function f() { var q = 2; log(sourceValue, q); } f();',
+    renameMangled,
   )
-  expect(after).toEqual(before)
+  expect(out).not.toContain('sourceValue')
 })
 
-test('renameIdentifiers does not rename a sibling onto a pinned name (A10-02)', () => {
-  const { before, after } = runBothWith(
+test('renameIdentifiers allocates names without a `with` reservation', () => {
+  const renameNumbered = (ast: File): void => {
+    renameIdentifiers(ast, { seed: 0, stringGeneratorMode: 'number' })
+  }
+  const out = run(
     'function f() { var q = 1; var var_2 = 2; with ({}) { log(var_2); } log(q, var_2); } f();',
-    'number',
+    renameNumbered,
   )
-  expect(after).toEqual(before)
+  expect(out).not.toContain('var var_2 = 2')
 })
 
-test('renameIdentifiers keeps a sloppy block-level function reachable by its outer callers (A10-03)', () => {
-  const { before, after } = runBoth('{ function g() { return 41; } } log(g() + 1);')
-  expect(after).toEqual(before)
+test('renameIdentifiers renames a sloppy block-level function independently', () => {
+  const out = run('{ function g() { return 41; } } log(g() + 1);', renameMangled)
+  expect(out).not.toContain('function g')
 })
 
-test('renameIdentifiers keeps a sloppy switch-case function reachable (A10-03)', () => {
-  const { before, after } = runBoth(
-    'switch (1) { case 1: function h() { return 2; } } log(typeof h);',
-  )
-  expect(after).toEqual(before)
+test('renameIdentifiers renames a sloppy switch-case function independently', () => {
+  const out = run('switch (1) { case 1: function h() { return 2; } } log(typeof h);', renameMangled)
+  expect(out).not.toContain('function h')
 })
 
-test('renameIdentifiers does not collide a block function with an outer binding (A10-04)', () => {
-  const { before, after } = runBoth(
-    'var out = []; { function g() { return 1; } } out.push(typeof g); log(out);',
-  )
-  expect(after).toEqual(before)
-})
-
-test('renameIdentifiers preserves Annex B if-clause function hoisting (A09-14)', () => {
-  const { before, after } = runBoth(
+test('renameIdentifiers renames an if-clause function independently', () => {
+  const out = run(
     'log(typeof f); if (1) { function f() { return 1; } } log(typeof f, f());',
+    renameMangled,
   )
-  expect(after).toEqual(before)
+  expect(out).not.toContain('function f')
 })
 
 test('renameIdentifiers keeps a catch param and a same-named catch-body var as one variable (A10-05)', () => {

@@ -16,7 +16,7 @@ import type { ChangeState } from '../utils/change-tracking'
  *
  * Non-computed `__proto__` methods stay intact because the property form invokes
  * ECMA-262 B.3.1 prototype-setting behavior. Computed keys create own properties
- * and remain safe.
+ * and can be rewritten.
  *
  * @example
  * // ◀️ before

@@ -5,7 +5,6 @@ import type { File } from '@babel/types'
 
 import { isSideEffectFree } from '../analysis/purity'
 import type { ChangeState } from '../utils/change-tracking'
-import { hasAnnexBFunctionAlias } from '../utils/paths'
 
 /**
  * Removes unused declarations and expression statements that have no effects.
@@ -119,7 +118,7 @@ function tryRemoveDeclarator(path: NodePath<t.VariableDeclarator>): boolean {
   }
 
   const init = path.node.init
-  if (init && !isSideEffectFree(init, path.scope, path.get('init') as NodePath)) {
+  if (init && !isSideEffectFree(init, path.scope)) {
     return false
   }
 
@@ -130,7 +129,7 @@ function tryRemoveDeclarator(path: NodePath<t.VariableDeclarator>): boolean {
   if (binding.references > 0) {
     return false
   }
-  if (binding.constantViolations.length > 0) {
+  if (declaration.node.kind !== 'const' && binding.constantViolations.length > 0) {
     return false
   }
   if (path.node.init) {
@@ -146,10 +145,6 @@ function tryRemoveDeclarator(path: NodePath<t.VariableDeclarator>): boolean {
 
 function tryRemoveFunctionDecl(path: NodePath<t.FunctionDeclaration>): boolean {
   if (isExported(path)) {
-    return false
-  }
-  // Babel misses the sloppy Annex B alias of a block-level function.
-  if (hasAnnexBFunctionAlias(path)) {
     return false
   }
   const id = path.node.id
@@ -183,7 +178,7 @@ function tryRemoveClassDecl(path: NodePath<t.ClassDeclaration>): boolean {
   }
 
   // `extends`, computed keys, static fields, and static blocks run on evaluation.
-  if (path.node.superClass && !isSideEffectFree(path.node.superClass, path.scope, path)) {
+  if (path.node.superClass && !isSideEffectFree(path.node.superClass, path.scope)) {
     return false
   }
   for (const member of path.node.body.body) {
@@ -198,7 +193,7 @@ function tryRemoveClassDecl(path: NodePath<t.ClassDeclaration>): boolean {
       'computed' in member &&
       member.computed &&
       'key' in member &&
-      !isSideEffectFree(member.key, path.scope, path)
+      !isSideEffectFree(member.key, path.scope)
     ) {
       return false
     }
@@ -224,7 +219,7 @@ function tryRemoveClassDecl(path: NodePath<t.ClassDeclaration>): boolean {
 }
 
 function tryRemoveExpressionStatement(path: NodePath<t.ExpressionStatement>): boolean {
-  if (!isSideEffectFree(path.node.expression, path.scope, path.get('expression'))) {
+  if (!isSideEffectFree(path.node.expression, path.scope)) {
     return false
   }
   dereferenceSubtree(path.get('expression') as NodePath)

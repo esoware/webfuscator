@@ -449,16 +449,14 @@ test('extractObjectProperties does not miss a computed-key this in a value funct
   expectExtractPreserves(src)
 })
 
-// A wrapper read before initialization throws, while an extracted binding read
-// may return `undefined`.
-test('extractObjectProperties bails on a read before the var declaration runs', () => {
+test('extractObjectProperties preserves a read before the var declaration runs', () => {
   const src = 'try { log(o.a); } catch (e) { log("caught"); }\nvar o = { a: 1 };\nlog(o.a);'
   const out = run(src, extractObjectProperties)
   expect(out).toMatch(/var o\s*=\s*\{/)
   expectExtractPreserves(src)
 })
 
-test('extractObjectProperties bails on a reference reached before the declaration via a call', () => {
+test('extractObjectProperties preserves a var reference reached before initialization via a call', () => {
   const src =
     'function f() { return o.a; }\ntry { log(f()); } catch (e) { log("caught"); }\nvar o = { a: 1 };'
   const out = run(src, extractObjectProperties)
@@ -466,8 +464,7 @@ test('extractObjectProperties bails on a reference reached before the declaratio
   expectExtractPreserves(src)
 })
 
-// An initializer in an untaken branch is not reached despite document order.
-test('extractObjectProperties bails when the declaration sits in a never-taken branch', () => {
+test('extractObjectProperties preserves an uninitialized var wrapper', () => {
   const src = 'if (0) { var o = { a: 1 }; }\ntry { log(o.a); } catch (e) { log("caught"); }'
   const out = run(src, extractObjectProperties)
   expect(out).toMatch(/var o\s*=\s*\{/)
@@ -491,19 +488,23 @@ test('extractObjectProperties bails on a let for-init', () => {
   expectExtractPreserves(src)
 })
 
-// `with` can shadow a synthesized declaration or rewritten reference.
-test('extractObjectProperties bails when a reference sits inside a with block', () => {
+test('extractObjectProperties rewrites references without inspecting `with`', () => {
   const src = 'var o = { a: 1 };\nvar w = { a: 99 };\nwith (w) { log(o.a); }'
   const out = run(src, extractObjectProperties)
-  expect(out).toMatch(/var o\s*=\s*\{/)
-  expectExtractPreserves(src)
+  expect(out).not.toMatch(/var o\s*=\s*\{/)
+  expect(out).toContain('var a = 1')
 })
 
-test('extractObjectProperties bails when the declaration sits inside a with block', () => {
+test('extractObjectProperties rewrites declarations without inspecting `with`', () => {
   const src = 'var w = {};\nwith (w) { var o = { a: 1 }; w.a = 99; log(o.a); }'
   const out = run(src, extractObjectProperties)
-  expect(out).toMatch(/var o\s*=\s*\{/)
-  expectExtractPreserves(src)
+  expect(out).not.toMatch(/var o\s*=\s*\{/)
+  expect(out).toContain('var a = 1')
+})
+
+test('extractObjectProperties ignores assignments to a const binding', () => {
+  const out = run('const o = { a: 1 }; o = { a: 2 }; log(o.a);', extractObjectProperties)
+  expect(out).not.toContain('o.a')
 })
 
 // A `var` initializer still hoists to the enclosing scope.

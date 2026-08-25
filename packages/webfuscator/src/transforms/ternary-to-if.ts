@@ -2,7 +2,6 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { isInsideWith } from '../utils/ast'
 import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 import { isConditionalGate, reorderableToStatement } from '../utils/evaluation-order'
@@ -35,7 +34,7 @@ export function ternaryToIf(ast: File): boolean {
 
 const preparationVisitor: Visitor<ChangeState> = {
   ConditionalExpression(path, state) {
-    if (!isPathLive(path) || isInsideWith(path)) {
+    if (!isPathLive(path)) {
       return
     }
     const stmtPath = path.getStatementParent()
@@ -50,9 +49,8 @@ const preparationVisitor: Visitor<ChangeState> = {
 
 const visitor: Visitor<ChangeState> = {
   ConditionalExpression(path, state) {
-    // Statement replacement detaches queued siblings. `with` can also shadow the
-    // synthesized result temporary.
-    if (!isPathLive(path) || isInsideWith(path)) {
+    // Statement replacement detaches queued siblings.
+    if (!isPathLive(path)) {
       return
     }
     if (lowerConditional(path)) {
@@ -129,16 +127,14 @@ function lowerConditional(path: NodePath<t.ConditionalExpression>): boolean {
     t.isIdentifier(parent.node.id) &&
     parent.node.init === path.node &&
     parent.parentPath?.isVariableDeclaration() &&
-    // Splitting lexical declarations would end TDZ early, and bare `const` is
-    // invalid. Keep their initializer behind a result temp.
-    parent.parentPath.node.kind === 'var' &&
     parent.parentPath.node.declarations.length === 1 &&
     isStandaloneDeclaration(parent.parentPath)
   ) {
     const declPath = parent.parentPath
     const target = parent.node.id
+    const declarationKind = declPath.node.kind === 'const' ? 'let' : declPath.node.kind
     declPath.replaceWithMultiple([
-      t.variableDeclaration(declPath.node.kind, [t.variableDeclarator(t.cloneNode(target))]),
+      t.variableDeclaration(declarationKind, [t.variableDeclarator(t.cloneNode(target))]),
       t.ifStatement(
         test,
         t.blockStatement(seqWithAssignment(consequent, target)),

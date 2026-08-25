@@ -169,14 +169,16 @@ new Derived();`
   expect(trace(transform(input, { scope: 'function' }))).toEqual(trace(input))
 })
 
-test('concealStrings shields decoder bindings from a with-object environment', () => {
+test('concealStrings does not create a separate vault for `with`', () => {
   const input = `var probes = 0;
 var object = new Proxy({}, { has: function () { probes++; return false; } });
 with (object) {
   log("inside with");
 }
-log(probes);`
-  expect(trace(transform(input))).toEqual(trace(input))
+  log(probes);`
+  const out = transform(input)
+  expect(out).not.toContain('inside with')
+  expect(out.indexOf('const _stringPool')).toBeLessThan(out.indexOf('var probes'))
 })
 
 test('concealStrings conceals runtime strings even where a direct eval can see them', () => {

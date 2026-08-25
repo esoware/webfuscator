@@ -9,7 +9,7 @@ import { isStandaloneDeclaration } from './paths'
 //   x = L;
 //   if (<fallbackTest(x)>) x = R;
 //
-// `fallbackTest` selects `!x`, `x`, or `x == null`. The parent must accept a
+// `fallbackTest` selects the short-circuit condition. The parent must accept a
 // multi-statement replacement.
 export function lowerLogicalWriteStatement(
   path: NodePath<t.LogicalExpression>,
@@ -29,21 +29,20 @@ export function lowerLogicalWriteStatement(
     const declStmt = parent.parentPath
     if (
       !declStmt?.isVariableDeclaration() ||
-      // The split would emit illegal `const x;` and then write it.
-      declStmt.node.kind === 'const' ||
       declStmt.node.declarations.length !== 1 ||
       !isStandaloneDeclaration(declStmt)
     ) {
       return false
     }
     const target = parent.node.id
-    // The split writes `x` before evaluating the right side. Refuse any right
-    // side that could observe the new value or the ended TDZ.
-    if (rightCanObserveTarget(node.right, target.name)) {
+    // A `var` initializer can observe its previous value while evaluating the
+    // right side. Reads before lexical initialization are intentionally ignored.
+    if (declStmt.node.kind === 'var' && rightCanObserveTarget(node.right, target.name)) {
       return false
     }
+    const declarationKind = declStmt.node.kind === 'const' ? 'let' : declStmt.node.kind
     declStmt.replaceWithMultiple([
-      t.variableDeclaration(declStmt.node.kind, [
+      t.variableDeclaration(declarationKind, [
         t.variableDeclarator(t.cloneNode(target), node.left),
       ]),
       guardedReassignment(target, fallbackTest, node.right),
@@ -68,10 +67,7 @@ export function lowerLogicalWriteStatement(
       return false
     }
     // Writing first would change `x = 0 || x` before the right side reads `x`.
-    if (
-      !isSideEffectFree(node.right, path.scope, path) ||
-      referencesName(node.right, target.name)
-    ) {
+    if (!isSideEffectFree(node.right, path.scope) || referencesName(node.right, target.name)) {
       return false
     }
     exprStmt.replaceWithMultiple([

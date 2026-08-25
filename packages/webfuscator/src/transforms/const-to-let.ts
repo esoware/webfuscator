@@ -3,11 +3,9 @@ import type { File } from '@babel/types'
 
 import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
-import { hasConstantViolation } from '../utils/paths'
 
 /**
- * Changes `const` to `let` when Babel finds no writes. Read-only bindings keep
- * the same scope and TDZ behavior; the declarations differ only on writes.
+ * Changes `const` declarations to `let`.
  *
  * @example
  * // ◀️ before
@@ -25,9 +23,6 @@ export function constToLet(ast: File): boolean {
 const visitor: Visitor<ChangeState> = {
   VariableDeclaration(path, state) {
     if (path.node.kind !== 'const') {
-      return
-    }
-    if (hasConstantViolation(path)) {
       return
     }
     path.node.kind = 'let'

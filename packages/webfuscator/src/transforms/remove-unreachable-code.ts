@@ -69,41 +69,21 @@ function isCompletion(node: t.Node): boolean {
   )
 }
 
-// Hoisted bindings and referenced lexical TDZ remain observable from reachable
-// code. An unreferenced lexical declaration is inert.
 function isSafeToRemoveAfterCompletion(path: NodePath<t.Statement>): boolean {
   const node = path.node
   if (t.isFunctionDeclaration(node) || (t.isVariableDeclaration(node) && node.kind === 'var')) {
     return false
   }
-  if (t.isClassDeclaration(node) || (t.isVariableDeclaration(node) && node.kind !== 'var')) {
-    return !declaresReferencedBinding(path)
-  }
-  return !nestsHoistedDeclaration(node)
+  return !nestsHoistedVar(node)
 }
 
-// A write before `let x` also observes its TDZ.
-function declaresReferencedBinding(path: NodePath<t.Statement>): boolean {
-  for (const name of Object.keys(path.getBindingIdentifiers())) {
-    const binding = path.scope.getBinding(name)
-    if (binding && (binding.references > 0 || binding.constantViolations.length > 0)) {
-      return true
-    }
-  }
-  return false
-}
-
-function nestsHoistedDeclaration(node: t.Node): boolean {
+function nestsHoistedVar(node: t.Node): boolean {
   let found = false
   t.traverseFast(node, (child) => {
     if (found) {
       return t.traverseFast.skip
     }
     if (child !== node && t.isFunction(child)) {
-      // Function declarations may add Annex B aliases. Function bodies do not.
-      if (t.isFunctionDeclaration(child)) {
-        found = true
-      }
       return t.traverseFast.skip
     }
     if (t.isVariableDeclaration(child) && child.kind === 'var') {

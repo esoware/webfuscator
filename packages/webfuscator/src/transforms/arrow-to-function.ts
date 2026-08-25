@@ -2,14 +2,14 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { isInsideWith } from '../utils/ast'
 import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 
 /**
- * Lowers arrows with Babel's capture-aware `arrowFunctionToExpression`. Arrows
- * that reach `super` stay intact. Values that escape visible call positions also
- * stay intact because only the arrow rejects construction with `new`.
+ * Converts arrows with Babel's capture-aware `arrowFunctionToExpression`.
+ * Arrows that use `super` stay unchanged. An arrow also stays unchanged unless
+ * every use is an immediate call or a discarded expression, because a normal
+ * function can be constructed with `new` and has a `prototype`.
  *
  * @example
  * // ◀️ before
@@ -64,9 +64,7 @@ const visitor: Visitor<ChangeState> = {
       !valueStaysInView(path) ||
       arrowReferencesSuper(path) ||
       inUnsafeCaptureContext(path) ||
-      usesReassignedArguments(path) ||
-      // `with` can capture Babel's `this` or `arguments` alias.
-      isInsideWith(path)
+      usesReassignedArguments(path)
     ) {
       return
     }
@@ -140,7 +138,7 @@ function valueStaysInView(valuePath: NodePath): boolean {
     return false
   }
   const binding = valuePath.scope.getBinding(parent.node.id.name)
-  if (!binding || !binding.constant) {
+  if (!binding || (binding.kind !== 'const' && !binding.constant)) {
     return false
   }
   return binding.referencePaths.every(

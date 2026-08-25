@@ -41,10 +41,10 @@ test('moves duplicate-named declarations in their original relative order', () =
   expect(out.indexOf('return 1')).toBeLessThan(out.indexOf('return 2'))
 })
 
-test('leaves a sloppy-mode block function where it is', () => {
+test('moves a sloppy-mode block function within its block', () => {
   const src = `if (true) {\n  function g() { return 5; }\n  log(g());\n}`
   const out = expectEquivalent(src)
-  expect(out.indexOf('function g')).toBeLessThan(out.indexOf('log(g())'))
+  expect(out.indexOf('log(g())')).toBeLessThan(out.indexOf('function g'))
 })
 
 test('moves several declarations while preserving their relative order', () => {

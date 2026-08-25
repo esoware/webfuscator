@@ -4,7 +4,6 @@ import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
 import type { TransformContext } from '../options'
-import { isInsideWith } from '../utils/ast'
 import type { ChangeState } from '../utils/change-tracking'
 import { mulberry32 } from '../utils/random'
 import { StringGenerator } from '../utils/string-generator'
@@ -69,9 +68,8 @@ const visitor: Visitor<State> = {
     if (path.scope.getBinding(name)) {
       return
     }
-    // A replacement cannot occupy a write target. `with` may also shadow `NaN`,
-    // `Infinity`, or `undefined`.
-    if (isWriteTarget(path) || isInsideWith(path)) {
+    // A replacement cannot occupy a write target.
+    if (isWriteTarget(path)) {
       return
     }
     const str = t.stringLiteral(state.generator.next())

@@ -58,9 +58,9 @@ See [string generator modes](/reference/string-generator-modes) for output sampl
   Reproducibility assumes the same input, options, `webfuscator` version, and Node.js version. A seed is not a cryptographic key.
 </Info>
 
-## Treat property mangling as a boundary decision
+## Mangle only properties you control
 
-Property names can be read by code outside the source string. That makes unrestricted mangling unsafe across package, browser, and multi-file boundaries.
+Code outside the source string can still use its original property names. Unrestricted mangling can therefore break another file, serialized data, templates, framework hooks, or browser APIs.
 
 ```js obfuscate.mjs highlight={4-7}
 const output = obfuscate(source, {
@@ -73,7 +73,7 @@ const output = obfuscate(source, {
 })
 ```
 
-This configuration selects names ending in `_` and then excludes `public_api_`. For multi-file builds, share a cache or obfuscate the complete property boundary together.
+This configuration selects names ending in `_` and then excludes `public_api_`. For multi-file builds, share one cache between every file that exchanges those properties.
 
 <Card title="Plan property mangling" icon="key-round" horizontal href="/reference/property-mangling-options">
   Compare regex, annotation, cache, and quoted-property strategies before enabling the transform.
@@ -81,6 +81,6 @@ This configuration selects names ending in `_` and then excludes `public_api_`. 
 
 ## Verify the built artifact
 
-Run tests against the generated file, not only the unobfuscated input. Cover exported calls, dynamic imports, reflection, serialization, framework hooks, and any code that crosses the obfuscated boundary.
+Run tests against the generated file, not only the unobfuscated input. Cover exported calls, dynamic imports, reflection, serialization, framework hooks, and external callers.
 
 Use `verbose: true` when you need stage timings. It writes progress to standard error and does not change the returned source.

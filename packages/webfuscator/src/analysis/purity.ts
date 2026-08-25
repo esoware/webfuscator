@@ -1,18 +1,11 @@
-import type { Binding, NodePath, Scope } from '@babel/traverse'
+import type { Scope } from '@babel/traverse'
 import * as t from '@babel/types'
 
-import { isInsideWith } from '../utils/ast'
 import { isPrimitiveLiteral } from '../utils/literal'
-import {
-  declarationReaches,
-  initializerReaches,
-  readCrossesFunctionBoundary,
-} from './document-order'
 
 // Purity also requires deterministic repetition and no throw. Identifier reads
-// need scope and reference paths to prove resolution, initialization, and the
-// absence of `with` interception.
-export function isPure(node: t.Node, scope?: Scope, referencePath?: NodePath): boolean {
+// need scope to prove resolution.
+export function isPure(node: t.Node, scope?: Scope): boolean {
   if (
     t.isNumericLiteral(node) ||
     t.isStringLiteral(node) ||
@@ -25,7 +18,7 @@ export function isPure(node: t.Node, scope?: Scope, referencePath?: NodePath): b
     return true
   }
   if (t.isIdentifier(node)) {
-    return identifierReadIsSafe(node, scope, referencePath)
+    return identifierReadIsSafe(node, scope)
   }
   if (t.isTemplateLiteral(node)) {
     // ToString can call object code or throw on Symbol.
@@ -39,7 +32,7 @@ export function isPure(node: t.Node, scope?: Scope, referencePath?: NodePath): b
   if (t.isUnaryExpression(node)) {
     // Numeric unary operators invoke ToPrimitive. `delete` and `throw` act.
     if (node.operator === '!' || node.operator === 'typeof' || node.operator === 'void') {
-      return isPure(node.argument, scope, referencePath)
+      return isPure(node.argument, scope)
     }
     return false
   }
@@ -47,7 +40,7 @@ export function isPure(node: t.Node, scope?: Scope, referencePath?: NodePath): b
     if (!t.isExpression(node.left)) {
       return false
     }
-    if (!isPure(node.left, scope, referencePath) || !isPure(node.right, scope, referencePath)) {
+    if (!isPure(node.left, scope) || !isPure(node.right, scope)) {
       return false
     }
     // Only strict equality avoids coercion. Other operators need safe literals.
@@ -57,18 +50,16 @@ export function isPure(node: t.Node, scope?: Scope, referencePath?: NodePath): b
     return coercesWithoutEffect(node.left, node.right, node.operator)
   }
   if (t.isLogicalExpression(node)) {
-    return isPure(node.left, scope, referencePath) && isPure(node.right, scope, referencePath)
+    return isPure(node.left, scope) && isPure(node.right, scope)
   }
   if (t.isConditionalExpression(node)) {
     return (
-      isPure(node.test, scope, referencePath) &&
-      isPure(node.consequent, scope, referencePath) &&
-      isPure(node.alternate, scope, referencePath)
+      isPure(node.test, scope) && isPure(node.consequent, scope) && isPure(node.alternate, scope)
     )
   }
   if (t.isSequenceExpression(node)) {
     for (const expr of node.expressions) {
-      if (!isPure(expr, scope, referencePath)) {
+      if (!isPure(expr, scope)) {
         return false
       }
     }
@@ -77,8 +68,9 @@ export function isPure(node: t.Node, scope?: Scope, referencePath?: NodePath): b
   return false
 }
 
-// A droppable identifier read must resolve after binding initialization.
-export function isSideEffectFree(node: t.Node, scope?: Scope, referencePath?: NodePath): boolean {
+// A droppable identifier read must resolve to a local binding or immutable
+// global `undefined`.
+export function isSideEffectFree(node: t.Node, scope?: Scope): boolean {
   if (
     t.isNumericLiteral(node) ||
     t.isStringLiteral(node) ||
@@ -99,7 +91,7 @@ export function isSideEffectFree(node: t.Node, scope?: Scope, referencePath?: No
     return true
   }
   if (t.isIdentifier(node)) {
-    return identifierReadIsSafe(node, scope, referencePath)
+    return identifierReadIsSafe(node, scope)
   }
   if (t.isFunctionExpression(node) || t.isArrowFunctionExpression(node)) {
     return true
@@ -107,7 +99,7 @@ export function isSideEffectFree(node: t.Node, scope?: Scope, referencePath?: No
   if (t.isClassExpression(node)) {
     // `extends` and computed keys run during class definition.
     if (node.superClass) {
-      if (!isSideEffectFree(node.superClass, scope, referencePath)) {
+      if (!isSideEffectFree(node.superClass, scope)) {
         return false
       }
       // ClassDefinitionEvaluation accepts only `null` or a constructor.
@@ -127,7 +119,7 @@ export function isSideEffectFree(node: t.Node, scope?: Scope, referencePath?: No
         'computed' in member &&
         member.computed &&
         'key' in member &&
-        !isSideEffectFree(member.key, scope, referencePath)
+        !isSideEffectFree(member.key, scope)
       ) {
         return false
       }
@@ -142,7 +134,7 @@ export function isSideEffectFree(node: t.Node, scope?: Scope, referencePath?: No
       if (t.isSpreadElement(element)) {
         return false
       }
-      if (!isSideEffectFree(element, scope, referencePath)) {
+      if (!isSideEffectFree(element, scope)) {
         return false
       }
     }
@@ -154,7 +146,7 @@ export function isSideEffectFree(node: t.Node, scope?: Scope, referencePath?: No
         return false
       }
       if (t.isObjectMethod(prop)) {
-        if (prop.computed && !isSideEffectFree(prop.key, scope, referencePath)) {
+        if (prop.computed && !isSideEffectFree(prop.key, scope)) {
           return false
         }
         continue
@@ -162,13 +154,13 @@ export function isSideEffectFree(node: t.Node, scope?: Scope, referencePath?: No
       if (!t.isObjectProperty(prop)) {
         return false
       }
-      if (prop.computed && !isSideEffectFree(prop.key, scope, referencePath)) {
+      if (prop.computed && !isSideEffectFree(prop.key, scope)) {
         return false
       }
       if (!t.isExpression(prop.value)) {
         return false
       }
-      if (!isSideEffectFree(prop.value, scope, referencePath)) {
+      if (!isSideEffectFree(prop.value, scope)) {
         return false
       }
     }
@@ -179,7 +171,7 @@ export function isSideEffectFree(node: t.Node, scope?: Scope, referencePath?: No
       return false
     }
     if (node.operator === '!' || node.operator === 'typeof' || node.operator === 'void') {
-      return isSideEffectFree(node.argument, scope, referencePath)
+      return isSideEffectFree(node.argument, scope)
     }
     return false
   }
@@ -187,10 +179,7 @@ export function isSideEffectFree(node: t.Node, scope?: Scope, referencePath?: No
     if (!t.isExpression(node.left)) {
       return false
     }
-    if (
-      !isSideEffectFree(node.left, scope, referencePath) ||
-      !isSideEffectFree(node.right, scope, referencePath)
-    ) {
+    if (!isSideEffectFree(node.left, scope) || !isSideEffectFree(node.right, scope)) {
       return false
     }
     // Coercing operators need compatible literals that cannot throw.
@@ -200,21 +189,18 @@ export function isSideEffectFree(node: t.Node, scope?: Scope, referencePath?: No
     return coercesWithoutEffect(node.left, node.right, node.operator)
   }
   if (t.isLogicalExpression(node)) {
-    return (
-      isSideEffectFree(node.left, scope, referencePath) &&
-      isSideEffectFree(node.right, scope, referencePath)
-    )
+    return isSideEffectFree(node.left, scope) && isSideEffectFree(node.right, scope)
   }
   if (t.isConditionalExpression(node)) {
     return (
-      isSideEffectFree(node.test, scope, referencePath) &&
-      isSideEffectFree(node.consequent, scope, referencePath) &&
-      isSideEffectFree(node.alternate, scope, referencePath)
+      isSideEffectFree(node.test, scope) &&
+      isSideEffectFree(node.consequent, scope) &&
+      isSideEffectFree(node.alternate, scope)
     )
   }
   if (t.isSequenceExpression(node)) {
     for (const expr of node.expressions) {
-      if (!isSideEffectFree(expr, scope, referencePath)) {
+      if (!isSideEffectFree(expr, scope)) {
         return false
       }
     }
@@ -223,43 +209,13 @@ export function isSideEffectFree(node: t.Node, scope?: Scope, referencePath?: No
   return false
 }
 
-// A safe read needs a resolved, initialized binding outside `with`. Unbound
-// `undefined` is safe because the global property is immutable.
-function identifierReadIsSafe(
-  node: t.Identifier,
-  scope: Scope | undefined,
-  referencePath: NodePath | undefined,
-): boolean {
-  // A `with` property can shadow any name, including `undefined`.
-  if (referencePath && isInsideWith(referencePath)) {
-    return false
-  }
+// Unbound `undefined` is safe because the global property is immutable.
+function identifierReadIsSafe(node: t.Identifier, scope: Scope | undefined): boolean {
   const isUndefinedName = node.name === 'undefined'
   if (!scope) {
     return isUndefinedName
   }
-  const binding = scope.getBinding(node.name)
-  if (!binding) {
-    return isUndefinedName
-  }
-  if (t.isFunctionDeclaration(binding.path.node) || binding.kind === 'module') {
-    return true
-  }
-  if (binding.kind === 'param') {
-    // Earlier parameter defaults can read later parameters in TDZ.
-    if (!referencePath || !readIsInOwnParamList(binding, referencePath)) {
-      return true
-    }
-    return declarationReaches(binding.path, referencePath)
-  }
-  // Lexical reads need an unconditionally reached declaration in the same call.
-  if (isLexicalBinding(binding)) {
-    if (referencePath && readCrossesFunctionBoundary(binding, referencePath)) {
-      return false
-    }
-    return initializerReaches(binding.path, referencePath)
-  }
-  return declarationReaches(binding.path, referencePath)
+  return scope.getBinding(node.name) !== undefined || isUndefinedName
 }
 
 // Only `null` and plain function expressions are known-valid superclass values.
@@ -293,23 +249,4 @@ function coercesWithoutEffect(left: t.Node, right: t.Node, operator: string): bo
     return false
   }
   return leftKind !== 'bigint' || !THROWING_BIGINT_OPERATORS.has(operator)
-}
-
-function isLexicalBinding(binding: Binding): boolean {
-  return (
-    binding.kind === 'let' || binding.kind === 'const' || t.isClassDeclaration(binding.path.node)
-  )
-}
-
-function readIsInOwnParamList(binding: Binding, referencePath: NodePath): boolean {
-  const owner = binding.scope.block
-  let current: NodePath | null = referencePath
-  while (current) {
-    const parent: NodePath | null = current.parentPath
-    if (parent && parent.node === owner && current.listKey === 'params') {
-      return true
-    }
-    current = parent
-  }
-  return false
 }

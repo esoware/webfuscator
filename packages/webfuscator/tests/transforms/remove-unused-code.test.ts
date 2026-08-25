@@ -377,12 +377,15 @@ test('removeUnusedCode removes bindings referenced only by eval source text', ()
   )
 })
 
-test('removeUnusedCode keeps an Annex-B block function referenced at function level (F4)', () => {
-  preservesUnused("function f() { if (1) { function g() { return 'g' } } return g(); } log(f());")
+test('removeUnusedCode drops a block function with no Babel references', () => {
+  const out = run(
+    "function f() { if (1) { function g() { return 'g' } } return g(); } log(f());",
+    removeUnusedCode,
+  )
+  expect(out).not.toContain('function g')
 })
 
 test('removeUnusedCode drops an unused block-level function in strict mode', () => {
-  // ECMA-262 B.3.3 creates no block-function alias in strict mode.
   const source =
     "'use strict';\nfunction f() { { function g() { return 'g' } } return typeof g; }\nlog(f());"
   const out = run(source, removeUnusedCode)
@@ -406,26 +409,37 @@ test('removeUnusedCode keeps a class with a computed key or side-effecting exten
   )
 })
 
-test('removeUnusedCode keeps a TDZ read reachable from an earlier call (F7)', () => {
-  preservesUnused(
+test('removeUnusedCode removes a pre-initialization read used only for its error', () => {
+  const out = run(
     "function f() { var r = 'no-throw'; try { g() } catch (e) { r = 'threw' } let a = 1; function g() { var u = a; } return r; } log(f());",
+    removeUnusedCode,
   )
+  expect(out).not.toContain('var u = a')
 })
 
-test('removeUnusedCode keeps a switch-case TDZ read of a later let', () => {
-  preservesUnused(
+test('removeUnusedCode removes a switch-case read used only for its TDZ error', () => {
+  const out = run(
     "function f(c) { switch (c) { case 1: let v = 1; break; case 2: v; log('two'); break; } } try { f(2); } catch (e) { log(e.constructor.name); }",
+    removeUnusedCode,
   )
+  expect(out).not.toContain('let v')
 })
 
 test('removeUnusedCode keeps a class with a static private field initializer (A02-22)', () => {
   preservesUnused('class C { static #x = log("boom"); }\nlog("after");')
 })
 
-test('removeUnusedCode keeps an Annex-B function declared in a switch case (A02-24)', () => {
-  preservesUnused(
+test('removeUnusedCode drops a switch-case function with no Babel references', () => {
+  const out = run(
     'function outer() { switch (1) { case 1: function h() { log("h"); } } h(); }\nouter();',
+    removeUnusedCode,
   )
+  expect(out).not.toContain('function h')
+})
+
+test('removeUnusedCode ignores assignments to an unused const binding', () => {
+  const out = run('const x = 1; x = 2;', removeUnusedCode)
+  expect(out).not.toContain('const x')
 })
 
 test('removeUnusedCode keeps a class with public static fields (A02-25)', () => {

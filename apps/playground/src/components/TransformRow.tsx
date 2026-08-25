@@ -255,9 +255,7 @@ function MangleDetails({
           onPatch({ reserved: names.length > 0 ? names : undefined })
         }}
       />
-      <Caveat>
-        Boundary-dependent. Code outside this input that reads the same property names breaks.
-      </Caveat>
+      <Caveat>External code that uses a renamed property must use the same mapping.</Caveat>
     </>
   )
 }

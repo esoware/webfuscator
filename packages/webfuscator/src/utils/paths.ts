@@ -69,35 +69,3 @@ export function isInStrictContext(path: NodePath): boolean {
 function hasUseStrictDirective(directives: readonly t.Directive[]): boolean {
   return directives.some((directive) => directive.value.value === 'use strict')
 }
-
-// ECMA-262 B.3.3 gives sloppy block-level functions a `var` alias that Babel
-// omits from the enclosing scope. Renaming, moving, or removing one can expose it.
-export function hasAnnexBFunctionAlias(path: NodePath): boolean {
-  if (!path.isFunctionDeclaration()) {
-    return false
-  }
-  const parent = path.parentPath
-  if (!parent || parent.isProgram()) {
-    return false
-  }
-  if (
-    parent.isBlockStatement() &&
-    parent.key === 'body' &&
-    parent.parentPath != null &&
-    parent.parentPath.isFunction()
-  ) {
-    return false
-  }
-  return !isInStrictContext(parent)
-}
-
-// A later write to `const` must keep throwing after transformation.
-export function hasConstantViolation(path: NodePath<t.VariableDeclaration>): boolean {
-  for (const name of Object.keys(path.getBindingIdentifiers())) {
-    const binding = path.scope.getBinding(name)
-    if (binding && binding.constantViolations.length > 0) {
-      return true
-    }
-  }
-  return false
-}

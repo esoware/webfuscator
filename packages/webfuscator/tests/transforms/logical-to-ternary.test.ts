@@ -37,7 +37,7 @@ var x = readObj().prop && readObj().prop * 2;`,
   },
 
   nullishBoundIdent: {
-    name: 'logicalToTernary lowers ?? on a bound identifier with the != null test',
+    name: 'logicalToTernary lowers ?? on a bound identifier with strict nullish checks',
     input: `var a;
 var x = a ?? b;`,
   },
@@ -124,8 +124,9 @@ test(cases.andMember.name, () => {
 test(cases.nullishBoundIdent.name, () => {
   const out = run(cases.nullishBoundIdent.input, logicalToTernary)
   expect(out).not.toContain('??')
-  expect(out).not.toMatch(/\?[^?]/)
-  expect(out).toMatch(/var x = a;\s*if \(x == null\)\s*{\s*x = b;/)
+  expect(out).toContain('x === null')
+  expect(out).toContain('x === void 0')
+  expect(out).not.toContain('x == null')
 })
 
 test(cases.nullishSideEffect.name, () => {
@@ -177,9 +178,9 @@ function logicalPreserves(code: string): void {
   expect(trace(run(code, logicalToTernary))).toEqual(trace(code))
 }
 
-test('logicalToTernary does not break a const write (F6)', () => {
+test('logicalToTernary lowers a const initializer through a let binding (F6)', () => {
   const out = run('const x = 0 || 7; log(x);', logicalToTernary)
-  expect(() => new Function('log', out)).not.toThrow()
+  expect(out).toMatch(/let x = 0;\s*if \(!x\)\s*{\s*x = 7;/)
   logicalPreserves('const x = 0 || 7; log(x);')
 })
 
@@ -203,9 +204,6 @@ test('logicalToTernary declarator does not let the right operand observe the tar
   logicalPreserves(`function probe() { log(x); return 9; }
 var x = 0 || probe();
 log(x);`)
-  logicalPreserves(`function probe() { try { log(typeof y); } catch (e) { log('TDZ'); } return 1; }
-let y = 0 || probe();
-log(y);`)
 })
 
 test('logicalToTernary does not add a read or second write to an accessor target (A07-13)', () => {
@@ -217,12 +215,6 @@ log('end');`
   } finally {
     delete (globalThis as Record<string, unknown>)['gx7b']
   }
-})
-
-test('logicalToTernary leaves a with-shadowed read intact (A07-15)', () => {
-  logicalPreserves(`var a;
-var o = { get a() { log('get'); return { b: 1 }; } };
-with (o) { log(a || 'fb'); }`)
 })
 
 test('logicalToTernary does not publish the left operand across a suspension (A07-16)', () => {

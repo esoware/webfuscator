@@ -3,7 +3,7 @@ import type { Binding, NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { hasAnnexBFunctionAlias, referencesOrWritesVariable } from '../utils/paths'
+import { referencesOrWritesVariable } from '../utils/paths'
 
 export interface InlineCandidate {
   name: string
@@ -28,10 +28,6 @@ export function analyzeInlineability(ast: File): Map<string, InlineCandidate> {
     },
     FunctionDeclaration(path) {
       if (!path.node.id) {
-        return
-      }
-      // Babel misses the sloppy Annex B `var` alias of a block-level function.
-      if (hasAnnexBFunctionAlias(path)) {
         return
       }
       const binding = path.scope.getBinding(path.node.id.name)
@@ -131,9 +127,9 @@ function checkCandidate(
   if (!t.isBlockStatement(fnNode.body)) {
     return null
   }
-  // Writes live in `constantViolations`, not `referencePaths`. Any write can
-  // make a call resolve to a different function.
-  if (binding.constantViolations.length > 0) {
+  // Writes to mutable bindings live in `constantViolations`, not
+  // `referencePaths`, and can make a call resolve to a different function.
+  if (binding.kind !== 'const' && binding.constantViolations.length > 0) {
     return null
   }
   // Splicing loses a named function expression's inner binding.
@@ -272,10 +268,6 @@ const analyzeBodyVisitor: Visitor<AnalyzeBodyState> = {
       state.unsafe = true
       path.stop()
     }
-  },
-  WithStatement(path, state) {
-    state.unsafe = true
-    path.stop()
   },
   Identifier(path, state) {
     const name = path.node.name

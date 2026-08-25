@@ -272,13 +272,19 @@ test('arrowToFunction leaves an arrow inside a computed class-member key (A10-11
   )
 })
 
-test('arrowToFunction leaves an arrow whose capture alias a with object could shadow (A10-12)', () => {
-  preservesArrow(
-    'function outer() { var o = { _this: { tag: "hijacked" } }; with (o) { var f = () => this.tag; return f(); } }\nlog(outer.call({ tag: "real" }));',
-  )
-  preservesArrow(
-    'function f() { var o = { _arguments: ["hijacked"] }; with (o) { var g = () => arguments[0]; return g(); } }\nlog(f("real"));',
-  )
+test('arrowToFunction does not inspect enclosing `with` statements', () => {
+  expect(
+    run(
+      'function outer() { var o = { _this: { tag: "hijacked" } }; with (o) { var f = () => this.tag; return f(); } }\nlog(outer.call({ tag: "real" }));',
+      arrowToFunction,
+    ),
+  ).not.toContain('=>')
+  expect(
+    run(
+      'function f() { var o = { _arguments: ["hijacked"] }; with (o) { var g = () => arguments[0]; return g(); } }\nlog(f("real"));',
+      arrowToFunction,
+    ),
+  ).not.toContain('=>')
 })
 
 test('arrowToFunction does not skip an arrow containing eval', () => {
@@ -324,4 +330,9 @@ test('arrowToFunction leaves an arrow held by a reassigned binding', () => {
   preservesArrow(
     'var f = () => 1;\nf = f;\ntry { new f(); log("constructed"); } catch (e) { log("threw"); }',
   )
+})
+
+test('arrowToFunction ignores assignments to a const binding', () => {
+  const out = run('const f = () => 1; f = function () { return 2; }; f();', arrowToFunction)
+  expect(out).not.toContain('=>')
 })

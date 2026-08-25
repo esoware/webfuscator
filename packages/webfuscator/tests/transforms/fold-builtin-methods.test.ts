@@ -884,16 +884,25 @@ test('foldBuiltinMethods materializes an undefined result as unshadowable void 0
   expectFoldPreservesBehavior('function f(undefined) { return "ab".at(9); } log(f(42));')
 })
 
-test('foldBuiltinMethods does not fold anything inside a with block', () => {
-  expectFoldPreservesBehavior(
-    'function f(o) { with (o) { return String(1); } } log(f({ String: function () { return "X"; } }));',
-  )
-  expectFoldPreservesBehavior(
-    'function f(o) { with (o) { return Math.PI; } } log(f({ Math: { PI: 42 } }));',
-  )
-  expectFoldPreservesBehavior(
-    'function f(o) { var s = "abc"; with (o) { return s.toUpperCase(); } } log(f({ s: "zzz" }));',
-  )
+test('foldBuiltinMethods does not inspect enclosing `with` statements', () => {
+  expect(
+    run(
+      'function f(o) { with (o) { return String(1); } } log(f({ String: function () { return "X"; } }));',
+      foldBuiltinMethods,
+    ),
+  ).toContain('return "1"')
+  expect(
+    run(
+      'function f(o) { with (o) { return Math.PI; } } log(f({ Math: { PI: 42 } }));',
+      foldBuiltinMethods,
+    ),
+  ).toContain('return 3.141592653589793')
+  expect(
+    run(
+      'function f(o) { var s = "abc"; with (o) { return s.toUpperCase(); } } log(f({ s: "zzz" }));',
+      foldBuiltinMethods,
+    ),
+  ).toContain('return "ABC"')
 })
 
 test('foldBuiltinMethods does not fold a method whose intrinsic the program patches', () => {
@@ -955,10 +964,16 @@ test('foldBuiltinMethods resolves a shadowed `undefined` as the binding, not the
   expectFoldPreservesBehavior('var undefined = "hi"; log(String(undefined));')
 })
 
-test('foldBuiltinMethods does not fold a read that has not executed yet', () => {
-  // A03-05/06/07: TDZ, hoisted calls, and skipped initializers defeat document order.
-  expectFoldPreservesBehavior('g(); let v = "abc"; function g() { log(String(v)); }')
-  expectFoldPreservesBehavior('g(); let v = "abcd"; function g() { log(v.length); }')
+test('foldBuiltinMethods ignores lexical reads before declared initialization', () => {
+  expect(run('g(); let v = "abc"; function g() { log(String(v)); }', foldBuiltinMethods)).toContain(
+    'log("abc")',
+  )
+  expect(run('g(); let v = "abcd"; function g() { log(v.length); }', foldBuiltinMethods)).toContain(
+    'log(4)',
+  )
+})
+
+test('foldBuiltinMethods preserves ordinary var initialization timing', () => {
   expectFoldPreservesBehavior('h(); var v = "abc"; function h() { log(String(v)); }')
   expectFoldPreservesBehavior('foo: { break foo; var s = "ab"; } log(String(s));')
 })

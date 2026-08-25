@@ -1,14 +1,11 @@
-import type { NodePath, Visitor } from '@babel/traverse'
-import * as t from '@babel/types'
+import type { Visitor } from '@babel/traverse'
 import type { File } from '@babel/types'
 
 import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 
 /**
- * Removes a function expression's name when the body does not use its binding
- * and NamedEvaluation restores the same `.name`. Other positions could infer no
- * name or a different one.
+ * Removes a function expression's name when its body does not reference it.
  *
  * @example
  * // ◀️ before
@@ -17,7 +14,7 @@ import type { ChangeState } from '../utils/change-tracking'
  *
  * // ▶️ after
  * var greet = function () {};
- * var a = function bar() {};
+ * var a = function () {};
  */
 export function removeAnonymousFunctionNames(ast: File): boolean {
   return traverseForChanges(ast, visitor)
@@ -38,47 +35,7 @@ const visitor: Visitor<ChangeState> = {
     ) {
       return
     }
-    if (inferredName(path) !== id.name) {
-      return
-    }
     path.node.id = null
     state.changed = true
   },
-}
-
-// No inferred name means `.name` would become empty.
-function inferredName(path: NodePath<t.FunctionExpression>): string | null {
-  const node = path.node
-  const parentPath = path.parentPath
-  if (!parentPath) {
-    return null
-  }
-  const parent = parentPath.node
-  if (t.isVariableDeclarator(parent) && parent.init === node && t.isIdentifier(parent.id)) {
-    return parent.id.name
-  }
-  if (
-    t.isAssignmentExpression(parent) &&
-    parent.operator === '=' &&
-    parent.right === node &&
-    t.isIdentifier(parent.left)
-  ) {
-    return parent.left.name
-  }
-  if (t.isAssignmentPattern(parent) && parent.right === node && t.isIdentifier(parent.left)) {
-    return parent.left.name
-  }
-  if (
-    (t.isObjectProperty(parent) || t.isClassProperty(parent)) &&
-    parent.value === node &&
-    !parent.computed
-  ) {
-    if (t.isIdentifier(parent.key)) {
-      return parent.key.name
-    }
-    if (t.isStringLiteral(parent.key)) {
-      return parent.key.value
-    }
-  }
-  return null
 }

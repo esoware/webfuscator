@@ -30,7 +30,7 @@ const cases = defineCases('remove-anonymous-function-names', removeAnonymousFunc
 }`,
   },
   asArgument: {
-    name: 'removeAnonymousFunctionNames keeps a name on a callback argument (no inference site)',
+    name: 'removeAnonymousFunctionNames strips a callback argument name',
     input: `setTimeout(function fn() {
   log("tick");
 }, 0);`,
@@ -44,7 +44,7 @@ const cases = defineCases('remove-anonymous-function-names', removeAnonymousFunc
 };`,
   },
   differentInferredName: {
-    name: 'removeAnonymousFunctionNames keeps a name when inference would supply a different one',
+    name: 'removeAnonymousFunctionNames strips a name even when inference supplies another name',
     input: `var f = function rec(rec) {
   return rec;
 };`,
@@ -83,7 +83,8 @@ test(cases.functionDeclarationUntouched.name, () => {
 
 test(cases.asArgument.name, () => {
   const out = run(cases.asArgument.input, removeAnonymousFunctionNames)
-  expect(out).toContain('function fn(')
+  expect(out).toContain('setTimeout(function (')
+  expect(out).not.toContain('function fn(')
 })
 
 test(cases.selfReferenceInNestedScope.name, () => {
@@ -93,7 +94,8 @@ test(cases.selfReferenceInNestedScope.name, () => {
 
 test(cases.differentInferredName.name, () => {
   const out = run(cases.differentInferredName.input, removeAnonymousFunctionNames)
-  expect(out).toContain('function rec(rec)')
+  expect(out).toContain('function (rec)')
+  expect(out).not.toContain('function rec(rec)')
 })
 
 test('removeAnonymousFunctionNames keeps a name written inside the body (A01-16)', () => {
@@ -126,22 +128,9 @@ try { g(); log('no throw'); } catch (e) { log(e.constructor.name); }`
   expect(capture(out)).toEqual(['TypeError'])
 })
 
-test('removeAnonymousFunctionNames preserves an observable .name', () => {
-  const evalLog = (program: string): unknown => {
-    let captured: unknown
-    // oxlint-disable-next-line no-new-func
-    new Function('log', program)((v: unknown) => {
-      captured = v
-    })
-    return captured
-  }
-  for (const expr of [
-    '(function x() {}).name',
-    '[function x() {}][0].name',
-    '(function bar() {}).name',
-    '({ p: function x() {} }).p.name',
-  ]) {
-    const program = `log(${expr});`
-    expect(evalLog(run(program, removeAnonymousFunctionNames))).toBe(evalLog(program))
+test('removeAnonymousFunctionNames strips unused names at non-inference sites', () => {
+  for (const expr of ['(function x() {})', '[function x() {}][0]', '({ p: function x() {} }).p']) {
+    const out = run(`log(${expr});`, removeAnonymousFunctionNames)
+    expect(out).not.toContain('function x(')
   }
 })

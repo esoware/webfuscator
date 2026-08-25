@@ -5,7 +5,6 @@ import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
 import type { TransformContext } from '../options'
-import { isInsideWith } from '../utils/ast'
 import { isCalleeOrTagOf, isInStrictContext, referencesOrWritesVariable } from '../utils/paths'
 import { mulberry32 } from '../utils/random'
 import { StringGenerator } from '../utils/string-generator'
@@ -108,17 +107,10 @@ const STANDARD_GLOBALS: readonly string[] = [
 ]
 
 /**
- * Serializes the whole program to a string and rebuilds it at runtime through
- * the `Function` constructor. A detached function body only reaches true globals
- * and its own parameters. A free name might instead be a CommonJS `require`, a
- * bundler-injected binding, or a live import, none reachable from the body and
- * none distinguishable from a global at build time, so free names are routed
- * through a parameter object whose accessors run in the original top-level scope
- * and resolve each name there. Imports remain above the call. Names inside
- * `with` stay bare so the object still controls lookup. A Function body cannot
- * contain exports, so pack throws when it finds one. Code that needs
- * `import.meta`, top-level await, dynamic `import()`, or top-level `arguments`
- * will not run after the move.
+ * Serializes the whole program and runs it through the `Function` constructor.
+ * Imports stay outside the generated function. Reads and writes to other free
+ * names go through accessors created in the original top-level scope. Export
+ * statements are rejected because they cannot appear in a `Function` body.
  *
  * @example
  * // ◀️ before
@@ -231,11 +223,6 @@ function packProgram(programPath: NodePath<t.Program>, ctx: TransformContext): b
     // Keep the wrapper parameter and `arguments` bare. The latter must bind to
     // the wrapper function's own arguments object.
     if (name === objectName || name === 'arguments') {
-      return false
-    }
-    // Inside `with`, a free name may resolve to a property of the with object at
-    // runtime, so routing it to the top-level accessor would change behavior.
-    if (isInsideWith(path)) {
       return false
     }
     if (!referencesOrWritesVariable(path)) {

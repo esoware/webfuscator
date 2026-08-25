@@ -2,7 +2,6 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { isInsideWith } from '../utils/ast'
 import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 
@@ -52,10 +51,6 @@ function lowerLogicalAssignment(path: NodePath<t.AssignmentExpression>): boolean
   const lhs = t.cloneNode(left, true)
 
   if (t.isMemberExpression(left) && t.isMemberExpression(lhs)) {
-    // `with` can turn a bare object name into a getter or shadow a memo temp.
-    if (isInsideWith(path)) {
-      return false
-    }
     const object = left.object
     if (t.isExpression(object)) {
       const memo = path.scope.maybeGenerateMemoised(object)

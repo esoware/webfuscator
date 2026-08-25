@@ -24,14 +24,11 @@ Pass [property-mangling options](/reference/property-mangling-options) instead o
 ## What it changes
 
 Renames statically known public properties through one program-wide mapping.
-Property selection follows Terser, with extra collision checks for names
-that must remain unchanged.
-
-This pass runs before shape preparation, while Babel still distinguishes
-`obj.name` from `obj["name"]`.
+Options select or reserve names, and collision checks keep every unchanged
+property distinct from the generated names.
 
 <Warning>
-  A renamed property can still be read from outside the input: another bundle, a JSON payload, a template, the DOM, or reflection. The obfuscator cannot see those uses, so this is safe only for names whose full boundary you control. Scope the selection with `regex`, `reserved`, annotations, or a reviewed `cache`.
+  Another file, a JSON payload, a template, the DOM, or reflection can still use a renamed property. The transform cannot see those uses. Restrict mangling to names whose reads and writes you control, using `regex`, `reserved`, annotations, or a reviewed `cache`.
 </Warning>
 
 ## Before and after

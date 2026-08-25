@@ -133,7 +133,7 @@ function precedingSiblings<T extends NodePath>(
 }
 
 function isPurePath(path: NodePath): boolean {
-  return isPure(path.node, path.scope, path)
+  return isPure(path.node, path.scope)
 }
 
 function impure(paths: (NodePath | null | undefined)[]): boolean {

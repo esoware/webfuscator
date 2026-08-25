@@ -1,6 +1,6 @@
 ---
 title: Property-mangling options
-description: "Select, reserve, cache, and generate property names without crossing an unsafe boundary."
+description: "Select, reserve, cache, and generate property names without renaming external uses."
 sidebarTitle: Property mangling
 keywords: ["ManglePropertiesOptions","property mangling","reserved","cache"]
 ---
@@ -21,7 +21,7 @@ const output = obfuscate(source, {
 ```
 
 <Warning>
-  Property uses can live outside the input string. A caller, another bundle, JSON payload, template, or framework can still depend on the original name. Restrict mangling to names whose complete boundary you control.
+  A caller, another bundle, JSON payload, template, or framework can still use the original property name. Restrict mangling to properties whose reads and writes you control.
 </Warning>
 
 ## Choose a selection strategy
@@ -67,7 +67,7 @@ const output = obfuscate(source, {
 ## Roll it out safely
 
 <Steps>
-  <Step title="Define the boundary">
+  <Step title="Find every use">
     Identify every file, caller, serialized value, and runtime lookup that can read the selected properties.
   </Step>
   <Step title="Select a narrow set">
@@ -79,7 +79,7 @@ const output = obfuscate(source, {
   <Step title="Share mappings across files">
     Reuse one `Map<string, string>` through `cache` when separately obfuscated files exchange selected properties.
   </Step>
-  <Step title="Test the generated boundary">
+  <Step title="Test external consumers">
     Run integration tests against the obfuscated artifacts, including consumers that are not part of the input string.
   </Step>
 </Steps>

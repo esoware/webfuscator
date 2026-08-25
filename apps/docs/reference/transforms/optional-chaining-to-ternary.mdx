@@ -36,9 +36,10 @@ a?.b?.c;
 ```
 
 ```js title="After" lines
-obj == null ? void 0 : (_m = obj.m).call(obj, arg);
-obj == null ? true : delete obj.x;
-a == null ? void 0 : (_b = a.b) == null ? void 0 : _b.c;
+(obj === null ? true : obj === void 0) ? void 0 : (_m = obj.m).call(obj, arg);
+(obj === null ? true : obj === void 0) ? true : delete obj.x;
+(a === null ? true : a === void 0) ? void 0 :
+  ((_b = a.b) === null ? true : _b === void 0) ? void 0 : _b.c;
 ```
 
 </CodeGroup>

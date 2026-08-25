@@ -3,10 +3,10 @@ import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
 import { isPure } from '../analysis/purity'
-import { isInsideWith } from '../utils/ast'
 import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 import { lowerLogicalWriteStatement } from '../utils/logical-lowering'
+import { buildNonNullishCheck, buildNullishCheck } from '../utils/nullish'
 
 /**
  * Rewrites logical expressions as guarded assignments or ternaries. A
@@ -23,7 +23,7 @@ import { lowerLogicalWriteStatement } from '../utils/logical-lowering'
  * if (!x) x = b;
  * y = c;
  * if (y) y = d;
- * f((_t = get()) != null ? _t : fallback);
+ * f(((_t = get()) !== null ? _t !== void 0 : false) ? _t : fallback);
  */
 export function logicalToTernary(ast: File): boolean {
   return traverseForChanges(ast, visitor)
@@ -45,11 +45,6 @@ function lowerLogical(path: NodePath<t.LogicalExpression>): boolean {
   if (op !== '&&' && op !== '||' && op !== '??') {
     return false
   }
-  // `with` can turn repeated names into getters and shadow a cache temp.
-  if (isInsideWith(path)) {
-    return false
-  }
-
   if (lowerLogicalWriteStatement(path, (target) => buildFallbackTest(op, target))) {
     return true
   }
@@ -60,7 +55,7 @@ function lowerLogical(path: NodePath<t.LogicalExpression>): boolean {
   let valueSrc: t.Expression
 
   // Babel purity misses user coercion in unary and binary expressions.
-  if (isPure(leftPath.node, scope, leftPath)) {
+  if (isPure(leftPath.node, scope)) {
     testSrc = node.left
     valueSrc = t.cloneNode(node.left)
   } else {
@@ -71,7 +66,7 @@ function lowerLogical(path: NodePath<t.LogicalExpression>): boolean {
   }
 
   const test: t.Expression =
-    op === '??' ? t.binaryExpression('!=', testSrc, t.nullLiteral()) : testSrc
+    op === '??' ? buildNonNullishCheck(testSrc, t.cloneNode(valueSrc)) : testSrc
 
   path.replaceWith(
     op === '&&'
@@ -88,5 +83,5 @@ function buildFallbackTest(op: '&&' | '||' | '??', target: t.Identifier): t.Expr
   if (op === '&&') {
     return target
   }
-  return t.binaryExpression('==', target, t.nullLiteral())
+  return buildNullishCheck(target, t.cloneNode(target))
 }

@@ -276,11 +276,12 @@ test('pack respects arity of a recursive call through a named function-expressio
   preserves(code, packDeclarationsIntoParameters)
 })
 
-test('pack does not pack an Annex-B block-level function declaration (A02-18)', () => {
+test('pack handles a block-level function without its outer alias', () => {
   const code =
     'function outer() { { function h(a) { var x = 1; log(x, a); } } h(1, 2, 3); }\nouter();'
-  expect(run(code, packDeclarationsIntoParameters)).toContain('var x = 1')
-  preserves(code, packDeclarationsIntoParameters)
+  const out = run(code, packDeclarationsIntoParameters)
+  expect(out).not.toContain('var x = 1')
+  expect(out).toContain('x = 1')
 })
 
 test('pack does not pack a var sharing a name with a body function declaration (A02-19)', () => {
@@ -292,6 +293,15 @@ test('pack does not pack a var sharing a name with a body function declaration (
 test('pack does not skip a function containing eval', () => {
   const code = 'function f(a) { var x = 1; a = 9; log(eval("arguments[0]"), x); }\nf(7);'
   const out = run(code, packDeclarationsIntoParameters)
+  expect(out).not.toContain('var x = 1')
+  expect(out).toContain('x = 1')
+})
+
+test('pack ignores assignments to a const function binding', () => {
+  const out = run(
+    'const f = function () { var x = 1; return x; }; f = function () { return 2; }; f();',
+    packDeclarationsIntoParameters,
+  )
   expect(out).not.toContain('var x = 1')
   expect(out).toContain('x = 1')
 })

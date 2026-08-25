@@ -40,12 +40,12 @@ function firstReference(code: string, name: string): NodePath<t.Identifier> {
 
 function certifiesFree(code: string): boolean {
   const path = soleExpression(code)
-  return isSideEffectFree(path.node, path.scope, path)
+  return isSideEffectFree(path.node, path.scope)
 }
 
 function certifiesPure(code: string): boolean {
   const path = soleExpression(code)
-  return isPure(path.node, path.scope, path)
+  return isPure(path.node, path.scope)
 }
 
 // Without scope, no identifier read can be proved safe.
@@ -69,7 +69,7 @@ const PURE_NO_SCOPE = [
   'true ? 1 : 2',
 ]
 
-// Resolved and initialized bindings make their reads provable.
+// Resolved bindings make their reads provable.
 const PURE_WITH_SCOPE = [
   'var x = 1; x;',
   'var x = 1, y = 2; x && y;',
@@ -82,13 +82,12 @@ const PURE_WITH_SCOPE = [
   'var x = 1, y = 2; x === y;',
   'var x = 1, y = 2; x !== y;',
   'function f(a, b) { a === b; }',
+  'tdz; let tdz = 1;',
 ]
 
-// Refusals cover unresolved names, `with`, TDZ, and user-defined coercion.
+// Refusals cover unresolved names and user-defined coercion.
 const IMPURE_WITH_SCOPE = [
   'unresolved;',
-  'var x = 5; var o = { get x() { return 1; } }; with (o) { x; }',
-  'tdz; let tdz = 1;',
   'var x = 1; +x;',
   'var x = 1; -x;',
   'var x = 1; ~x;',
@@ -118,19 +117,19 @@ test('isPure certifies coercion-free, identifier-free expressions with no scope'
 })
 
 test('isPure refuses a bare identifier when no scope is supplied', () => {
-  // No scope can prove resolution or TDZ state.
+  // No scope can prove resolution.
   expect(isPure(soleExpression('x;').node)).toBe(false)
   expect(isPure(soleExpression('x && y;').node)).toBe(false)
   expect(isPure(soleExpression('typeof x;').node)).toBe(false)
 })
 
-test('isPure certifies a provably-initialized identifier read with a scope', () => {
+test('isPure certifies a resolved identifier read with a scope', () => {
   for (const code of PURE_WITH_SCOPE) {
     expect(certifiesPure(code)).toBe(true)
   }
 })
 
-test('isPure refuses unresolved reads, with-shadowing, TDZ, and coercion', () => {
+test('isPure refuses unresolved reads and coercion', () => {
   for (const code of IMPURE_WITH_SCOPE) {
     expect(certifiesPure(code)).toBe(false)
   }
@@ -222,8 +221,8 @@ test('isSideEffectFree certifies an identifier read after its declaration', () =
   expect(certifiesFree('let ok = 5; ok;')).toBe(true)
 })
 
-test('isSideEffectFree refuses an identifier read before its declaration (TDZ)', () => {
-  expect(certifiesFree('tdz; let tdz = 5;')).toBe(false)
+test('isSideEffectFree ignores lexical reads before initialization', () => {
+  expect(certifiesFree('tdz; let tdz = 5;')).toBe(true)
 })
 
 test('isSideEffectFree refuses a bound identifier when no scope is supplied', () => {
@@ -234,35 +233,32 @@ test('isSideEffectFree still certifies the `undefined` identifier without a scop
   expect(isSideEffectFree(soleExpression('undefined;').node)).toBe(true)
 })
 
-test('isSideEffectFree refuses a parameter read inside an earlier parameter default (param TDZ)', () => {
-  // `b` remains in TDZ while the earlier default runs.
+test('isSideEffectFree ignores parameter reads before initialization', () => {
   const ref = firstReference('function f(a = b, b = 2) { a; }', 'b')
-  expect(isSideEffectFree(ref.node, ref.scope, ref)).toBe(false)
+  expect(isSideEffectFree(ref.node, ref.scope)).toBe(true)
 })
 
 test('isSideEffectFree certifies a parameter read of an earlier parameter', () => {
   const ref = firstReference('function f(a, b = a) { b; }', 'a')
-  expect(isSideEffectFree(ref.node, ref.scope, ref)).toBe(true)
+  expect(isSideEffectFree(ref.node, ref.scope)).toBe(true)
 })
 
-test('isSideEffectFree refuses a read inside `with` (a with-object getter)', () => {
+test('purity analysis ignores dynamic name interception by `with`', () => {
   const ref = firstReference('var k = 5; var o = {}; with (o) { k; }', 'k')
-  expect(isSideEffectFree(ref.node, ref.scope, ref)).toBe(false)
-  expect(isPure(ref.node, ref.scope, ref)).toBe(false)
+  expect(isSideEffectFree(ref.node, ref.scope)).toBe(true)
+  expect(isPure(ref.node, ref.scope)).toBe(true)
 })
 
-test('isSideEffectFree refuses an unbound read inside `with`, including `undefined`', () => {
-  // A `with` accessor can shadow even `undefined`.
+test('purity analysis treats names inside `with` like ordinary names', () => {
   const undefinedRead = firstReference('var o = {}; with (o) { undefined; }', 'undefined')
-  expect(isSideEffectFree(undefinedRead.node, undefinedRead.scope, undefinedRead)).toBe(false)
-  expect(isPure(undefinedRead.node, undefinedRead.scope, undefinedRead)).toBe(false)
+  expect(isSideEffectFree(undefinedRead.node, undefinedRead.scope)).toBe(true)
+  expect(isPure(undefinedRead.node, undefinedRead.scope)).toBe(true)
   const globalRead = firstReference('var o = {}; with (o) { unbound; }', 'unbound')
-  expect(isSideEffectFree(globalRead.node, globalRead.scope, globalRead)).toBe(false)
-  expect(isPure(globalRead.node, globalRead.scope, globalRead)).toBe(false)
+  expect(isSideEffectFree(globalRead.node, globalRead.scope)).toBe(false)
+  expect(isPure(globalRead.node, globalRead.scope)).toBe(false)
 })
 
-test('isSideEffectFree refuses a shadowed `undefined` read still in its TDZ', () => {
-  // This read precedes the local `let undefined`.
+test('isSideEffectFree ignores a shadowed `undefined` read before initialization', () => {
   const ref = firstReference('function f() { undefined; let undefined = 5; }', 'undefined')
-  expect(isSideEffectFree(ref.node, ref.scope, ref)).toBe(false)
+  expect(isSideEffectFree(ref.node, ref.scope)).toBe(true)
 })

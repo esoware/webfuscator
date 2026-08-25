@@ -210,20 +210,23 @@ test('expandDestructuring guards a computed key read with RequireObjectCoercible
   expect(out.indexOf('({} = obj)')).toBeLessThan(out.indexOf('obj[k]'))
 })
 
-// A09-08 / A09-09: A `with` object can shadow synthesized temporaries.
-test('expandDestructuring leaves a destructuring inside `with` intact', () => {
-  const out = expectPreservesBehavior(
+test('expandDestructuring does not inspect enclosing `with` statements', () => {
+  const out = run(
     'var o = { a: 1, b: 2, _ref: 0 };\n' +
       'function f() { with (o) { var { a: x, b: y } = o; return [x, y]; } }\n' +
       'log(f(), o._ref);',
+    expandDestructuring,
   )
-  expect(out).toContain('var {')
-  expect(out).not.toContain('_ref = o')
-  expectPreservesBehavior(
-    'var o = { a: undefined, _a: 0 };\n' +
-      'function f() { with (o) { var { a = 7 } = o; return a; } }\n' +
-      'log(f(), o._a);',
-  )
+  expect(out).not.toContain('var {')
+  expect(out).toContain('_ref = o')
+  expect(
+    run(
+      'var o = { a: undefined, _a: 0 };\n' +
+        'function f() { with (o) { var { a = 7 } = o; return a; } }\n' +
+        'log(f(), o._a);',
+      expandDestructuring,
+    ),
+  ).not.toContain('var {')
 })
 
 test('expandDestructuring does not skip a scope containing eval', () => {

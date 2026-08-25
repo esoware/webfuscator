@@ -3,14 +3,11 @@ import type { NodePath, Scope, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { initializerReaches } from '../analysis/document-order'
-import { isInsideWith } from '../utils/ast'
-import { hasConstantViolation } from '../utils/paths'
-
 /**
- * Converts safe `let` and `const` declarations to `var` and renames bindings
- * that would conflict after hoisting. It skips TDZ reads, reassigned constants,
- * captured loop bindings, uninitialized loop heads, script globals, and `with`.
+ * Converts `let` and `const` declarations to `var` and renames bindings that
+ * would conflict after hoisting. It leaves loop declarations unchanged when
+ * `var` would lose a captured per-iteration binding or reuse the previous
+ * iteration's value.
  *
  * @example
  * // ◀️ before
@@ -33,36 +30,12 @@ export function constLetToVar(ast: File): boolean {
       if (kind !== 'let' && kind !== 'const') {
         return
       }
-      // Babel's scope table cannot account for properties supplied by `with`.
-      if (isInsideWith(path)) {
-        return
-      }
-      // A `var` write would lose the `const` TypeError.
-      if (kind === 'const' && hasConstantViolation(path)) {
-        return
-      }
-      // Hoisted `var` reads `undefined` where a lexical binding throws in TDZ.
-      if (hasTdzRiskyReference(path)) {
-        return
-      }
       // An uninitialized lexical loop head resets on each entry. `var` does not.
       if (forHeadMissingInitializer(path)) {
         return
       }
       const blockScope = path.scope
       const varScope = blockScope.getFunctionParent() ?? blockScope.getProgramParent()
-      if (varScope.path.isProgram()) {
-        // Script `var` creates a global-object property; module `var` does not.
-        if (varScope.path.node.sourceType !== 'module') {
-          return
-        }
-        // A circular importer can read this binding before initialization. A
-        // lexical binding throws in TDZ then, while `var` reads `undefined`. That
-        // external read does not appear in this file's references.
-        if (bindsExportedName(path)) {
-          return
-        }
-      }
       // One `var` cannot preserve per-iteration bindings captured by closures.
       if (capturedInEnclosingLoop(path)) {
         return
@@ -76,10 +49,6 @@ export function constLetToVar(ast: File): boolean {
       if (!id) {
         return
       }
-      if (isInsideWith(path)) {
-        return
-      }
-
       const scope = path.parentPath.scope
       if (!isVarScope(scope) && scope.parent!.hasBinding(id.name, { noUids: true })) {
         path.scope.rename(id.name)
@@ -107,60 +76,11 @@ const conflictingFunctionsVisitor: Visitor<{ names: string[] }> = {
   },
 }
 
-// Same-scope uses need a reachable initializer. Nested uses also need their
-// function value created after initialization.
-function hasTdzRiskyReference(path: NodePath<t.VariableDeclaration>): boolean {
-  const declHome = nearestFunctionOrProgram(path)
-  for (const name of Object.keys(path.getBindingIdentifiers())) {
-    const binding = path.scope.getBinding(name)
-    if (!binding) {
-      continue
-    }
-    for (const usage of [...binding.referencePaths, ...binding.constantViolations]) {
-      if (usage.findParent((ancestor) => ancestor === path)) {
-        return true
-      }
-      const usageHome = nearestFunctionOrProgram(usage)
-      if (usageHome === declHome) {
-        if (!initializerReaches(path, usage)) {
-          return true
-        }
-        continue
-      }
-      const nested = outermostNestedFunction(usage, declHome)
-      if (!nested || nested.isFunctionDeclaration() || !initializerReaches(path, nested)) {
-        return true
-      }
-    }
-  }
-  return false
-}
-
 function forHeadMissingInitializer(path: NodePath<t.VariableDeclaration>): boolean {
   if (!t.isForStatement(path.parent) || path.key !== 'init') {
     return false
   }
   return path.node.declarations.some((decl) => decl.init == null)
-}
-
-// A source clause re-exports another module's binding, not this local binding.
-function bindsExportedName(path: NodePath<t.VariableDeclaration>): boolean {
-  if (path.parentPath.isExportNamedDeclaration()) {
-    return true
-  }
-  const names = new Set(Object.keys(path.getBindingIdentifiers()))
-  const program = path.scope.getProgramParent().path.node as t.Program
-  for (const statement of program.body) {
-    if (!t.isExportNamedDeclaration(statement) || statement.source) {
-      continue
-    }
-    for (const specifier of statement.specifiers) {
-      if (t.isExportSpecifier(specifier) && names.has(specifier.local.name)) {
-        return true
-      }
-    }
-  }
-  return false
 }
 
 // A nested function or class can observe the loop's per-iteration binding.
@@ -174,7 +94,11 @@ function capturedInEnclosingLoop(path: NodePath<t.VariableDeclaration>): boolean
     if (!binding) {
       continue
     }
-    for (const usage of [...binding.referencePaths, ...binding.constantViolations]) {
+    const usages =
+      binding.kind === 'const'
+        ? binding.referencePaths
+        : [...binding.referencePaths, ...binding.constantViolations]
+    for (const usage of usages) {
       for (
         let current = usage.parentPath;
         current && current !== loop;
@@ -230,21 +154,6 @@ function transformBlockScopedVariable(
   blockScope.path.traverse(conflictingFunctionsVisitor, {
     names: bindingNames,
   })
-}
-
-function nearestFunctionOrProgram(path: NodePath): NodePath {
-  return path.findParent((ancestor) => ancestor.isFunction() || ancestor.isProgram())!
-}
-
-// The shallowest nested function decides when this use can run.
-function outermostNestedFunction(usage: NodePath, home: NodePath): NodePath | null {
-  let result: NodePath | null = null
-  for (let current = usage.parentPath; current && current !== home; current = current.parentPath) {
-    if (current.isFunction()) {
-      result = current
-    }
-  }
-  return result
 }
 
 function enclosingLoop(path: NodePath): NodePath<t.Loop> | null {
