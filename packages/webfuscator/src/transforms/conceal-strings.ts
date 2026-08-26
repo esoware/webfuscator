@@ -21,21 +21,21 @@ const RECORD_WIDTH = 4
  * }
  *
  * // ▶️ after
- * const _stringPool = " lo,He",
- *   _stringPayload = [0, 4, 7, 2, 2, 6, 2],
+ * var _stringPool = " lo,He";
+ * var _stringPayload = [0, 4, 7, 2, 2, 6, 2],
  *   _stringMetadata = [0, 7, 4, 5],
  *   _stringCache = [null],
  *   _stringDecoder = function (_entry) {
- *     let _cached = _stringCache[_entry];
+ *     var _cached = _stringCache[_entry];
  *     if (_cached !== null) return _cached;
- *     let _result = "",
+ *     var _result = "",
  *       _record = _entry * 4,
  *       _start = _stringMetadata[_record],
  *       _length = _stringMetadata[_record + 1],
  *       _stringKey = _stringMetadata[_record + 2],
  *       _stringStep = _stringMetadata[_record + 3];
- *     for (let _position = 0; _position < _length; _position++) {
- *       let _stringMask = _stringKey + _position * _stringStep & 7;
+ *     for (var _position = 0; _position < _length; _position++) {
+ *       var _stringMask = _stringKey + _position * _stringStep & 7;
  *       _result += _stringPool[_stringPayload[_start + _position] ^ _stringMask];
  *     }
  *     _stringCache[_entry] = _result;
@@ -48,7 +48,7 @@ const RECORD_WIDTH = 4
 export function concealStrings(ast: File, ctx: TransformContext): boolean {
   const options = resolveOptions(ctx.concealStrings)
   const rng = mulberry32(ctx.seed)
-  const state: State = { changed: false, groups: new Map(), options }
+  const state: State = { changed: false, groups: new Map(), options, program: null }
 
   if (options.scope === 'function') {
     normalizeConciseArrows(ast, options)
@@ -59,17 +59,18 @@ export function concealStrings(ast: File, ctx: TransformContext): boolean {
     return false
   }
   const pool = buildSharedPool(state.groups.values(), options.cover, rng)
+  const poolIdentifier = t.identifier(state.program!.scope.generateUid('stringPool'))
   for (const group of state.groups.values()) {
-    concealGroup(group, options, pool, rng)
+    concealGroup(group, options, pool, poolIdentifier, rng)
     state.changed = true
   }
+  insertSharedPool(state.program!, poolIdentifier, pool.value)
   return state.changed
 }
 
 interface ResolvedOptions {
   cache: boolean
   cover: 'full' | 'regional' | 'used'
-  deduplicate: boolean
   scope: 'function' | 'program'
 }
 
@@ -89,6 +90,7 @@ interface VaultGroup {
 interface State extends ChangeState {
   groups: Map<VaultOwner, VaultGroup>
   options: ResolvedOptions
+  program: NodePath<t.Program> | null
 }
 
 interface Entry {
@@ -100,7 +102,6 @@ interface VaultData {
   indexMask: number
   metadata: number[]
   payload: number[]
-  pool: string
 }
 
 interface SharedPool {
@@ -118,6 +119,9 @@ interface VaultIdentifiers {
 }
 
 const collectVisitor: Visitor<State> = {
+  Program(path, state) {
+    state.program = path
+  },
   StringLiteral(path, state) {
     if (!isRuntimeString(path)) {
       return
@@ -138,7 +142,6 @@ const collectVisitor: Visitor<State> = {
 function resolveOptions(options: ConcealStringsOptions | undefined): ResolvedOptions {
   const cache = options?.cache ?? true
   const cover = options?.cover ?? 'regional'
-  const deduplicate = options?.deduplicate ?? true
   const scope = options?.scope ?? 'program'
   if (typeof cache !== 'boolean') {
     throw new TypeError('concealStrings cache must be a boolean')
@@ -146,13 +149,10 @@ function resolveOptions(options: ConcealStringsOptions | undefined): ResolvedOpt
   if (cover !== 'full' && cover !== 'regional' && cover !== 'used') {
     throw new TypeError("concealStrings cover must be 'full', 'regional', or 'used'")
   }
-  if (typeof deduplicate !== 'boolean') {
-    throw new TypeError('concealStrings deduplicate must be a boolean')
-  }
   if (scope !== 'function' && scope !== 'program') {
     throw new TypeError("concealStrings scope must be 'function' or 'program'")
   }
-  return { cache, cover, deduplicate, scope }
+  return { cache, cover, scope }
 }
 
 function normalizeConciseArrows(ast: File, options: ResolvedOptions): void {
@@ -220,12 +220,19 @@ function concealGroup(
   group: VaultGroup,
   options: ResolvedOptions,
   pool: SharedPool,
+  poolIdentifier: t.Identifier,
   rng: () => number,
 ): void {
-  const entries = makeEntries(group.occurrences, options.deduplicate)
+  const entries = makeEntries(group.occurrences)
   shuffleInPlace(entries, rng)
   const data = encodeEntries(entries, pool, rng)
-  const identifiers = insertVault(statementBody(group.owner), entries.length, data, options.cache)
+  const identifiers = insertVault(
+    statementBody(group.owner),
+    entries.length,
+    data,
+    options.cache,
+    poolIdentifier,
+  )
 
   for (let index = 0; index < entries.length; index++) {
     for (const occurrence of entries[index]!.occurrences) {
@@ -237,10 +244,7 @@ function concealGroup(
   }
 }
 
-function makeEntries(occurrences: Occurrence[], deduplicate: boolean): Entry[] {
-  if (!deduplicate) {
-    return occurrences.map((occurrence) => ({ occurrences: [occurrence], value: occurrence.value }))
-  }
+function makeEntries(occurrences: Occurrence[]): Entry[] {
   const byValue = new Map<string, Entry>()
   for (const occurrence of occurrences) {
     let entry = byValue.get(occurrence.value)
@@ -291,7 +295,7 @@ function encodeEntries(entries: Entry[], pool: SharedPool, rng: () => number): V
       payload.push(truePosition ^ maskPosition(position, key, step, pool.indexMask))
     }
   }
-  return { indexMask: pool.indexMask, metadata, payload, pool: pool.value }
+  return { indexMask: pool.indexMask, metadata, payload }
 }
 
 function makePoolUnits(usedUnits: ReadonlySet<string>, cover: ResolvedOptions['cover']): string[] {
@@ -368,6 +372,7 @@ function insertVault(
   entryCount: number,
   data: VaultData,
   cache: boolean,
+  pool: t.Identifier,
 ): VaultIdentifiers {
   const fresh = (purpose: string): t.Identifier => t.identifier(body.scope.generateUid(purpose))
   const identifiers: VaultIdentifiers = {
@@ -375,11 +380,10 @@ function insertVault(
     decoder: fresh('stringDecoder'),
     metadata: fresh('stringMetadata'),
     payload: fresh('stringPayload'),
-    pool: fresh('stringPool'),
+    pool,
   }
   const decoder = t.functionExpression(null, [], t.blockStatement([]))
   const declarations = [
-    t.variableDeclarator(identifiers.pool, t.stringLiteral(data.pool)),
     t.variableDeclarator(identifiers.payload, numericArray(data.payload)),
     t.variableDeclarator(identifiers.metadata, numericArray(data.metadata)),
   ]
@@ -393,7 +397,7 @@ function insertVault(
   }
   declarations.push(t.variableDeclarator(identifiers.decoder, decoder))
 
-  const declaration = t.variableDeclaration('const', declarations)
+  const declaration = t.variableDeclaration('var', declarations)
   const [declarationPath] = body.unshiftContainer('body', declaration)
   const declaratorPaths = declarationPath!.get('declarations') as NodePath<t.VariableDeclarator>[]
   const decoderPath = declaratorPaths
@@ -401,6 +405,19 @@ function insertVault(
     .get('init') as NodePath<t.FunctionExpression>
   populateDecoder(decoderPath, identifiers, data.indexMask)
   return identifiers
+}
+
+function insertSharedPool(
+  program: NodePath<t.Program>,
+  identifier: t.Identifier,
+  value: string,
+): void {
+  program.unshiftContainer(
+    'body',
+    t.variableDeclaration('var', [
+      t.variableDeclarator(t.cloneNode(identifier), t.stringLiteral(value)),
+    ]),
+  )
 }
 
 function populateDecoder(
@@ -424,13 +441,13 @@ function populateDecoder(
   if (vault.cache) {
     const cached = fresh('cached')
     statements.push(
-      t.variableDeclaration('let', [t.variableDeclarator(cached, indexed(vault.cache, entry))]),
+      t.variableDeclaration('var', [t.variableDeclarator(cached, indexed(vault.cache, entry))]),
       t.ifStatement(t.binaryExpression('!==', cached, t.nullLiteral()), t.returnStatement(cached)),
     )
   }
 
   statements.push(
-    t.variableDeclaration('let', [
+    t.variableDeclaration('var', [
       t.variableDeclarator(result, t.stringLiteral('')),
       t.variableDeclarator(record, t.binaryExpression('*', entry, t.numericLiteral(RECORD_WIDTH))),
       t.variableDeclarator(start, indexed(vault.metadata, record)),
@@ -448,11 +465,11 @@ function populateDecoder(
       ),
     ]),
     t.forStatement(
-      t.variableDeclaration('let', [t.variableDeclarator(position, t.numericLiteral(0))]),
+      t.variableDeclaration('var', [t.variableDeclarator(position, t.numericLiteral(0))]),
       t.binaryExpression('<', position, length),
       t.updateExpression('++', position),
       t.blockStatement([
-        t.variableDeclaration('let', [
+        t.variableDeclaration('var', [
           t.variableDeclarator(mask, maskExpression(position, key, step, indexMask)),
         ]),
         t.expressionStatement(

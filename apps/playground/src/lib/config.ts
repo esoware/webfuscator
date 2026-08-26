@@ -119,9 +119,6 @@ function serializeConceal(conceal: ConcealStringsOptions): Record<string, unknow
   if (conceal.cover !== undefined && conceal.cover !== 'regional') {
     out['cover'] = conceal.cover
   }
-  if (conceal.deduplicate === false) {
-    out['deduplicate'] = false
-  }
   if (conceal.scope === 'function') {
     out['scope'] = 'function'
   }
@@ -422,7 +419,6 @@ function expectConceal(entry: unknown, warnings: string[]): ConcealStringsOption
   } else if (cover !== undefined) {
     warnings.push('Ignoring "concealStrings.cover": expected "full", "regional", or "used".')
   }
-  assignIfDefined(conceal, 'deduplicate', expectBoolean(input, 'deduplicate', warnings))
   const scope = input['scope']
   if (scope === 'function' || scope === 'program') {
     conceal.scope = scope

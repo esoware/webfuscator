@@ -31,7 +31,6 @@ import { hoistVariables } from './transforms/hoist-variables'
 import { inlineFunctions } from './transforms/inline-functions'
 import { logicalToTernary } from './transforms/logical-to-ternary'
 import { mangleProperties } from './transforms/mangle-properties'
-import { mergeVariableDeclarations } from './transforms/merge-variable-declarations'
 import { nullishCoalescingToTernary } from './transforms/nullish-coalescing-to-ternary'
 import { numbersToStrings } from './transforms/numbers-to-strings'
 import { objectMethodToProperty } from './transforms/object-method-to-property'
@@ -126,16 +125,15 @@ const LOWERING: readonly ConfigurablePhase[] = [
   ['ternaryToIf', ternaryToIf],
 ]
 
-// `packDeclarationsIntoParameters` must precede declaration motion and merging.
+// `packDeclarationsIntoParameters` must precede declaration motion.
 // `reorderFunctionDeclarations` follows `functionDeclarationToExpression`, so it
-// moves only declarations still needed for hoisting. `hoistVariables` must run
-// before `mergeVariableDeclarations`. `numbersToStrings` follows the fixed point,
-// yodification, and `specialsToStrings` because they need or create numbers.
+// moves only declarations still needed for hoisting. `numbersToStrings` follows
+// the fixed point, yodification, and `specialsToStrings` because they need or
+// create numbers.
 const POST_PROCESS: readonly ConfigurablePhase[] = [
   ['packDeclarationsIntoParameters', packDeclarationsIntoParameters],
   ['reorderFunctionDeclarations', reorderFunctionDeclarations],
   ['hoistVariables', hoistVariables],
-  ['mergeVariableDeclarations', mergeVariableDeclarations],
   ['yodifyConditions', yodifyConditions],
   ['specialsToStrings', specialsToStrings],
   ['numbersToStrings', numbersToStrings],
@@ -149,8 +147,8 @@ const PROTECTION: readonly ConfigurablePhase[] = [['concealStrings', concealStri
 // identifiers also receive names from the configured string generator.
 const RENAME: readonly ConfigurablePhase[] = [['renameIdentifiers', renameIdentifiers]]
 
-// Expression packing consumes final statement shapes and creates no bindings,
-// so it runs after renaming and before whole-program packing.
+// Statement packing consumes final declaration and expression shapes and creates
+// no bindings, so it runs after renaming and before whole-program packing.
 const FINAL_SHAPE: readonly ConfigurablePhase[] = [['packExpressions', packExpressions]]
 
 // Packing serializes the finished program to a string and rebuilds it through

@@ -55,7 +55,18 @@ test('concealStrings emits an ordinary pool literal without retaining source phr
   const out = transform(cases.programStrings.input)
   expect(out).not.toContain('sensitive phrase')
   expect(out).not.toContain('another value')
-  expect(transform(`log("A");`, { cover: 'used' })).toContain('const _stringPool = "A"')
+  expect(transform(`log("A");`, { cover: 'used' })).toContain('var _stringPool = "A"')
+})
+
+test('concealStrings emits only var declarations in its runtime', () => {
+  const ast = parse(transform(`log("protected value");`), { sourceType: 'unambiguous' })
+  const kinds = new Set<t.VariableDeclaration['kind']>()
+  traverse(ast, {
+    VariableDeclaration(path) {
+      kinds.add(path.node.kind)
+    },
+  })
+  expect(kinds).toEqual(new Set(['var']))
 })
 
 test('concealStrings regional cover fills nearby code-unit pages once', () => {
@@ -111,17 +122,28 @@ test('concealStrings does not depend on mutable string or array methods', () => 
   expect(observed).toEqual(['protected value'])
 })
 
-test('concealStrings function scope creates independent vaults with the same whole-program pool', () => {
+test('concealStrings function scope creates independent vaults with one program pool', () => {
   const input = `function first() { return "first value"; }
 function second() { return "second \u1234 value"; }
 log(first(), second());`
   const out = transform(input, { cover: 'used', scope: 'function' })
   const pools = emittedPools(out)
   expect(trace(out)).toEqual(trace(input))
-  expect(pools).toHaveLength(2)
-  expect(new Set(pools).size).toBe(1)
+  expect(pools).toHaveLength(1)
+  expect(emittedVaultCount(out)).toBe(2)
   expect(pools[0]!).toContain('f')
   expect(pools[0]!).toContain('\u1234')
+})
+
+test('concealStrings keeps the shared pool visible through nested binding scopes', () => {
+  const input = `function reveal() {
+  var _stringPool = "local value";
+  return "protected value" + _stringPool;
+}
+log(reveal());`
+  const out = transform(input, { scope: 'function' })
+  expect(trace(out)).toEqual(trace(input))
+  expect(emittedPools(out)).toHaveLength(1)
 })
 
 test('concealStrings function scope normalizes concise arrows for local vaults', () => {
@@ -129,7 +151,8 @@ test('concealStrings function scope normalizes concise arrows for local vaults',
 log(suffix("prefix"));`
   const out = transform(input, { cover: 'used', scope: 'function' })
   expect(trace(out)).toEqual(trace(input))
-  expect(new Set(emittedPools(out)).size).toBe(1)
+  expect(emittedPools(out)).toHaveLength(1)
+  expect(emittedVaultCount(out)).toBe(2)
 })
 
 test('concealStrings keeps parameter-default strings in the surrounding vault', () => {
@@ -142,8 +165,8 @@ var inner = outer(" outer value");
 log(inner());`
   const out = transform(input, { scope: 'function' })
   expect(trace(out)).toEqual(trace(input))
-  expect(emittedPools(out)).toHaveLength(3)
-  expect(new Set(emittedPools(out)).size).toBe(1)
+  expect(emittedPools(out)).toHaveLength(1)
+  expect(emittedVaultCount(out)).toBe(3)
 })
 
 test('concealStrings keeps a strict directive first in its function body', () => {
@@ -154,7 +177,7 @@ test('concealStrings keeps a strict directive first in its function body', () =>
 log(strictThis());`
   const out = transform(input, { scope: 'function' })
   expect(trace(out)).toEqual(trace(input))
-  expect(out).toMatch(/function strictThis\(\) \{\s*["']use strict["'];\s*const/u)
+  expect(out).toMatch(/function strictThis\(\) \{\s*["']use strict["'];\s*var/u)
 })
 
 test('concealStrings can initialize a function vault before super without reading this', () => {
@@ -178,7 +201,7 @@ with (object) {
   log(probes);`
   const out = transform(input)
   expect(out).not.toContain('inside with')
-  expect(out.indexOf('const _stringPool')).toBeLessThan(out.indexOf('var probes'))
+  expect(out.indexOf('var _stringPool')).toBeLessThan(out.indexOf('var probes'))
 })
 
 test('concealStrings conceals runtime strings even where a direct eval can see them', () => {
@@ -218,14 +241,11 @@ log(object.inherited);`
   expect(out).toContain('__proto__')
 })
 
-test('concealStrings can keep equal literal sites in separate entries', () => {
+test('concealStrings reuses one vault entry for equal literal sites', () => {
   const input = `log("same value", "same value");`
-  const deduplicated = decoderIndexes(transform(input))
-  const separate = decoderIndexes(transform(input, { deduplicate: false }))
-  expect(separate).toHaveLength(2)
-  expect(new Set(separate).size).toBe(2)
-  expect(deduplicated).toHaveLength(2)
-  expect(new Set(deduplicated).size).toBe(1)
+  const indexes = decoderIndexes(transform(input))
+  expect(indexes).toHaveLength(2)
+  expect(new Set(indexes).size).toBe(1)
 })
 
 test('concealStrings cache false omits retained plaintext slots', () => {
@@ -268,7 +288,6 @@ test('concealStrings rejects malformed options at the caller boundary', () => {
   const ast = parse(`var value = "runtime";`, { sourceType: 'unambiguous' })
   const invalidCache = { cache: 'yes' } as unknown as ConcealStringsOptions
   const invalidCover = { cover: 'ascii' } as unknown as ConcealStringsOptions
-  const invalidDeduplication = { deduplicate: 1 } as unknown as ConcealStringsOptions
   const invalidScope = { scope: 'block' } as unknown as ConcealStringsOptions
   expect(() => concealStrings(ast, { ...BASE_CONTEXT, concealStrings: invalidCache })).toThrow(
     /cache must be a boolean/u,
@@ -276,9 +295,6 @@ test('concealStrings rejects malformed options at the caller boundary', () => {
   expect(() => concealStrings(ast, { ...BASE_CONTEXT, concealStrings: invalidCover })).toThrow(
     /cover must be/u,
   )
-  expect(() =>
-    concealStrings(ast, { ...BASE_CONTEXT, concealStrings: invalidDeduplication }),
-  ).toThrow(/deduplicate must be a boolean/u)
   expect(() => concealStrings(ast, { ...BASE_CONTEXT, concealStrings: invalidScope })).toThrow(
     /scope must be/u,
   )
@@ -322,6 +338,19 @@ function emittedPools(code: string): string[] {
     },
   })
   return pools
+}
+
+function emittedVaultCount(code: string): number {
+  const ast = parse(code, { sourceType: 'unambiguous' })
+  let count = 0
+  traverse(ast, {
+    VariableDeclarator(path) {
+      if (t.isIdentifier(path.node.id) && path.node.id.name.includes('stringMetadata')) {
+        count++
+      }
+    },
+  })
+  return count
 }
 
 function codeUnitCount(value: string, expected: string): number {

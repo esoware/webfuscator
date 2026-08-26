@@ -52,7 +52,7 @@ The API does not generate source maps.
 `obfuscate` throws in three cases:
 
 - Babel cannot parse `code`.
-- A transform receives invalid configuration. `concealStrings` validates `cache`, `cover`, `deduplicate`, and `scope`. `mangleProperties` validates its `cache` (entries must be strings, and outputs must be unique and cannot be `__proto__`, `constructor`, or `prototype`) and its `nameGenerator` (it must return an available, nonnumeric string). An empty `stringGeneratorMode` array is also rejected.
+- A transform receives invalid configuration. `concealStrings` validates `cache`, `cover`, and `scope`. `mangleProperties` validates its `cache` (entries must be strings, and outputs must be unique and cannot be `__proto__`, `constructor`, or `prototype`) and its `nameGenerator` (it must return an available, nonnumeric string). An empty `stringGeneratorMode` array is also rejected.
 - `transforms.pack` is `true` or an options object for a program that uses `export` statements. Export syntax cannot exist inside a `Function` body, so pack refuses it rather than emit output that fails to parse.
 
 Apart from that export case, a transform normally leaves a site unchanged when it cannot handle it. `dropConsole` and `dropDebugger` intentionally remove their named effects. Property mangling cannot account for uses outside the input. `pack` runs the program inside a generated `Function`; its transform page lists the resulting restrictions.

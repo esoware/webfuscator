@@ -139,11 +139,6 @@ export const TRANSFORM_GROUPS = [
         description: 'Raises eligible var bindings to one declaration with in-place assignments.',
       },
       {
-        name: 'mergeVariableDeclarations',
-        kind: 'boolean',
-        description: 'Fuses compatible same-kind declarations into one.',
-      },
-      {
         name: 'packDeclarationsIntoParameters',
         kind: 'boolean',
         description: 'Moves literal var declarations into trailing default parameters.',
@@ -252,7 +247,7 @@ export const TRANSFORM_GROUPS = [
       {
         name: 'packExpressions',
         kind: 'boolean',
-        description: 'Joins adjacent expression statements with comma sequences.',
+        description: 'Packs compatible declarations and adjacent expressions.',
       },
       {
         name: 'pack',

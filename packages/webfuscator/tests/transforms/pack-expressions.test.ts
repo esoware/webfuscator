@@ -13,7 +13,27 @@ function expectEquivalent(input: string): string {
   return out
 }
 
+function runtimeSupportsExplicitResourceManagement(): boolean {
+  try {
+    // oxlint-disable-next-line no-new-func
+    const parsed = new Function(
+      'using resource = null; return async function () { await using resource = null; }',
+    )
+    return typeof parsed === 'function'
+  } catch {
+    return false
+  }
+}
+
 const cases = defineCases('pack-expressions', packExpressions, {
+  adjacentLets: {
+    name: 'packExpressions fuses consecutive let declarations',
+    input: `let a = 1;\nlet b = 2;\nlog(a + b);`,
+  },
+  adjacentConsts: {
+    name: 'packExpressions fuses consecutive const declarations',
+    input: `const a = 1;\nconst b = a + 1;\nlog(a + b);`,
+  },
   returnValue: {
     name: 'packExpressions moves a straight-line run into a return value',
     input: `function run() {
@@ -47,6 +67,165 @@ class Box {
   }
 }`,
   },
+})
+
+test('fuses consecutive same-kind declarations into one', () => {
+  const out = expectEquivalent(`let a = 1;\nlet b = 2;\nlog(a + b);`)
+  expect(out).toContain('let a = 1,')
+  expect(out).not.toMatch(/let b/u)
+})
+
+test('preserves left-to-right evaluation when a later declarator reads an earlier one', () => {
+  expect(trace(run(`let a = 1;\nlet b = a + 1;\nlog(b);`, packExpressions))).toEqual({
+    logs: [2],
+    threw: null,
+  })
+})
+
+test('does not merge declarations across a different kind', () => {
+  const out = expectEquivalent(`let a = 1;\nconst b = 2;\nlog(a + b);`)
+  expect(out).toContain('let a = 1;')
+  expect(out).toContain('const b = 2;')
+})
+
+test('does not merge declarations across an intervening statement', () => {
+  const source = `let a = 1;\nlog(a);\nlet b = 2;\nlog(b);`
+  const out = expectEquivalent(source)
+  expect(out).toContain('let a = 1;')
+  expect(out).toContain('let b = 2;')
+})
+
+test('preserves declaration initializer side-effect order', () => {
+  const source = `let order = [];\nlet a = (order.push(1), 1);\nlet b = (order.push(2), 2);\nlog(order.join(","));`
+  expect(trace(run(source, packExpressions))).toEqual({ logs: ['1,2'], threw: null })
+})
+
+test('merges var declarations', () => {
+  const out = expectEquivalent(`var a = 1;
+var b = 2;
+log(a + b);`)
+  expect(out).toContain('var a = 1,')
+})
+
+test('merges declarations inside blocks and switch cases', () => {
+  const source = `{
+  let a = 1;
+  let b = 2;
+  log(a + b);
+}
+switch (1) {
+  case 1:
+    let c = 3;
+    let d = 4;
+    log(c + d);
+}`
+  const out = expectEquivalent(source)
+  expect(out).toContain('let a = 1,')
+  expect(out).toContain('let c = 3,')
+})
+
+test('merges declarations inside static initialization blocks', () => {
+  const source = `class C {
+  static {
+    let a = 1;
+    let b = 2;
+    log(a + b);
+  }
+}`
+  const out = expectEquivalent(source)
+  expect(out).toContain('let a = 1,')
+})
+
+test('merges adjacent direct exports', () => {
+  const out = run(
+    `export let a = 1;
+export let b = 2;`,
+    packExpressions,
+  )
+  expect(out).toContain('export let a = 1,')
+  expect(() => parse(out, { sourceType: 'module' })).not.toThrow()
+})
+
+test('merges declarations across unlabeled empty statements', () => {
+  const out = expectEquivalent(`let a = 1;
+;
+let b = 2;
+log(a + b);`)
+  expect(out).toContain('let a = 1,')
+  expect(out).not.toContain('\n;')
+})
+
+test('merges declarations containing functions and classes', () => {
+  const source = `let make = function () { return 1; };
+let Box = class { value() { return 2; } };
+log(make() + new Box().value());`
+  const out = expectEquivalent(source)
+  expect(out).toContain('let make = function ()')
+  expect(out).not.toMatch(/\nlet Box/u)
+})
+
+test('preserves abrupt declaration initializer completion', () => {
+  const source = `try {
+  let a = (() => { throw 1; })();
+  let b = 2;
+} catch (error) {
+  log(error);
+}`
+  expectEquivalent(source)
+})
+
+test('merges using declarations without changing disposal order', () => {
+  const source = `const resourceA = { [Symbol.dispose]() { log("a"); } };
+const resourceB = { [Symbol.dispose]() { log("b"); } };
+{
+  using a = resourceA;
+  using b = resourceB;
+  log("body");
+}`
+  const out = run(source, packExpressions)
+  expect(out).toContain('using a =')
+  expect(out).not.toMatch(/\n\s*using b/u)
+  if (!runtimeSupportsExplicitResourceManagement()) {
+    return
+  }
+  expect(trace(out)).toEqual(trace(source))
+  expect(trace(out)).toEqual({ logs: ['body', 'b', 'a'], threw: null })
+})
+
+test('merges await using declarations without changing asynchronous disposal order', async () => {
+  const source = `const resourceA = { async [Symbol.asyncDispose]() { log("a"); } };
+const resourceB = { async [Symbol.asyncDispose]() { log("b"); } };
+async function f() {
+  await using a = resourceA;
+  await using b = resourceB;
+  log("body");
+}`
+  const out = run(source, packExpressions)
+  expect(out).not.toMatch(/\n\s*await using b/u)
+  if (!runtimeSupportsExplicitResourceManagement()) {
+    return
+  }
+
+  const evaluate = async (code: string): Promise<string[]> => {
+    const logs: string[] = []
+    // oxlint-disable-next-line no-new-func
+    const promise = new Function('log', `${code}\nreturn f();`)((value: string) => logs.push(value))
+    await promise
+    return logs
+  }
+  expect(await evaluate(out)).toEqual(await evaluate(source))
+  expect(await evaluate(out)).toEqual(['body', 'b', 'a'])
+})
+
+test('reports no change after declarations and expressions are packed', () => {
+  const ast = parse(`let a = 1;
+let b = 2;
+first();
+second();`)
+  expect(packExpressions(ast)).toBe(true)
+  const once = generate(ast).code
+  expect(packExpressions(ast)).toBe(false)
+  expect(generate(ast).code).toBe(once)
 })
 
 test.each([
@@ -440,6 +619,23 @@ second();`
   const withTransform = obfuscate(source, { transforms: { packExpressions: true } })
   expect(omitted).toMatch(/first\(\);\nsecond\(\);/u)
   expect(withTransform).toMatch(/first\(\), second\(\);/u)
+})
+
+test('merges declarations generated by preceding transforms', () => {
+  const source = `log("protected value");`
+  const unpacked = obfuscate(source, {
+    transforms: { concealStrings: { cover: 'used' } },
+  })
+  const packed = obfuscate(source, {
+    transforms: { concealStrings: { cover: 'used' }, packExpressions: true },
+  })
+  const programVariableCount = (code: string): number =>
+    parse(code, { sourceType: 'unambiguous' }).program.body.filter((statement) =>
+      t.isVariableDeclaration(statement),
+    ).length
+  expect(programVariableCount(unpacked)).toBe(2)
+  expect(programVariableCount(packed)).toBe(1)
+  expect(trace(packed)).toEqual(trace(source))
 })
 
 test('fixture cases stay behavior-equivalent', () => {

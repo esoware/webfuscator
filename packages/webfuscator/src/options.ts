@@ -23,7 +23,6 @@ export type TransformName =
   | 'functionDeclarationToExpression'
   | 'reorderFunctionDeclarations'
   | 'hoistVariables'
-  | 'mergeVariableDeclarations'
   | 'switchToIf'
   | 'forToWhile'
   | 'doWhileToWhile'
@@ -106,8 +105,6 @@ export interface ConcealStringsOptions {
   cache?: boolean
   /** Choose how much of the UTF-16 range pads each pool. Default `'regional'`. */
   cover?: 'full' | 'regional' | 'used'
-  /** Reuse one vault entry for equal strings. Default `true`. */
-  deduplicate?: boolean
   /** Use one program vault or a separate vault per function. Default `'program'`. */
   scope?: 'function' | 'program'
 }

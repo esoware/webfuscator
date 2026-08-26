@@ -61,7 +61,6 @@
               "reference/transforms/const-to-let",
               "reference/transforms/const-let-to-var",
               "reference/transforms/hoist-variables",
-              "reference/transforms/merge-variable-declarations",
               "reference/transforms/object-method-to-property",
               "reference/transforms/arrow-to-function",
               "reference/transforms/function-declaration-to-expression",

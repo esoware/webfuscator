@@ -4,20 +4,25 @@ import type { File } from '@babel/types'
 import { rewriteStatementLists } from '../utils/statement-lists'
 
 /**
- * Combines adjacent expression statements with the comma operator and moves
- * them into a following compatible statement when execution order is preserved.
+ * Merges adjacent compatible variable declarations, combines adjacent
+ * expression statements with the comma operator, and moves expressions into a
+ * following compatible statement when execution order is preserved.
  *
  * @example
  * // ◀️ before
  * function run() {
- *   prepare();
- *   update();
+ *   let first = prepare();
+ *   let second = update(first);
+ *   record(first);
+ *   record(second);
  *   return finish();
  * }
  *
  * // ▶️ after
  * function run() {
- *   return prepare(), update(), finish();
+ *   let first = prepare(),
+ *     second = update(first);
+ *   return record(first), record(second), finish();
  * }
  */
 export function packExpressions(ast: File): boolean {
@@ -29,6 +34,79 @@ export function packExpressions(ast: File): boolean {
 type StatementLike = t.Program['body'][number]
 
 function packStatementList(list: readonly StatementLike[]): StatementLike[] | null {
+  const declarationsMerged = mergeAdjacentDeclarations(list)
+  const expressionsPacked = packExpressionStatements(declarationsMerged ?? list)
+  return expressionsPacked ?? declarationsMerged
+}
+
+interface MergeableDeclaration {
+  declaration: t.VariableDeclaration
+  exported: boolean
+}
+
+function mergeAdjacentDeclarations(list: readonly StatementLike[]): StatementLike[] | null {
+  const out: StatementLike[] = []
+  let pendingEmpty: t.EmptyStatement[] = []
+  let changed = false
+
+  for (const statement of list) {
+    if (t.isEmptyStatement(statement) && mergeableDeclaration(out.at(-1)) !== null) {
+      pendingEmpty.push(statement)
+      continue
+    }
+
+    const previous = mergeableDeclaration(out.at(-1))
+    const current = mergeableDeclaration(statement)
+    if (previous && current && canMergeDeclarations(previous, current)) {
+      out[out.length - 1] = mergeDeclarationPair(previous, current)
+      pendingEmpty = []
+      changed = true
+      continue
+    }
+
+    out.push(...pendingEmpty, statement)
+    pendingEmpty = []
+  }
+
+  out.push(...pendingEmpty)
+  return changed ? out : null
+}
+
+function mergeableDeclaration(statement: StatementLike | undefined): MergeableDeclaration | null {
+  if (statement === undefined) {
+    return null
+  }
+  if (t.isVariableDeclaration(statement)) {
+    return { declaration: statement, exported: false }
+  }
+  if (t.isExportNamedDeclaration(statement) && t.isVariableDeclaration(statement.declaration)) {
+    return { declaration: statement.declaration, exported: true }
+  }
+  return null
+}
+
+function canMergeDeclarations(
+  previous: MergeableDeclaration,
+  current: MergeableDeclaration,
+): boolean {
+  return (
+    previous.exported === current.exported && previous.declaration.kind === current.declaration.kind
+  )
+}
+
+function mergeDeclarationPair(
+  previous: MergeableDeclaration,
+  current: MergeableDeclaration,
+): StatementLike {
+  const declaration = t.variableDeclaration(previous.declaration.kind, [
+    ...previous.declaration.declarations,
+    ...current.declaration.declarations,
+  ])
+
+  return previous.exported ? t.exportNamedDeclaration(declaration) : declaration
+}
+
+function packExpressionStatements(list: readonly StatementLike[]): StatementLike[] | null {
   const out: StatementLike[] = []
   let pending: t.ExpressionStatement[] = []
   let changed = false

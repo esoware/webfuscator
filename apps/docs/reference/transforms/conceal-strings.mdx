@@ -27,21 +27,21 @@ function greet(name) {
 ```
 
 ```js title="After" lines
-const _stringPool = " lo,He",
-  _stringPayload = [0, 4, 7, 2, 2, 6, 2],
+var _stringPool = " lo,He";
+var _stringPayload = [0, 4, 7, 2, 2, 6, 2],
   _stringMetadata = [0, 7, 4, 5],
   _stringCache = [null],
   _stringDecoder = function (_entry) {
-    let _cached = _stringCache[_entry];
+    var _cached = _stringCache[_entry];
     if (_cached !== null) return _cached;
-    let _result = "",
+    var _result = "",
       _record = _entry * 4,
       _start = _stringMetadata[_record],
       _length = _stringMetadata[_record + 1],
       _stringKey = _stringMetadata[_record + 2],
       _stringStep = _stringMetadata[_record + 3];
-    for (let _position = 0; _position < _length; _position++) {
-      let _stringMask = _stringKey + _position * _stringStep & 7;
+    for (var _position = 0; _position < _length; _position++) {
+      var _stringMask = _stringKey + _position * _stringStep & 7;
       _result += _stringPool[_stringPayload[_start + _position] ^ _stringMask];
     }
     _stringCache[_entry] = _result;
@@ -66,7 +66,7 @@ const output = obfuscate(source, {
 })
 ```
 
-Pass `{ cache, cover, deduplicate, scope }` instead of `true`. Program scope is the default and uses one vault. Function scope creates separate function vaults, each with the same whole-program pool. The default `regional` cover fills U+0000-00FF plus every 256-unit page touched anywhere in the program. Use `used` for compact output or `full` for all 65,536 UTF-16 units. Disable `cache` to decode on every evaluation, or disable `deduplicate` to give equal literals separate entries.
+Pass `{ cache, cover, scope }` instead of `true`. The string pool is shared by the whole program. Program scope is the default and uses one vault. Function scope keeps encoded entries, decoders, and caches in separate function vaults. Equal strings share one entry within their vault. The default `regional` cover fills U+0000-00FF plus every 256-unit page touched anywhere in the program. Use `used` for compact output or `full` for all 65,536 UTF-16 units. Disable `cache` to decode on every evaluation.
 
 <Columns cols={2}>
   <Card title="View the implementation" icon="code-xml" href="https://github.com/esoware/webfuscator/blob/main/packages/webfuscator/src/transforms/conceal-strings.ts" horizontal>

@@ -164,18 +164,7 @@ function ConcealDetails({
           onPatch({ cache: checked ? undefined : false })
         }}
       />
-      <SwitchField
-        label="deduplicate"
-        hint="Share one vault entry between equal literals"
-        checked={conceal.deduplicate !== false}
-        onChange={(checked) => {
-          onPatch({ deduplicate: checked ? undefined : false })
-        }}
-      />
-      <Caveat>
-        Function scope repeats the whole-program pool in each vault. Full cover includes all 65,536
-        UTF-16 units and produces much larger output.
-      </Caveat>
+      <Caveat>Full cover includes all 65,536 UTF-16 units and produces much larger output.</Caveat>
       <Caveat>The decoder and numeric data can still recover every shipped string.</Caveat>
     </>
   )

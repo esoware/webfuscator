@@ -36,7 +36,7 @@ No configurable transform runs unless its key is `true`. Transforms with setting
 
 The defaults for `minify`, `verbose`, `stringGeneratorMode`, and `seed` do not cause transforms to run. They control output or supply settings used by transforms that do run.
 
-`renameIdentifiers` and `specialsToStrings` also accept `{ stringGeneratorMode }`. `concealStrings` accepts `{ cache, cover, deduplicate, scope }`. `pack` accepts `{ escapeStrict, skipGlobals, stringGeneratorMode }`. `mangleProperties` accepts its [property options](/reference/property-mangling-options).
+`renameIdentifiers` and `specialsToStrings` also accept `{ stringGeneratorMode }`. `concealStrings` accepts `{ cache, cover, scope }`. `pack` accepts `{ escapeStrict, skipGlobals, stringGeneratorMode }`. `mangleProperties` accepts its [property options](/reference/property-mangling-options).
 
 ```js Run transforms
 const output = obfuscate(source, {
@@ -75,7 +75,6 @@ const output = obfuscate(source, {
 | `constToLet` | [Const to let](./transforms/const-to-let.mdx) |
 | `constLetToVar` | [Const and let to var](./transforms/const-let-to-var.mdx) |
 | `hoistVariables` | [Hoist variables](./transforms/hoist-variables.mdx) |
-| `mergeVariableDeclarations` | [Merge variable declarations](./transforms/merge-variable-declarations.mdx) |
 | `objectMethodToProperty` | [Object methods to properties](./transforms/object-method-to-property.mdx) |
 | `arrowToFunction` | [Arrow to function](./transforms/arrow-to-function.mdx) |
 | `functionDeclarationToExpression` | [Function declarations to expressions](./transforms/function-declaration-to-expression.mdx) |

@@ -30,7 +30,6 @@ const titles = {
   inlineFunctions: 'Inline functions',
   logicalToTernary: 'Logical expressions to ternaries',
   mangleProperties: 'Mangle properties',
-  mergeVariableDeclarations: 'Merge variable declarations',
   nullishCoalescingToTernary: 'Nullish coalescing to ternaries',
   numbersToStrings: 'Numbers to strings',
   objectMethodToProperty: 'Object methods to properties',
@@ -107,7 +106,7 @@ function readTransform(fileName) {
 
 function configurationNote(transformName) {
   if (transformName === 'concealStrings') {
-    return `Pass \`{ cache, cover, deduplicate, scope }\` instead of \`true\`. Program scope is the default and uses one vault. Function scope creates separate function vaults, each with the same whole-program pool. The default \`regional\` cover fills U+0000-00FF plus every 256-unit page touched anywhere in the program. Use \`used\` for compact output or \`full\` for all 65,536 UTF-16 units. Disable \`cache\` to decode on every evaluation, or disable \`deduplicate\` to give equal literals separate entries.`
+    return `Pass \`{ cache, cover, scope }\` instead of \`true\`. The string pool is shared by the whole program. Program scope is the default and uses one vault. Function scope keeps encoded entries, decoders, and caches in separate function vaults. Equal strings share one entry within their vault. The default \`regional\` cover fills U+0000-00FF plus every 256-unit page touched anywhere in the program. Use \`used\` for compact output or \`full\` for all 65,536 UTF-16 units. Disable \`cache\` to decode on every evaluation.`
   }
 
   if (transformName === 'mangleProperties') {
