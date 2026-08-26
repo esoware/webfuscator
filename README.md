@@ -61,6 +61,10 @@ pnpm docs:check   # links, snippets, redirects, accessibility
 
 [AGENTS.md](https://github.com/esoware/webfuscator/blob/main/AGENTS.md) lists the rest and explains which workspace owns what. Read it before changing transforms or analysis code.
 
+## Contributing
+
+Pull requests are welcome.
+
 ## Responsible use
 
 Use `webfuscator` only on software you own or are authorized to modify. Read [DISCLOSURE](https://github.com/esoware/webfuscator/blob/main/DISCLOSURE) for the project's dual-use policy.
