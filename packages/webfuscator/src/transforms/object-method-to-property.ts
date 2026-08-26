@@ -7,16 +7,8 @@ import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 
 /**
- * Rewrites generator and async object methods as function-valued properties so
- * later passes can lift and inline them.
- *
- * Plain methods stay concise because a function property would gain construction
- * and `prototype`. Generator and async functions remain non-constructors. Any
- * method using `super` also stays intact because a function has no HomeObject.
- *
- * Non-computed `__proto__` methods stay intact because the property form invokes
- * ECMA-262 B.3.1 prototype-setting behavior. Computed keys create own properties
- * and can be rewritten.
+ * Rewrites eligible async and generator object methods as function-valued
+ * properties.
  *
  * @example
  * // ◀️ before

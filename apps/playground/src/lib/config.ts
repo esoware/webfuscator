@@ -368,8 +368,8 @@ function expectTransforms(value: unknown, warnings: string[]): TransformsMap | u
       ] = true
       continue
     }
-    // A malformed entry leaves the transform off. Turning it on with defaults
-    // would run a pass nobody asked for, and `mangleProperties` renames
+    // Ignore malformed entries rather than converting them to `true`, which
+    // would run a pass nobody asked for. `mangleProperties` also renames
     // properties that code outside the input reads.
     if (spec.kind === 'mode') {
       const mode = expectModeEntry(spec.name as ModeOverrideName, entry, warnings)

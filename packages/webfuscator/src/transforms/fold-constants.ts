@@ -10,8 +10,8 @@ import { valueToLiteral } from '../utils/literal'
 import { isCalleeOrTagOf } from '../utils/paths'
 
 /**
- * Folds pure constant expressions to literals via `evaluateConstant`.
- * Logical and conditional nodes can fold directly to a chosen nonliteral branch.
+ * Replaces pure compile-time constant expressions with equivalent literals or
+ * selected branches.
  *
  * @example
  * // ◀️ before

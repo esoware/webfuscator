@@ -10,7 +10,7 @@ import { Workspace } from './components/Workspace'
 import { useObfuscator } from './hooks/useObfuscator'
 import { parseConfig, serializeOptions } from './lib/config'
 import type { ConfigParseResult } from './lib/config'
-import { defaultWorkspace, loadWorkspace, saveWorkspace } from './lib/storage'
+import { loadWorkspace, saveWorkspace, starterWorkspace } from './lib/storage'
 
 interface RunInput {
   source: string
@@ -20,7 +20,7 @@ interface RunInput {
 export default function App() {
   // No setter because nothing rewrites what was in storage at startup.
   // oxlint-disable-next-line react/hook-use-state
-  const [initial] = useState(() => ({ ...defaultWorkspace(), ...loadWorkspace() }))
+  const [initial] = useState(() => ({ ...starterWorkspace(), ...loadWorkspace() }))
 
   const [tab, setTab] = useState<TabId>('source')
   const [source, setSource] = useState(initial.source)
@@ -102,7 +102,7 @@ export default function App() {
   }, [])
 
   const handleOptionsReset = useCallback(() => {
-    handleOptionsChange(defaultWorkspace().options)
+    handleOptionsChange(starterWorkspace().options)
   }, [handleOptionsChange])
 
   const warnings = configResult?.status === 'ok' ? configResult.warnings : []
@@ -137,7 +137,7 @@ export default function App() {
             source={source}
             onSourceChange={setSource}
             onSourceReset={() => {
-              setSource(defaultWorkspace().source)
+              setSource(starterWorkspace().source)
             }}
             configText={configText}
             onConfigTextChange={handleConfigTextChange}

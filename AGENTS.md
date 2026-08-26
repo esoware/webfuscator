@@ -1,6 +1,6 @@
 # webfuscator
 
-`webfuscator` is a Babel-based JavaScript obfuscator. `obfuscate(code, options)` parses source, always runs preparation, runs only explicitly enabled transforms, and generates formatted JavaScript unless `minify` is enabled.
+`webfuscator` is a Babel-based JavaScript obfuscator. `obfuscate(code, options)` parses source, always runs preparation, runs a configurable transform only when its `transforms` entry is `true` or its supported options object, and generates formatted JavaScript unless `minify` is `true`.
 
 Published packages live in `packages/`, so the npm package is `packages/webfuscator/`. Everything that deploys without being published lives in `apps/`: the documentation site in `apps/docs/` and the playground in `apps/playground/`. Each workspace owns the commands it runs, and the root delegates to every one. The repository root holds configuration and no source.
 
@@ -13,13 +13,13 @@ Do not add guards, scans, or bailouts for anything in this list:
 - The extra outer alias that sloppy Annex B creates for a block-level function declaration.
 - Errors from accessing a lexical binding before initialization or assigning to `const`, including code that catches those errors.
 - The final value returned by evaluating an entire script or eval, including the return value of `pack`'s generated `Function` call.
-- Whether a top-level script declaration creates, removes, renames, or changes a property on `globalThis`.
+- Whether a top-level script declaration pollutes the global lexical environment (eg. var x = 1 at the top level of a script creates globalThis.x).
 - Generated text, comments, source locations, identifier and label spellings, the `.name` of a transformed function or class, `Function.prototype.toString()`, stack text, or the wording of an engine-generated error.
 - Standard built-ins patched by code that runs before the obfuscated input. Patches made by the input itself still matter.
 
 Everything else must be preserved or the rewrite must be skipped. That includes evaluation order, effects, laziness, coercion, getters, setters, proxies, ordinary exceptions other than the binding errors above, closures, per-iteration bindings, ordinary `var` and function hoisting, strict mode, directives, modules, calls, construction, iterators, external calls, and host values such as `document.all`.
 
-`dropConsole`, `dropDebugger`, `mangleProperties`, and `pack` are off by default. `dropConsole` removes eligible console calls. `dropDebugger` removes `debugger` statements. `mangleProperties` cannot account for property uses outside the input. `pack` runs the program inside a generated `Function`, and `pack.escapeStrict` removes strict mode from it. Their generated pages state these effects.
+`dropConsole`, `dropDebugger`, `mangleProperties`, and `pack` have effects beyond behavior-preserving rewrites. `dropConsole` removes eligible console calls. `dropDebugger` removes `debugger` statements. `mangleProperties` cannot account for property uses outside the input. `pack` runs the program inside a generated `Function`, and `pack.escapeStrict` removes strict mode from it. Like every configurable transform, they run only through their `transforms` entry. Their generated pages state these effects.
 
 Transforms do not throw because a rewrite is difficult; they leave that site unchanged. Invalid options throw, and `pack` throws on export statements because they cannot appear inside a `Function` body. In particular, `mangleProperties` rejects a malformed `cache` or `nameGenerator`, and `StringGenerator` rejects an empty mode list.
 
@@ -53,7 +53,7 @@ The phase tables in `packages/webfuscator/src/obfuscator.ts` define which passes
 - Synthesize every identifier and label with `scope.generateUid('purpose')` on the owning scope. No transform carries its own counter or prefix scheme.
 - Track changes through `traverseForChanges` and `ChangeState` in `packages/webfuscator/src/utils/change-tracking.ts`. A pass with its own traversal loop keeps state in an object that extends `ChangeState`.
 - Give every new pass in `packages/webfuscator/src/transforms/` or `packages/webfuscator/src/preparation/` a mirror test at the same path under `packages/webfuscator/tests/`. If the pass is configurable, add it to `TransformName` in `packages/webfuscator/src/options.ts`.
-- A new transform must follow the rules above. If it changes another behavior or relies on facts outside the input, keep it off by default and state the exact effect in `apps/docs/scripts/generate-transforms.mjs`.
+- A new transform must follow the rules above. If it changes another behavior or relies on facts outside the input, keep it out of preparation so it runs only through a `transforms` entry, and state the exact effect in `apps/docs/scripts/generate-transforms.mjs`.
 - Most helpers in `packages/webfuscator/src/utils/` and `packages/webfuscator/src/analysis/` get coverage from their transforms. The rewrite safety predicates in `packages/webfuscator/src/analysis/purity.ts`, `packages/webfuscator/src/analysis/constant.ts`, and `packages/webfuscator/src/analysis/document-order.ts` need direct mirror tests. So do the value builders in `packages/webfuscator/src/utils/literal.ts` and `packages/webfuscator/src/utils/string-generator.ts`. Transitive tests miss too many of their branches, and a wrong answer can change program behavior.
 - `packages/webfuscator/src/index.ts` exports the public API and nothing else.
 

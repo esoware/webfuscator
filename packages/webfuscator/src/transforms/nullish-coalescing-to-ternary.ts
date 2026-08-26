@@ -8,8 +8,8 @@ import { lowerLogicalWriteStatement } from '../utils/logical-lowering'
 import { buildNonNullishCheck, buildNullishCheck } from '../utils/nullish'
 
 /**
- * Rewrites `a ?? b` as a guarded assignment or strict null and undefined
- * checks. A side-effectful left side is cached.
+ * Rewrites nullish-coalescing expressions as equivalent conditional expressions
+ * while evaluating the left operand once.
  *
  * @example
  * // ◀️ before

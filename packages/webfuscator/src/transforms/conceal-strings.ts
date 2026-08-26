@@ -11,25 +11,8 @@ import { mulberry32, shuffleInPlace } from '../utils/random'
 const RECORD_WIDTH = 4
 
 /**
- * Replaces runtime string literals with calls to a generated decoder. Each vault
- * stores masked positions in a shuffled UTF-16 pool. The decoder handles lone
- * surrogates without relying on mutable built-ins. The default `regional` pool
- * covers U+0000-00FF and every 256-unit page used by the program. `full` covers
- * all 65,536 code units.
- *
- * `scope: 'program'` creates one vault. `scope: 'function'` creates a vault per
- * function but repeats the program-wide pool in each one. Parameter defaults and
- * computed keys use the enclosing vault because they run before the function
- * body.
- *
- * Directives, module specifiers, import attributes, and non-computed keys are not
- * runtime expressions, so they stay unchanged.
- *
- * This is obfuscation, not encryption. The output contains the decoder and all
- * data needed to recover each string. `cover: 'used'` also leaves one-unit
- * strings in the pool and may reproduce longer text by chance.
- *
- * The example uses `{ cover: 'used' }` to keep the pool short.
+ * Replaces runtime string literals with calls to a generated decoder backed by
+ * an obfuscated string vault.
  *
  * @example
  * // ◀️ before

@@ -10,7 +10,7 @@ import { ChevronRightIcon, CloseIcon, SearchIcon } from '../lib/icons'
 import { displayMode, modeChoices } from '../lib/modes'
 import { TRANSFORM_GROUPS, isStringGeneratorMode } from '../lib/schema'
 import type { TransformGroup } from '../lib/schema'
-import { isEntryEnabled, mergePatch } from '../lib/transformEntry'
+import { entryRunsTransform, mergePatch } from '../lib/transformEntry'
 import type { PatchOf } from '../lib/transformEntry'
 import { Button } from './Button'
 import { NumberSpinner, SelectField, SwitchField } from './Fields'
@@ -118,9 +118,9 @@ function OptionsPanelContent({ options, onChange, onReset }: OptionsPanelProps) 
                 <Group
                   key={group.title}
                   title={group.title}
-                  enabled={
+                  running={
                     group.transforms.filter((spec) =>
-                      isEntryEnabled(options.transforms?.[spec.name]),
+                      entryRunsTransform(options.transforms?.[spec.name]),
                     ).length
                   }
                   total={group.transforms.length}
@@ -175,12 +175,12 @@ function matchingGroups(query: string): readonly TransformGroup[] {
 
 interface GroupProps {
   title: string
-  enabled?: number
+  running?: number
   total?: number
   children: ReactNode
 }
 
-function Group({ title, enabled, total, children }: GroupProps) {
+function Group({ title, running, total, children }: GroupProps) {
   return (
     <Accordion.Item value={title}>
       <Accordion.Header>
@@ -193,10 +193,10 @@ function Group({ title, enabled, total, children }: GroupProps) {
           {/* Collapsed, this is the only sign a group holds anything active. */}
           {total !== undefined && (
             <span
-              aria-label={`${enabled} of ${total} enabled`}
+              aria-label={`${running} of ${total} transforms will run`}
               className="ml-auto shrink-0 pl-2 text-xs text-fg-faint tabular-nums"
             >
-              {enabled}/{total}
+              {running}/{total}
             </span>
           )}
         </Accordion.Trigger>

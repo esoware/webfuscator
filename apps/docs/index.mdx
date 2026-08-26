@@ -17,7 +17,7 @@ Paste a file into the [playground](https://playground.webfuscator.dev) to watch 
   </Card>
 
   <Card title="Choose your transforms" icon="sliders-horizontal" href="/guides/configure-transforms">
-    Enable or disable passes, select a naming mode, and configure property mangling.
+    Set which passes run, choose a naming mode, and configure property mangling.
   </Card>
 
   <Card title="Read the API reference" icon="code-xml" href="/reference/api">
@@ -48,8 +48,8 @@ const output = obfuscate(source, {
     Babel accepts scripts and ECMAScript modules with unambiguous source detection. Compile TypeScript, JSX, and other syntax extensions first.
   </Card>
 
-  <Card title="Runs enabled transforms" icon="route">
-    Transforms skip sites they cannot handle. The pages for removal, property mangling, and packing state the behavior they change or cannot see.
+  <Card title="Runs transforms from the map" icon="route">
+    A transform runs when its entry is `true` or its supported options object. Transforms skip sites they cannot handle.
   </Card>
 
   <Card title="Prints source" icon="file-output">
@@ -67,7 +67,7 @@ The same source, options, package version, and Node.js version produce the same 
 
 <Columns cols={2}>
   <Card title="Obfuscator options" icon="settings-2" horizontal href="/reference/options">
-    Defaults, transform switches, naming modes, seeds, and verbose output.
+    Transform entries, naming modes, seeds, formatting, and verbose output.
   </Card>
 
   <Card title="Property mangling" icon="key-round" horizontal href="/reference/property-mangling-options">

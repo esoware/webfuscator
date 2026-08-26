@@ -37,6 +37,7 @@ const titles = {
   optionalChainingToTernary: 'Optional chaining to ternaries',
   pack: 'Pack into a Function constructor',
   packDeclarationsIntoParameters: 'Pack declarations into parameters',
+  packExpressions: 'Pack expressions',
   removeAnonymousFunctionNames: 'Remove anonymous function names',
   removeUnreachableCode: 'Remove unreachable code',
   removeUnusedCode: 'Remove unused code',
@@ -54,7 +55,7 @@ const configurableStringModeTransforms = new Set(['renameIdentifiers', 'specials
 function configuredTransformNames() {
   const optionsSource = readFileSync(join(webfuscatorDirectory, 'src', 'options.ts'), 'utf8')
   const declaration = optionsSource.match(
-    /export type TransformName =(?<members>[\s\S]*?)\n\n\/\/ An override enables/u,
+    /export type TransformName =(?<members>[\s\S]*?)\n\n\/\/ An options object runs/u,
   )
   if (!declaration?.groups) {
     throw new Error('Could not read TransformName from src/options.ts')
@@ -90,7 +91,7 @@ function readTransform(fileName) {
   }
 
   return {
-    behavior: publicBehavior(transformName, lines.slice(0, exampleMarker).join('\n').trim()),
+    behavior: lines.slice(0, exampleMarker).join('\n').trim(),
     before: lines
       .slice(beforeMarker + 1, afterMarker)
       .join('\n')
@@ -101,35 +102,6 @@ function readTransform(fileName) {
       .trim(),
     fileName,
     transformName,
-  }
-}
-
-function publicBehavior(transformName, behavior) {
-  switch (transformName) {
-    case 'logicalToTernary':
-      return behavior.replace(
-        'A\nside-effectful left side is cached in the ternary test for later hoisting.',
-        'A side-effectful left side is cached so it is evaluated once.',
-      )
-    case 'numbersToStrings':
-      return behavior.replace(
-        '\n\nPreparation has already converted numeric object keys to strings.',
-        '',
-      )
-    case 'renameIdentifiers':
-      return behavior.replace('a fresh `StringGenerator`', 'the configured string generator')
-    case 'specialsToStrings':
-      return behavior.replace(
-        'through strings for later string mangling:',
-        'through string expressions:',
-      )
-    case 'updateToAssignment':
-      return behavior.replace(
-        'as compound assignments for later expansion.',
-        'as compound assignments.',
-      )
-    default:
-      return behavior
   }
 }
 
@@ -155,9 +127,10 @@ function configurationNote(transformName) {
 
 function configurationBlock(transformName) {
   const note = configurationNote(transformName)
+  const entryTypes = note ? '`true` or an options object' : '`true`'
   return `## Configuration
 
-Use \`transforms.${transformName}\` in the options passed to \`obfuscate\`:
+Run this transform by setting \`transforms.${transformName}\` to ${entryTypes}:
 
 \`\`\`js obfuscate.mjs highlight={3}
 const output = obfuscate(source, {
@@ -170,6 +143,12 @@ const output = obfuscate(source, {
 
 // Only transforms with a public warning need a callout.
 function behaviorCallout(transformName) {
+  if (transformName === 'concealStrings') {
+    return `<Warning>
+  String concealment is obfuscation, not encryption. The generated decoder and vault contain everything needed to recover the original strings.
+</Warning>`
+  }
+
   if (transformName === 'dropConsole') {
     return `<Note>
   This option removes console output. It removes a call only when evaluating its arguments and computed key has no other side effects. Calls through a shadowed or reassigned \`console\` stay unchanged.
@@ -230,8 +209,6 @@ keywords: [${JSON.stringify(transform.transformName)}, "JavaScript transform"]
 
 ${optionBadge(transform.transformName)}
 
-${configurationBlock(transform.transformName)}
-
 ## What it changes
 
 ${transform.behavior}
@@ -249,6 +226,8 @@ ${transform.after}
 \`\`\`
 
 </CodeGroup>
+
+${configurationBlock(transform.transformName)}
 
 <Columns cols={2}>
   <Card title="View the implementation" icon="code-xml" href="${sourceUrl}" horizontal>

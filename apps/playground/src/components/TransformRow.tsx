@@ -17,7 +17,7 @@ import {
   editTransformEntry,
   entryMode,
   entryObject,
-  isEntryEnabled,
+  entryRunsTransform,
   patchTransformEntry,
 } from '../lib/transformEntry'
 import type { ModeOverride, PatchOf } from '../lib/transformEntry'
@@ -39,7 +39,7 @@ interface TransformRowProps {
 
 export function TransformRow({ spec, options, onChange }: TransformRowProps) {
   const entry = options.transforms?.[spec.name]
-  const enabled = isEntryEnabled(entry)
+  const runs = entryRunsTransform(entry)
   const override = entryMode(entry)
 
   const patchDetails = <T extends object>(patch: PatchOf<T>) => {
@@ -78,7 +78,7 @@ export function TransformRow({ spec, options, onChange }: TransformRowProps) {
         </a>
 
         <Switch
-          checked={enabled}
+          checked={runs}
           onCheckedChange={(checked) => {
             onChange(editTransformEntry(options, spec.name, checked ? true : undefined))
           }}
@@ -86,7 +86,7 @@ export function TransformRow({ spec, options, onChange }: TransformRowProps) {
       </Field.Root>
 
       {spec.kind !== 'boolean' && (
-        <Details open={enabled} name={spec.name}>
+        <Details open={runs} name={spec.name}>
           {spec.kind === 'mangle' && (
             <MangleDetails
               mangle={entryObject<ManglePropertiesOptions>(entry)}

@@ -7,9 +7,8 @@ import type { ChangeState } from '../utils/change-tracking'
 import { collectLoopLabels, generateLoopLabel, redirectContinues } from '../utils/loop-lowering'
 
 /**
- * Rewrites classic `for` loops as an initializer followed by `while`. Continues
- * become breaks from an inner block so the update still runs. Iterator loops
- * stay unchanged.
+ * Rewrites classic `for` loops as equivalent `while` loops. `for...in` and
+ * `for...of` loops stay unchanged.
  *
  * @example
  * // ◀️ before

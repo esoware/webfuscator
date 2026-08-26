@@ -6,13 +6,9 @@ import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 
 /**
- * Rewrites function declarations at script top level or directly inside a
- * function body as `var` initializers. It leaves a declaration unchanged when
- * an earlier statement could execute user code before the assignment.
- *
- * Name inference and recursive references still use the `var` binding.
- *
- * Block-level and module top-level declarations stay unchanged.
+ * Rewrites eligible function declarations in scripts and function bodies as
+ * `var`-initialized function expressions. Declarations stay unchanged when
+ * moving initialization to their statement position could alter execution.
  *
  * @example
  * // ◀️ before

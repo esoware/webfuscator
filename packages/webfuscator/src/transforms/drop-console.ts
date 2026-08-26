@@ -8,10 +8,7 @@ import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 
 /**
- * Removes `console.*(...)` expression statements when `console` is not
- * locally shadowed. Matches dot, bracket, and optional-chain forms.
- * Leaves indirect uses alone (`console.log.call(...)`, assignments,
- * `await console.log(...)`).
+ * Removes eligible `console` call expression statements.
  *
  * @example
  * // ◀️ before

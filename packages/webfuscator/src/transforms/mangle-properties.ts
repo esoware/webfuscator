@@ -12,9 +12,8 @@ import { mulberry32 } from '../utils/random'
 import { StringGenerator } from '../utils/string-generator'
 
 /**
- * Renames statically known public properties through one program-wide mapping.
- * Options select or reserve names, and collision checks keep every unchanged
- * property distinct from the generated names.
+ * Renames statically known public properties using one consistent program-wide
+ * mapping.
  *
  * @example
  * // ◀️ before

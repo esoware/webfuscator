@@ -6,12 +6,8 @@ import { rewriteStatementLists } from '../utils/statement-lists'
 import type { StatementListContainer } from '../utils/statement-lists'
 
 /**
- * Moves hoisted function declarations to the end of each program, block, switch
- * case, or static block. It keeps declaration order, including duplicate names.
- *
- * If moving every declaration would turn a string expression into a directive,
- * one declaration stays before the string. Direct exports stay in place.
- * Indirect exports move with their local declaration.
+ * Moves hoisted function declarations to the end of their statement lists
+ * without changing their relative order.
  *
  * @example
  * // ◀️ before

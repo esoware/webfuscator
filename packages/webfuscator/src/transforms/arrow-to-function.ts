@@ -6,10 +6,9 @@ import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 
 /**
- * Converts arrows with Babel's capture-aware `arrowFunctionToExpression`.
- * Arrows that use `super` stay unchanged. An arrow also stays unchanged unless
- * every use is an immediate call or a discarded expression, because a normal
- * function can be constructed with `new` and has a `prototype`.
+ * Converts eligible arrow functions to function expressions while preserving
+ * their lexical captures. Arrows that use `super` or whose values escape stay
+ * unchanged.
  *
  * @example
  * // ◀️ before

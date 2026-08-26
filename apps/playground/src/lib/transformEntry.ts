@@ -56,7 +56,7 @@ export function mergePatch<T extends object>(current: T, patch: PatchOf<T>): T {
 }
 
 /** An absent key and an explicit `false` both mean the transform does not run. */
-export function isEntryEnabled(entry: unknown): boolean {
+export function entryRunsTransform(entry: unknown): boolean {
   return entry !== undefined && entry !== false
 }
 

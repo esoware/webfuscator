@@ -15,9 +15,8 @@ import { valueToLiteral } from '../utils/literal'
 import { isCalleeOrTagOf } from '../utils/paths'
 
 /**
- * Drops single-use temporaries through substitution, direct branch writes, or
- * constant replacement. It repeats these rewrites so one removal can expose
- * another.
+ * Replaces eligible single-use temporary bindings with their values and removes
+ * the declarations.
  *
  * @example
  * // ◀️ before

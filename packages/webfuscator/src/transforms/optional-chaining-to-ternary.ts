@@ -7,9 +7,8 @@ import type { ChangeState } from '../utils/change-tracking'
 import { buildNullishCheck } from '../utils/nullish'
 
 /**
- * Rewrites optional chains as nested ternaries. Side-effectful receivers are
- * cached, and member calls retain their `this`. Optional deletion short-circuits
- * to `true` as required by ECMA-262 13.5.1.
+ * Rewrites optional chains as equivalent conditional expressions while
+ * preserving short-circuiting and method receivers.
  *
  * @example
  * // ◀️ before

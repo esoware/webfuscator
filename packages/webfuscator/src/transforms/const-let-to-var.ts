@@ -4,10 +4,9 @@ import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
 /**
- * Converts `let` and `const` declarations to `var` and renames bindings that
- * would conflict after hoisting. It leaves loop declarations unchanged when
- * `var` would lose a captured per-iteration binding or reuse the previous
- * iteration's value.
+ * Converts eligible `let` and `const` declarations to `var`, renaming bindings
+ * when needed to avoid hoisting conflicts. Loop bindings stay unchanged when
+ * conversion would alter iteration behavior.
  *
  * @example
  * // ◀️ before

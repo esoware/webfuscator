@@ -9,9 +9,8 @@ import type { ChangeState } from '../utils/change-tracking'
 import { isCalleeOrTagOf } from '../utils/paths'
 
 /**
- * Replaces a constant object or array wrapper with one binding per entry when
- * every reference is a static-key read. The inliner can then see function
- * values directly.
+ * Replaces eligible object and array wrapper bindings with separate bindings
+ * for their statically accessed entries.
  *
  * @example
  * // ◀️ before

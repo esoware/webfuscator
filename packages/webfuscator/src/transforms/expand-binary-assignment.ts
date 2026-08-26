@@ -6,14 +6,8 @@ import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 
 /**
- * Rewrites arithmetic and bitwise compound assignments as `LHS = LHS op RHS`.
- * Logical compound assignments are handled by `expandLogicalAssignment`.
- *
- * Member objects and computed keys are cached so the read and write use the same
- * evaluated receiver. The cache assignment stays on the outer write target,
- * which evaluates before its right side.
- *
- * Compound and expanded forms use the same operator semantics, including BigInt.
+ * Expands arithmetic and bitwise compound assignments into simple assignments
+ * while preserving single evaluation of member receivers and computed keys.
  *
  * @example
  * // ◀️ before

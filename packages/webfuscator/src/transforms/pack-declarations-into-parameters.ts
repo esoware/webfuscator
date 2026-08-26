@@ -8,11 +8,8 @@ import type { ChangeState } from '../utils/change-tracking'
 import { isLiteralShaped } from '../utils/literal'
 
 /**
- * Moves leading literal-valued `var` declarations into trailing default
- * parameters. Arrows, rest parameters, name collisions, and functions with
- * callers that could fill a new slot stay unchanged.
- *
- * Packing also requires unchanged `arguments`, directive, and hoisting behavior.
+ * Moves eligible leading `var` declarations with literal initializers into
+ * trailing default parameters.
  *
  * @example
  * // ◀️ before

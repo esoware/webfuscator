@@ -4,15 +4,17 @@ description: "Choose transforms, naming styles, seeds, and property-mangling bou
 keywords: ["transforms","configuration","mangleProperties"]
 ---
 
-Configurable transforms are disabled by default; enable individual passes through the `transforms` map.
+No configurable transform runs unless its `transforms` entry is `true`. Transforms with settings also run when that entry is an options object.
+
+The playground opens with a starter preset. Its checked transform switches are example configuration, not library defaults.
 
 <Note>
   Internal preparation passes always normalize AST shapes before configurable transforms run. They are not exposed in `options.transforms`.
 </Note>
 
-## Toggle one transform
+## Run one transform
 
-Use `true` to enable an ordinary transform.
+Set an ordinary transform's key to `true`. An options object also makes that transform run and supplies its settings. An omitted key or `false` means that transform does not run.
 
 ```js obfuscate.mjs
 obfuscate(source, {
@@ -76,7 +78,7 @@ const output = obfuscate(source, {
 This configuration selects names ending in `_` and then excludes `public_api_`. For multi-file builds, share one cache between every file that exchanges those properties.
 
 <Card title="Plan property mangling" icon="key-round" horizontal href="/reference/property-mangling-options">
-  Compare regex, annotation, cache, and quoted-property strategies before enabling the transform.
+  Compare regex, annotation, cache, and quoted-property strategies before using the transform.
 </Card>
 
 ## Verify the built artifact

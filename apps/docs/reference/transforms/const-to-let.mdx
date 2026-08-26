@@ -7,18 +7,6 @@ keywords: ["constToLet", "JavaScript transform"]
 
 <Badge color="blue" icon="sliders-horizontal" stroke>Option: transforms.constToLet</Badge>
 
-## Configuration
-
-Use `transforms.constToLet` in the options passed to `obfuscate`:
-
-```js obfuscate.mjs highlight={3}
-const output = obfuscate(source, {
-  transforms: {
-    constToLet: true,
-  },
-})
-```
-
 ## What it changes
 
 Changes `const` declarations to `let`.
@@ -38,6 +26,18 @@ let { a, b } = obj;
 ```
 
 </CodeGroup>
+
+## Configuration
+
+Run this transform by setting `transforms.constToLet` to `true`:
+
+```js obfuscate.mjs highlight={3}
+const output = obfuscate(source, {
+  transforms: {
+    constToLet: true,
+  },
+})
+```
 
 <Columns cols={2}>
   <Card title="View the implementation" icon="code-xml" href="https://github.com/esoware/webfuscator/blob/main/packages/webfuscator/src/transforms/const-to-let.ts" horizontal>

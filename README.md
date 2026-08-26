@@ -30,7 +30,10 @@ const output = obfuscate(source, {
 
 `obfuscate(code, options?)` is synchronous. It does not execute the input or write files.
 
-Configurable transforms are disabled by default; preparation passes always run.
+`obfuscate` always runs internal preparation. A configurable transform runs only when its
+`options.transforms` entry is `true`; transforms with settings also accept an options object.
+Omitting the map runs none of them. Defaults for formatting, logging, seeds, and generated-name
+styles do not cause a transform to run.
 
 ## Documentation
 

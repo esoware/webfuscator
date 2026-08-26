@@ -20,7 +20,7 @@ test('obfuscate omitting transforms runs no configurable transforms', () => {
   expect(defaultOut).toContain('function helper')
 })
 
-test('obfuscate keeps preparation enabled when transforms are omitted', () => {
+test('obfuscate runs preparation when transforms are omitted', () => {
   const out = obfuscate(`const value = object.property;`)
   expect(out).toContain('const value')
   expect(out).toContain('object["property"]')
@@ -42,7 +42,7 @@ log(new Box().value, Box.count);`
   expect(out).not.toContain('Object.defineProperty')
 })
 
-test('obfuscate minify selects Babel minified output without changing behavior', () => {
+test('obfuscate minify uses Babel minified output without changing behavior', () => {
   const src = `function add(a, b) { return a + b; } log(add(2, 3));`
   const formatted = obfuscate(src)
   const explicitFormatted = obfuscate(src, { minify: false })
@@ -61,54 +61,54 @@ test('obfuscate minify selects Babel minified output without changing behavior',
   expect(evaluate(minified)).toEqual([5])
 })
 
-test('obfuscate with dropConsole disabled keeps console.* statements', () => {
+test('obfuscateAll with dropConsole set to false keeps console.* statements', () => {
   const src = `console.log("kept"); var x = 42; log(x);`
-  const enabled = obfuscateAll(src)
-  const disabled = obfuscateAll(src, {
+  const withTransform = obfuscateAll(src)
+  const withoutTransform = obfuscateAll(src, {
     transforms: { ...KEEP_RUNTIME_STRINGS, dropConsole: false },
   })
   // Preparation changes dot access regardless of this transform toggle.
-  expect(enabled).not.toContain('console')
-  expect(disabled).toContain('console')
-  expect(disabled).toContain('"kept"')
+  expect(withTransform).not.toContain('console')
+  expect(withoutTransform).toContain('console')
+  expect(withoutTransform).toContain('"kept"')
 })
 
-test('obfuscate with dropDebugger disabled keeps debugger statements', () => {
+test('obfuscateAll with dropDebugger set to false keeps debugger statements', () => {
   const src = `function f() { debugger; return 1; } log(f());`
-  const enabled = obfuscateAll(src)
-  const disabled = obfuscateAll(src, { transforms: { dropDebugger: false } })
-  expect(enabled).not.toContain('debugger')
-  expect(disabled).toContain('debugger')
+  const withTransform = obfuscateAll(src)
+  const withoutTransform = obfuscateAll(src, { transforms: { dropDebugger: false } })
+  expect(withTransform).not.toContain('debugger')
+  expect(withoutTransform).toContain('debugger')
 })
 
-test('obfuscate with foldConstants disabled leaves arithmetic literals untouched', () => {
+test('obfuscateAll with foldConstants set to false leaves arithmetic literals untouched', () => {
   const src = `var x = 1 + 2 + 3; log(x);`
-  const enabled = obfuscateAll(src, { transforms: { numbersToStrings: false } })
+  const withTransform = obfuscateAll(src, { transforms: { numbersToStrings: false } })
   // Single-use temporary collapse can perform the same constant propagation.
-  const disabled = obfuscateAll(src, {
+  const withoutTransform = obfuscateAll(src, {
     transforms: { foldConstants: false, collapseSingleUseTemps: false, numbersToStrings: false },
   })
-  expect(enabled).toContain('log(6)')
-  expect(disabled).not.toContain('log(6)')
-  expect(disabled).toMatch(/1\s*\+\s*2/)
+  expect(withTransform).toContain('log(6)')
+  expect(withoutTransform).not.toContain('log(6)')
+  expect(withoutTransform).toMatch(/1\s*\+\s*2/)
 })
 
-test('obfuscate with inlineFunctions disabled keeps the function declaration', () => {
+test('obfuscateAll with inlineFunctions set to false keeps the function declaration', () => {
   const src = `function helper(a, b) { return a + b; } log(helper(2, 3));`
-  const enabled = obfuscateAll(src)
-  const disabled = obfuscateAll(src, {
+  const withTransform = obfuscateAll(src)
+  const withoutTransform = obfuscateAll(src, {
     transforms: {
       inlineFunctions: false,
       renameIdentifiers: false,
       functionDeclarationToExpression: false,
     },
   })
-  expect(enabled).not.toContain('function helper')
-  expect(disabled).toContain('function helper')
-  expect(disabled).toMatch(/helper\s*\(/)
+  expect(withTransform).not.toContain('function helper')
+  expect(withoutTransform).toContain('function helper')
+  expect(withoutTransform).toMatch(/helper\s*\(/)
 })
 
-test('obfuscate with switchToIf disabled keeps the switch statement', () => {
+test('obfuscateAll with switchToIf set to false keeps the switch statement', () => {
   const src = `function pick(x) {
     switch (x) {
       case 1: return 'a';
@@ -117,44 +117,46 @@ test('obfuscate with switchToIf disabled keeps the switch statement', () => {
     }
   }
   log(pick(2));`
-  const enabled = obfuscateAll(src)
-  const disabled = obfuscateAll(src, { transforms: { switchToIf: false } })
-  expect(enabled).not.toContain('switch (')
-  expect(disabled).toContain('switch (')
+  const withTransform = obfuscateAll(src)
+  const withoutTransform = obfuscateAll(src, { transforms: { switchToIf: false } })
+  expect(withTransform).not.toContain('switch (')
+  expect(withoutTransform).toContain('switch (')
 })
 
-test('obfuscate with arrowToFunction disabled keeps arrow expressions', () => {
+test('obfuscateAll with arrowToFunction set to false keeps arrow expressions', () => {
   const src = `var f = (x) => x * 2; log(f(3));`
-  const enabled = obfuscateAll(src)
-  const disabled = obfuscateAll(src, { transforms: { arrowToFunction: false } })
-  expect(enabled).not.toContain('=>')
-  expect(disabled).toContain('=>')
+  const withTransform = obfuscateAll(src)
+  const withoutTransform = obfuscateAll(src, { transforms: { arrowToFunction: false } })
+  expect(withTransform).not.toContain('=>')
+  expect(withoutTransform).toContain('=>')
 })
 
-test('obfuscate with optionalChainingToTernary disabled keeps the optional chain', () => {
+test('obfuscateAll with optionalChainingToTernary set to false keeps the optional chain', () => {
   const src = `function getX(o) { return o?.a?.b; } log(getX({a: {b: 7}}));`
-  const enabled = obfuscateAll(src)
-  const disabled = obfuscateAll(src, { transforms: { optionalChainingToTernary: false } })
-  expect(enabled).not.toContain('?.')
-  expect(disabled).toContain('?.')
+  const withTransform = obfuscateAll(src)
+  const withoutTransform = obfuscateAll(src, {
+    transforms: { optionalChainingToTernary: false },
+  })
+  expect(withTransform).not.toContain('?.')
+  expect(withoutTransform).toContain('?.')
 })
 
-test('obfuscate with yodifyConditions disabled leaves comparison operand order intact', () => {
+test('obfuscateAll with yodifyConditions set to false leaves operand order intact', () => {
   const src = `var x = read(); if (x === 1) emit(); else other();`
-  const enabled = obfuscateAll(src, { transforms: { numbersToStrings: false } })
-  const disabled = obfuscateAll(src, {
+  const withTransform = obfuscateAll(src, { transforms: { numbersToStrings: false } })
+  const withoutTransform = obfuscateAll(src, {
     transforms: { yodifyConditions: false, numbersToStrings: false },
   })
-  expect(enabled).toContain('1 ===')
-  expect(disabled).toContain('=== 1')
+  expect(withTransform).toContain('1 ===')
+  expect(withoutTransform).toContain('=== 1')
 })
 
-test('obfuscate disabling extractObjectProperties leaves the wrapper variable in place', () => {
+test('obfuscateAll with extractObjectProperties set to false keeps the wrapper variable', () => {
   const src = `var u = { f: function () { return 5; } };
 log(u.f());
 log(u.f());`
-  const enabled = obfuscateAll(src)
-  const disabled = obfuscateAll(src, {
+  const withTransform = obfuscateAll(src)
+  const withoutTransform = obfuscateAll(src, {
     transforms: {
       extractObjectProperties: false,
       inlineFunctions: false,
@@ -163,11 +165,11 @@ log(u.f());`
       hoistVariables: false,
     },
   })
-  expect(disabled).toMatch(/var\s+u\s*=\s*\{/)
-  expect(enabled).not.toMatch(/var\s+u\s*=\s*\{/)
+  expect(withoutTransform).toMatch(/var\s+u\s*=\s*\{/)
+  expect(withTransform).not.toMatch(/var\s+u\s*=\s*\{/)
 })
 
-test('obfuscate with the entire fixed-point group disabled still produces a valid program', () => {
+test('obfuscateAll with the fixed-point group set to false still produces a valid program', () => {
   const src = `function f(x) { return x + 1; } log(f(5));`
   const opts: ObfuscatorOptions = {
     transforms: {
@@ -190,7 +192,7 @@ test('obfuscate with the entire fixed-point group disabled still produces a vali
   expect(observed).toEqual([6])
 })
 
-test('obfuscate behavioral parity: default vs every-transform-disabled-individually still preserves runtime', () => {
+test('obfuscateAll preserves behavior when individual transform entries are false', () => {
   const src = `function add(a, b) { return a + b; }
 function pick(x) {
   switch (x) {
@@ -217,14 +219,14 @@ log(pick(99));`
   expect(trial({ transforms: { yodifyConditions: false } })).toEqual([3, 'a', 'd'])
 })
 
-test('obfuscate enabling a transform explicitly via true matches the default', () => {
+test('obfuscateAll passing true for a transform matches its preset', () => {
   const src = `var x = 1 + 2; log(x);`
-  const def = obfuscateAll(src)
+  const preset = obfuscateAll(src)
   const explicitTrue = obfuscateAll(src, { transforms: { foldConstants: true } })
-  expect(def).toBe(explicitTrue)
+  expect(preset).toBe(explicitTrue)
 })
 
-test('obfuscate enables concealStrings through its public boolean and object entries', () => {
+test('obfuscate runs concealStrings through its public boolean and object entries', () => {
   const source = `function first() { return "first private value"; }
 function second() { return "second private value"; }
 log(first(), second());`
@@ -246,7 +248,7 @@ log(first(), second());`
   expect(scoped.match(/const _stringPool/gu)).toHaveLength(2)
 })
 
-// Disable inlining so the bindings under name-style tests survive.
+// Set inlining to false so the bindings under name-style tests survive.
 const RENAME_FIXTURE = `function add(value, multiplier) {
   var scaled = value * multiplier;
   return scaled;
@@ -293,7 +295,7 @@ test('obfuscate per-transform override: renameIdentifiers picks its own style ov
   expect(out).not.toMatch(/function var_\d+\(/)
 })
 
-test('obfuscate per-transform override: object form is enabled (not treated as falsy)', () => {
+test('obfuscate per-transform override: object form runs the transform', () => {
   const out = obfuscateAll(RENAME_FIXTURE, {
     transforms: { ...NO_INLINE, renameIdentifiers: { stringGeneratorMode: 'hexadecimal' } },
   })
@@ -326,7 +328,7 @@ test('obfuscate global stringGeneratorMode: array mixes the supplied modes in th
   expect(out).toMatch(/var_\d+/)
 })
 
-test('obfuscate per-transform `false` still disables, even when other transforms have object overrides', () => {
+test('obfuscate per-transform `false` prevents that transform from running', () => {
   const out = obfuscateAll(RENAME_FIXTURE, {
     transforms: {
       ...NO_INLINE,
@@ -342,16 +344,16 @@ const PROPERTY_FIXTURE = `var object = read();
 object.secret_ = read();
 log(object.secret_);`
 
-test('obfuscate leaves the unsafe property mangler disabled when omitted', () => {
+test('obfuscate does not run property mangling when omitted', () => {
   const omitted = obfuscateAll(PROPERTY_FIXTURE, { transforms: KEEP_RUNTIME_STRINGS })
-  const disabled = obfuscateAll(PROPERTY_FIXTURE, {
+  const explicitFalse = obfuscateAll(PROPERTY_FIXTURE, {
     transforms: { ...KEEP_RUNTIME_STRINGS, mangleProperties: false },
   })
-  expect(omitted).toBe(disabled)
+  expect(omitted).toBe(explicitFalse)
   expect(omitted).toContain('secret_')
 })
 
-test('obfuscate enables mangleProperties with true', () => {
+test('obfuscate runs mangleProperties with true', () => {
   const out = obfuscateAll(PROPERTY_FIXTURE, {
     transforms: { ...KEEP_RUNTIME_STRINGS, mangleProperties: true },
   })

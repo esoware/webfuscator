@@ -12,7 +12,7 @@ const packMangled = (ast: File): void => {
   pack(ast, { seed: 0, stringGeneratorMode: 'mangled' })
 }
 
-// Preparation must run before pack, so behavior tests obfuscate with pack enabled
+// Preparation must run before pack, so behavior tests set `pack` to `true`
 // rather than calling the transform in isolation.
 const packOnly = (src: string): string => obfuscate(src, { transforms: { pack: true } })
 

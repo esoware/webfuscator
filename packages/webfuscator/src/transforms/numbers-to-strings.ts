@@ -7,11 +7,7 @@ import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 
 /**
- * Rewrites numeric literals as strings coerced with unary plus. Under `+`, `-`,
- * or `~`, the existing operator supplies that coercion. Other unary operators
- * keep the wrapper because their string behavior differs.
- *
- * Preparation has already converted numeric object keys to strings.
+ * Rewrites numeric literals as equivalent string-coercion expressions.
  *
  * @example
  * // ◀️ before

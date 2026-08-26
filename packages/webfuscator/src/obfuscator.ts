@@ -38,6 +38,7 @@ import { objectMethodToProperty } from './transforms/object-method-to-property'
 import { optionalChainingToTernary } from './transforms/optional-chaining-to-ternary'
 import { pack } from './transforms/pack'
 import { packDeclarationsIntoParameters } from './transforms/pack-declarations-into-parameters'
+import { packExpressions } from './transforms/pack-expressions'
 import { removeAnonymousFunctionNames } from './transforms/remove-anonymous-function-names'
 import { removeUnreachableCode } from './transforms/remove-unreachable-code'
 import { removeUnusedCode } from './transforms/remove-unused-code'
@@ -144,12 +145,17 @@ const POST_PROCESS: readonly ConfigurablePhase[] = [
 // generated vault bindings use the caller's name generator.
 const PROTECTION: readonly ConfigurablePhase[] = [['concealStrings', concealStrings]]
 
-// Renaming runs last because later transforms depend on recognizable bindings.
+// All binding-producing passes run before renaming so their generated
+// identifiers also receive names from the configured string generator.
 const RENAME: readonly ConfigurablePhase[] = [['renameIdentifiers', renameIdentifiers]]
+
+// Expression packing consumes final statement shapes and creates no bindings,
+// so it runs after renaming and before whole-program packing.
+const FINAL_SHAPE: readonly ConfigurablePhase[] = [['packExpressions', packExpressions]]
 
 // Packing serializes the finished program to a string and rebuilds it through
 // the Function constructor. It must see final names and shapes, so it runs after
-// every other rewrite, including renaming.
+// every other rewrite.
 const PACK: readonly ConfigurablePhase[] = [['pack', pack]]
 
 // Tests derive their all-transforms setup from this list. The phase tables remain
@@ -162,6 +168,7 @@ export const CONFIGURABLE_TRANSFORM_NAMES: readonly TransformName[] = [
   ...POST_PROCESS,
   ...PROTECTION,
   ...RENAME,
+  ...FINAL_SHAPE,
   ...PACK,
 ].map(([name]) => name)
 
@@ -175,7 +182,7 @@ export function obfuscate(code: string, options: ObfuscatorOptions = {}): string
   const ast = run(log, 'parse', () => parse(code, parserOptions))
 
   for (const [name, fn] of BEFORE_PREPARATION) {
-    if (!isEnabled(name, options)) {
+    if (!shouldRun(name, options)) {
       continue
     }
     run(log, name, () => fn(ast, ctxFor(name, options, baseCtx)))
@@ -186,7 +193,7 @@ export function obfuscate(code: string, options: ObfuscatorOptions = {}): string
   }
 
   for (const [name, fn] of PRE_LOOP) {
-    if (!isEnabled(name, options)) {
+    if (!shouldRun(name, options)) {
       continue
     }
     run(log, name, () => fn(ast, ctxFor(name, options, baseCtx)))
@@ -195,35 +202,42 @@ export function obfuscate(code: string, options: ObfuscatorOptions = {}): string
   runFixedPoint(ast, options, baseCtx, log)
 
   for (const [name, fn] of LOWERING) {
-    if (!isEnabled(name, options)) {
+    if (!shouldRun(name, options)) {
       continue
     }
     run(log, name, () => fn(ast, ctxFor(name, options, baseCtx)))
   }
 
   for (const [name, fn] of POST_PROCESS) {
-    if (!isEnabled(name, options)) {
+    if (!shouldRun(name, options)) {
       continue
     }
     run(log, name, () => fn(ast, ctxFor(name, options, baseCtx)))
   }
 
   for (const [name, fn] of PROTECTION) {
-    if (!isEnabled(name, options)) {
+    if (!shouldRun(name, options)) {
       continue
     }
     run(log, name, () => fn(ast, ctxFor(name, options, baseCtx)))
   }
 
   for (const [name, fn] of RENAME) {
-    if (!isEnabled(name, options)) {
+    if (!shouldRun(name, options)) {
+      continue
+    }
+    run(log, name, () => fn(ast, ctxFor(name, options, baseCtx)))
+  }
+
+  for (const [name, fn] of FINAL_SHAPE) {
+    if (!shouldRun(name, options)) {
       continue
     }
     run(log, name, () => fn(ast, ctxFor(name, options, baseCtx)))
   }
 
   for (const [name, fn] of PACK) {
-    if (!isEnabled(name, options)) {
+    if (!shouldRun(name, options)) {
       continue
     }
     run(log, name, () => fn(ast, ctxFor(name, options, baseCtx)))
@@ -242,7 +256,7 @@ export function obfuscate(code: string, options: ObfuscatorOptions = {}): string
   )
 }
 
-function isEnabled(name: TransformName, options: ObfuscatorOptions): boolean {
+function shouldRun(name: TransformName, options: ObfuscatorOptions): boolean {
   const entry = options.transforms?.[name]
   return entry !== undefined && entry !== false
 }
@@ -277,14 +291,14 @@ function runFixedPoint(
   ctx: TransformContext,
   log: Logger | null,
 ): void {
-  const enabled = FIXED_POINT.filter(([name]) => isEnabled(name, options))
-  if (enabled.length === 0) {
+  const transforms = FIXED_POINT.filter(([name]) => shouldRun(name, options))
+  if (transforms.length === 0) {
     return
   }
 
   for (let iter = 0; iter < FIXED_POINT_ITERATION_CAP; iter++) {
     let any = false
-    for (const [name, fn] of enabled) {
+    for (const [name, fn] of transforms) {
       if (run(log, name, () => fn(ast, ctx))) {
         any = true
       }

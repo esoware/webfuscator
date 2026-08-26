@@ -9,10 +9,9 @@ import { isPrimitiveLiteral } from '../utils/literal'
 import { generateLoopLabel } from '../utils/loop-lowering'
 
 /**
- * Lowers `switch` to an `if` chain or, when cases fall through, a labeled block
- * with a fallthrough flag. Case tests keep source order and evaluation count.
- * Cases with lexical or function declarations stay unchanged because separate
- * `if` blocks cannot preserve the shared switch scope.
+ * Rewrites eligible `switch` statements as equivalent `if` statements, using a
+ * labeled block when fallthrough must be preserved. Switches whose shared case
+ * scope cannot be preserved stay unchanged.
  *
  * @example
  * // ◀️ before

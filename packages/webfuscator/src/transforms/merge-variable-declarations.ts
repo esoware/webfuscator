@@ -4,9 +4,7 @@ import type { File } from '@babel/types'
 import { rewriteStatementLists } from '../utils/statement-lists'
 
 /**
- * Merges adjacent variable declarations when their kinds and export wrappers
- * match. It runs in programs, blocks, switch cases, and static blocks, and
- * removes unlabeled empty statements between compatible declarations.
+ * Merges adjacent compatible variable declarations into a single declaration.
  *
  * @example
  * // ◀️ before

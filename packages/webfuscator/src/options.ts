@@ -1,8 +1,8 @@
 import type { StringGeneratorModeOption } from './utils/string-generator'
 
 /**
- * Exported transform entry points. Preparation passes are always enabled and
- * do not appear here.
+ * Exported transform entry points. Preparation passes always run and do not
+ * appear here.
  */
 export type TransformName =
   | 'dropConsole'
@@ -41,9 +41,10 @@ export type TransformName =
   | 'concealStrings'
   | 'mangleProperties'
   | 'renameIdentifiers'
+  | 'packExpressions'
   | 'pack'
 
-// An override enables the transform and replaces its string-generator mode.
+// An options object runs the transform and replaces its string-generator mode.
 type TransformEntry = boolean | { stringGeneratorMode?: StringGeneratorModeOption }
 
 /** Maps a zero-based ordinal to a stable property name. */
@@ -130,21 +131,22 @@ export interface ObfuscatorOptions {
   /** Logs each pipeline step and its elapsed milliseconds to stderr. */
   verbose?: boolean
   /**
-   * Per-transform toggles and string-generator overrides. Omitted transforms
-   * are disabled. Preparation passes always run and are not configurable.
+   * Per-transform entries and string-generator overrides. An omitted key or
+   * `false` means that transform does not run. Preparation passes always run.
    */
   transforms?: TransformsMap
   /**
-   * Default mode for generated identifiers, labels, and string contents. An
-   * array mixes modes uniformly. Individual transforms may override it through
-   * `transforms.<name>.stringGeneratorMode`. Default `'mangled'`.
+   * Mode used by transforms that run for generated identifiers, labels, and
+   * string contents. An array mixes modes uniformly. Individual transforms may
+   * override it through `transforms.<name>.stringGeneratorMode`. Default
+   * `'mangled'`.
    */
   stringGeneratorMode?: StringGeneratorModeOption
-  /** Seed for any nondeterministic transform. Same seed, same output. Default `0`. */
+  /** Seed used by randomized transforms that run. Same seed, same output. Default `0`. */
   seed?: number
 }
 
-// Resolved per-call defaults handed to every transform.
+// Resolved per-call settings handed to each executed pass.
 export interface TransformContext {
   concealStrings?: ConcealStringsOptions
   mangleProperties?: ManglePropertiesOptions

@@ -30,13 +30,15 @@ Prints the name and elapsed milliseconds of each executed stage to standard erro
 
 ## `transforms`
 
-Type: object<br />Default: `{}`
+Type: object<br />Default: omitted
 
-All configurable transforms are disabled by default; set a key to `true` or an options object to enable it.
+No configurable transform runs unless its key is `true`. Transforms with settings also accept an options object. An omitted key or `false` means that transform does not run. Internal preparation passes are outside this map and always run.
+
+The defaults for `minify`, `verbose`, `stringGeneratorMode`, and `seed` do not cause transforms to run. They control output or supply settings used by transforms that do run.
 
 `renameIdentifiers` and `specialsToStrings` also accept `{ stringGeneratorMode }`. `concealStrings` accepts `{ cache, cover, deduplicate, scope }`. `pack` accepts `{ escapeStrict, skipGlobals, stringGeneratorMode }`. `mangleProperties` accepts its [property options](/reference/property-mangling-options).
 
-```js Enable selected transforms
+```js Run transforms
 const output = obfuscate(source, {
   transforms: {
     foldConstants: true,
@@ -115,6 +117,7 @@ const output = obfuscate(source, {
 
 | Key | Reference |
 | --- | --- |
+| `packExpressions` | [Pack expressions](./transforms/pack-expressions.mdx) |
 | `pack` | [Pack into a Function constructor](./transforms/pack.mdx) |
 
 ## `stringGeneratorMode`
@@ -132,5 +135,5 @@ Type: `number`<br />Default: `0`
 Seeds built-in randomized choices. The same seed and other inputs produce the same output for fixed package and Node.js versions. This random source is not cryptographic.
 
 <Card title="Configure transforms" icon="sliders-horizontal" horizontal href="/guides/configure-transforms">
-  Choose a naming style, toggle individual passes, and configure property mangling.
+  Choose individual passes, set a naming style, and configure property mangling.
 </Card>

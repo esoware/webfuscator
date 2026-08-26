@@ -7,8 +7,8 @@ import { isSideEffectFree } from '../analysis/purity'
 import type { ChangeState } from '../utils/change-tracking'
 
 /**
- * Removes unused declarations and expression statements that have no effects.
- * Sweeps continue because each removal can strand another binding.
+ * Removes unused declarations and side-effect-free expression statements until
+ * no further code becomes unused.
  *
  * @example
  * // ◀️ before

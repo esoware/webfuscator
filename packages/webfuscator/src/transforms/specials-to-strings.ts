@@ -9,19 +9,8 @@ import { mulberry32 } from '../utils/random'
 import { StringGenerator } from '../utils/string-generator'
 
 /**
- * Rewrites five constant-like values through strings for later string mangling:
- *
- *   - `true`     -> `!!"<random>"`
- *   - `false`    -> `!"<random>"`
- *   - `NaN`      -> `+"<random>"`
- *   - `undefined`-> `void "<random>"`
- *   - `Infinity` -> `1/!"<random>"`
- *
- * Generated strings are nonempty and nonnumeric, fixing their truthiness and
- * numeric coercion.
- *
- * `NaN`, `Infinity`, and `undefined` require genuine global reads. Delete and
- * write positions stay unchanged because the replacement is not a reference.
+ * Rewrites `true`, `false`, `NaN`, `undefined`, and `Infinity` as equivalent
+ * expressions built from strings.
  *
  * @example
  * // ◀️ before

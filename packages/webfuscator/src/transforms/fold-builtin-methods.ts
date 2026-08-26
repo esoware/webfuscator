@@ -10,9 +10,8 @@ import type { ChangeState } from '../utils/change-tracking'
 import { valueToLiteral } from '../utils/literal'
 
 /**
- * Replaces built-in calls and reads with smaller syntax or host-computed
- * constants. Host evaluation requires known arguments and receivers. Shadowed
- * names, optional forms, and regexp methods stay unchanged.
+ * Replaces eligible built-in calls and property reads with smaller equivalent
+ * expressions or constants.
  *
  * @example
  * // ◀️ before

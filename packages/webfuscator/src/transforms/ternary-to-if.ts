@@ -8,9 +8,8 @@ import { isConditionalGate, reorderableToStatement } from '../utils/evaluation-o
 import { isStandaloneDeclaration } from '../utils/paths'
 
 /**
- * Lowers conditional expressions to `if` statements. Expression values use a
- * temporary. Parameter defaults and repeating loop tests stay unchanged because
- * hoisting would change when they run.
+ * Rewrites eligible conditional expressions as `if` statements, using a
+ * temporary when their value is needed.
  *
  * @example
  * // ◀️ before

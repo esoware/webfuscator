@@ -2,7 +2,7 @@ import type { ObfuscatorOptions } from 'webfuscator'
 
 import { validateOptions } from './config'
 import { SAMPLE_SOURCE } from './sample'
-import { DEFAULT_OPTIONS } from './schema'
+import { STARTER_OPTIONS } from './schema'
 
 // Bumped from v1, whose stored sample described a playground that re-ran on
 // every keystroke.
@@ -46,6 +46,6 @@ export function saveWorkspace(workspace: Workspace): void {
   }
 }
 
-export function defaultWorkspace(): Workspace {
-  return { source: SAMPLE_SOURCE, options: DEFAULT_OPTIONS, runOnChange: false }
+export function starterWorkspace(): Workspace {
+  return { source: SAMPLE_SOURCE, options: STARTER_OPTIONS, runOnChange: false }
 }

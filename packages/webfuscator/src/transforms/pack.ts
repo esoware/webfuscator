@@ -107,10 +107,8 @@ const STANDARD_GLOBALS: readonly string[] = [
 ]
 
 /**
- * Serializes the whole program and runs it through the `Function` constructor.
- * Imports stay outside the generated function. Reads and writes to other free
- * names go through accessors created in the original top-level scope. Export
- * statements are rejected because they cannot appear in a `Function` body.
+ * Serializes the program and executes it through a generated `Function`
+ * constructor.
  *
  * @example
  * // ◀️ before

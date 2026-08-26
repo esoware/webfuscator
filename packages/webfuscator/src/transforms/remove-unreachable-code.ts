@@ -6,10 +6,8 @@ import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 
 /**
- * Removes statements after unconditional control flow in the same statement list.
- *
- * Hoisted function and `var` declarations stay because reachable code may still
- * observe their bindings.
+ * Removes unreachable statements that follow unconditional control flow while
+ * retaining declarations whose hoisting can still be observed.
  *
  * @example
  * // ◀️ before

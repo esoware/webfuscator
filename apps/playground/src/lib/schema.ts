@@ -250,6 +250,11 @@ export const TRANSFORM_GROUPS = [
     title: 'Packing',
     transforms: [
       {
+        name: 'packExpressions',
+        kind: 'boolean',
+        description: 'Joins adjacent expression statements with comma sequences.',
+      },
+      {
         name: 'pack',
         kind: 'pack',
         description: 'Serializes the program into a single Function constructor call.',
@@ -289,7 +294,7 @@ export const KEEP_QUOTED_CHOICES = [
 ] as const
 
 /** The starter preset excludes the transforms with named external effects. */
-export const DEFAULT_OPTIONS: ObfuscatorOptions = {
+export const STARTER_OPTIONS: ObfuscatorOptions = {
   transforms: {
     foldConstants: true,
     foldBuiltinMethods: true,

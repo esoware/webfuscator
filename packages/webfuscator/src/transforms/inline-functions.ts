@@ -12,8 +12,8 @@ import { generateLoopLabel } from '../utils/loop-lowering'
 import { isInStrictContext } from '../utils/paths'
 
 /**
- * Replaces eligible calls with function bodies, working from inner calls out.
- * Declarations are removed after their last reference disappears.
+ * Replaces eligible function calls with the called function's body and removes
+ * declarations that become unused.
  *
  * @example
  * // ◀️ before

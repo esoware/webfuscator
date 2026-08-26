@@ -6,8 +6,9 @@ import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 
 /**
- * Rewrites `||=`/`&&=`/`??=` as `LHS op (LHS = RHS)`. Member objects and
- * computed keys are cached so the read and write use the same receiver.
+ * Expands logical compound assignments into equivalent short-circuiting
+ * assignments while preserving single evaluation of member receivers and
+ * computed keys.
  *
  * @example
  * // ◀️ before

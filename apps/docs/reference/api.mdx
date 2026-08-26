@@ -16,7 +16,7 @@ function obfuscate(code: string, options?: ObfuscatorOptions): string
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
 | `code` | `string` | Required | One JavaScript script or ECMAScript module. |
-| `options` | `ObfuscatorOptions` | `{}` | Output formatting, transform switches, naming configuration, a seed, and verbose logging. |
+| `options` | `ObfuscatorOptions` | `{}` | Output formatting, transform entries, naming configuration, a seed, and verbose logging. |
 
 See the complete [options reference](/reference/options).
 
@@ -43,7 +43,7 @@ Transforms do not preserve behavior that depends on any of these details:
 - Generated text, comments, source locations, identifier and label spellings, transformed function or class names, `Function.prototype.toString()`, stack text, or engine-generated error wording.
 - Standard built-ins patched before the obfuscated input runs. Patches made by the input itself remain observable.
 
-Outside these cases, a transform preserves runtime behavior or leaves the site unchanged. `dropConsole`, `dropDebugger`, `mangleProperties`, and `pack` are off by default and have additional effects described on their transform pages.
+Outside these cases, a transform preserves runtime behavior or leaves the site unchanged. `dropConsole`, `dropDebugger`, `mangleProperties`, and `pack` have additional effects described on their transform pages. Like every configurable transform, they run only through their `transforms` entry.
 
 The API does not generate source maps.
 
@@ -53,7 +53,7 @@ The API does not generate source maps.
 
 - Babel cannot parse `code`.
 - A transform receives invalid configuration. `concealStrings` validates `cache`, `cover`, `deduplicate`, and `scope`. `mangleProperties` validates its `cache` (entries must be strings, and outputs must be unique and cannot be `__proto__`, `constructor`, or `prototype`) and its `nameGenerator` (it must return an available, nonnumeric string). An empty `stringGeneratorMode` array is also rejected.
-- `pack` is enabled on a program that uses `export` statements. Export syntax cannot exist inside a `Function` body, so pack refuses it rather than emit output that fails to parse.
+- `transforms.pack` is `true` or an options object for a program that uses `export` statements. Export syntax cannot exist inside a `Function` body, so pack refuses it rather than emit output that fails to parse.
 
 Apart from that export case, a transform normally leaves a site unchanged when it cannot handle it. `dropConsole` and `dropDebugger` intentionally remove their named effects. Property mangling cannot account for uses outside the input. `pack` runs the program inside a generated `Function`; its transform page lists the resulting restrictions.
 

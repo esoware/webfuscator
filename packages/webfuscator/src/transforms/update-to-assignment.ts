@@ -6,12 +6,8 @@ import { traverseForChanges } from '../utils/change-tracking'
 import type { ChangeState } from '../utils/change-tracking'
 
 /**
- * Rewrites numeric updates as compound assignments for later expansion. Prefix
- * results already match. Postfix forms require a position that discards the old
- * value.
- *
- * BigInt differs because adding the number `1` throws. Only bindings proven to
- * stay numeric are rewritten. Members and parameters stay unchanged.
+ * Rewrites eligible numeric update expressions as compound assignments. Postfix
+ * updates stay unchanged when their original value is used.
  *
  * @example
  * // ◀️ before

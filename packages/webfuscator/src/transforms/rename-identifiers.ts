@@ -9,9 +9,8 @@ import { mulberry32 } from '../utils/random'
 import { StringGenerator } from '../utils/string-generator'
 
 /**
- * Renames bindings and labels with the configured string generator. Generated
- * names do not capture unresolved names or bindings still used from an outer
- * scope. Separate sibling scopes may reuse the same names.
+ * Renames bindings and labels with the configured string generator while
+ * avoiding name capture.
  *
  * @example
  * // ◀️ before

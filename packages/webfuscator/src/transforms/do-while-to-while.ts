@@ -7,9 +7,8 @@ import type { ChangeState } from '../utils/change-tracking'
 import { collectLoopLabels, generateLoopLabel, redirectContinues } from '../utils/loop-lowering'
 
 /**
- * Rewrites `do` loops as `while (true)` with an exit test after the body.
- * Continues become breaks from an inner block so they still reach that test.
- * The inner label is omitted when nothing uses it.
+ * Rewrites `do...while` loops as equivalent `while` loops while preserving
+ * `continue` behavior.
  *
  * @example
  * // ◀️ before

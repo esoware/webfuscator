@@ -9,8 +9,8 @@ import { lowerLogicalWriteStatement } from '../utils/logical-lowering'
 import { buildNonNullishCheck, buildNullishCheck } from '../utils/nullish'
 
 /**
- * Rewrites logical expressions as guarded assignments or ternaries. A
- * side-effectful left side is cached in the ternary test for later hoisting.
+ * Rewrites logical expressions as equivalent conditional expressions or
+ * guarded assignments while preserving short-circuit evaluation.
  *
  * @example
  * // ◀️ before

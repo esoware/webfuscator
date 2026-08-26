@@ -6,10 +6,8 @@ import type { File } from '@babel/types'
 import type { ChangeState } from '../utils/change-tracking'
 
 /**
- * Moves `var` declarations to the start of their var scope without moving
- * initializer evaluation.
- *
- * Direct exports stay in place. Static blocks keep separate declarations.
+ * Moves `var` declarations to the beginning of their containing function or
+ * program without moving initializer evaluation.
  *
  * @example
  * // ◀️ before
