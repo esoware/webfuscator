@@ -13,6 +13,7 @@ import { stringifyObjectKeys } from './preparation/stringify-object-keys'
 import { wrapSingleStatements } from './preparation/wrap-single-statements'
 import { argumentsToParameters } from './transforms/arguments-to-parameters'
 import { arrowToFunction } from './transforms/arrow-to-function'
+import { collapseSingleUseFunctions } from './transforms/collapse-single-use-functions'
 import { collapseSingleUseTemps } from './transforms/collapse-single-use-temps'
 import { concealStrings } from './transforms/conceal-strings'
 import { constLetToVar } from './transforms/const-let-to-var'
@@ -92,12 +93,14 @@ const PRE_LOOP: readonly ConfigurablePhase[] = [
 ]
 
 // Folds, removals, extraction, and inlining expose work for one another. Stop
-// when a full round makes no change.
+// when a full round makes no change. Run `inlineFunctions` before
+// `collapseSingleUseFunctions` so eligible calls are inlined instead of moved.
 const FIXED_POINT: readonly ConfigurablePhase[] = [
   ['foldConstants', foldConstants],
   ['foldBuiltinMethods', foldBuiltinMethods],
   ['extractObjectProperties', extractObjectProperties],
   ['inlineFunctions', inlineFunctions],
+  ['collapseSingleUseFunctions', collapseSingleUseFunctions],
   ['removeUnreachableCode', removeUnreachableCode],
   ['removeUnusedCode', removeUnusedCode],
   ['removeAnonymousFunctionNames', removeAnonymousFunctionNames],

@@ -15,6 +15,7 @@ export type TransformName =
   | 'foldBuiltinMethods'
   | 'extractObjectProperties'
   | 'inlineFunctions'
+  | 'collapseSingleUseFunctions'
   | 'removeUnreachableCode'
   | 'removeUnusedCode'
   | 'removeAnonymousFunctionNames'
@@ -89,10 +90,11 @@ export interface PackOptions {
    */
   escapeStrict?: boolean
   /**
-   * Free names to leave un-routed because they resolve to the real global from
-   * inside a detached Function body. `true` uses the built-in standard-globals
-   * list; an array names your own set. Stripped imports always route regardless,
-   * since a Function body cannot reach them. Default routes every free name.
+   * Free names to leave as direct references inside the generated `Function`.
+   * `true` uses the built-in list of standard globals, `false` routes every free
+   * name through accessors, and an array replaces the built-in list. Imports
+   * always route because a generated `Function` cannot see module bindings.
+   * Default `true`.
    */
   skipGlobals?: boolean | readonly string[]
   /** Override the default string-generator mode for the names pack creates. */

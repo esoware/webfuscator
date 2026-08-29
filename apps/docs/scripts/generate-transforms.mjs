@@ -12,6 +12,7 @@ const checkOnly = process.argv.includes('--check')
 const titles = {
   argumentsToParameters: 'Arguments to parameters',
   arrowToFunction: 'Arrow to function',
+  collapseSingleUseFunctions: 'Collapse single-use functions',
   collapseSingleUseTemps: 'Collapse single-use temporaries',
   concealStrings: 'Conceal strings',
   constLetToVar: 'Const and let to var',
@@ -114,7 +115,7 @@ function configurationNote(transformName) {
   }
 
   if (transformName === 'pack') {
-    return `Pass \`{ escapeStrict, skipGlobals, stringGeneratorMode }\` instead of \`true\`. Set \`escapeStrict\` to remove strict mode from the generated function. Set \`skipGlobals\` to \`true\`, or to an array of names, to leave those free names unchanged instead of routing them through accessors. Use it only for names that a generated \`Function\` can read directly.`
+    return `Pass \`{ escapeStrict, skipGlobals, stringGeneratorMode }\` instead of \`true\`. \`escapeStrict\` removes strict mode from the generated function. \`skipGlobals\` defaults to \`true\`, which leaves standard globals as direct references. Set it to \`false\` to route every free name through accessors. An array replaces the default list. Every listed name must be visible inside a generated \`Function\`.`
   }
 
   if (configurableStringModeTransforms.has(transformName)) {

@@ -25,11 +25,8 @@ console.log(value);
 ```
 
 ```js title="After" lines
-Function("M", "return M[\"b\"].log(M[\"_\"]);")({
+Function("M", "console.log(M[\"b\"]);")({
   get "b"() {
-    return console;
-  },
-  get "_"() {
     return value;
   }
 });
@@ -49,7 +46,7 @@ const output = obfuscate(source, {
 })
 ```
 
-Pass `{ escapeStrict, skipGlobals, stringGeneratorMode }` instead of `true`. Set `escapeStrict` to remove strict mode from the generated function. Set `skipGlobals` to `true`, or to an array of names, to leave those free names unchanged instead of routing them through accessors. Use it only for names that a generated `Function` can read directly.
+Pass `{ escapeStrict, skipGlobals, stringGeneratorMode }` instead of `true`. `escapeStrict` removes strict mode from the generated function. `skipGlobals` defaults to `true`, which leaves standard globals as direct references. Set it to `false` to route every free name through accessors. An array replaces the default list. Every listed name must be visible inside a generated `Function`.
 
 <Columns cols={2}>
   <Card title="View the implementation" icon="code-xml" href="https://github.com/esoware/webfuscator/blob/main/packages/webfuscator/src/transforms/pack.ts" horizontal>

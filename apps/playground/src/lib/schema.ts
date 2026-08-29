@@ -94,6 +94,11 @@ export const TRANSFORM_GROUPS = [
         description: 'Inlines eligible calls with the callee body.',
       },
       {
+        name: 'collapseSingleUseFunctions',
+        kind: 'boolean',
+        description: 'Moves each eligible function declaration to its only reference.',
+      },
+      {
         name: 'collapseSingleUseTemps',
         kind: 'boolean',
         description: 'Substitutes single-use temporaries at their use site.',
@@ -295,6 +300,7 @@ export const STARTER_OPTIONS: ObfuscatorOptions = {
     foldBuiltinMethods: true,
     extractObjectProperties: true,
     inlineFunctions: true,
+    collapseSingleUseFunctions: true,
     removeUnreachableCode: true,
     removeUnusedCode: true,
     collapseSingleUseTemps: true,

@@ -49,7 +49,7 @@ function expectEquivalent(src: string, globals: Record<string, unknown> = {}): s
 const cases = defineCases('pack', packMangled, {
   globalCall: {
     name: 'pack routes a global callee through an indirect member access',
-    input: `alert(message);`,
+    input: `notify(message);`,
   },
   methodReceiver: {
     name: 'pack keeps a method receiver by routing only the base global',
@@ -84,7 +84,7 @@ test('pack strips comments before embedding the body source', () => {
 test(cases.globalCall.name, () => {
   const calls: unknown[] = []
   expectEquivalent(cases.globalCall.input, {
-    alert: (v: unknown) => calls.push(v),
+    notify: (v: unknown) => calls.push(v),
     message: 'ping',
   })
 })
@@ -240,24 +240,29 @@ globalThis.__packKeyResult = c.method() + c.field + lit.object();`
   }
 })
 
-test('pack skipGlobals leaves standard globals bare and still routes the rest', () => {
+test('pack leaves standard globals bare by default and still routes the rest', () => {
   const src = `log(JSON.stringify({ n: Math.max(1, 2) }));`
-  const skipped = obfuscate(src, { transforms: { pack: { skipGlobals: true } } })
-  // A skipped global stays a bare reference, so its access reads `JSON[...]`.
-  expect(skipped).toContain('JSON[')
-  expect(skipped).toContain('Math[')
-  // Without the option the same globals route through the accessor object, so
-  // the bare reference is gone.
-  expect(packOnly(src)).not.toContain('JSON[')
-  expect(traceWith(skipped)).toEqual(traceWith(src))
+  const packed = packOnly(src)
+  expect(packed).toContain('JSON[')
+  expect(packed).toContain('Math[')
+  expect(packed).toContain('return log;')
+  expect(obfuscate(src, { transforms: { pack: { skipGlobals: true } } })).toBe(packed)
+  expect(traceWith(packed)).toEqual(traceWith(src))
+})
+
+test('pack skipGlobals false routes standard globals', () => {
+  const src = `log(JSON.stringify({ n: Math.max(1, 2) }));`
+  const packed = obfuscate(src, { transforms: { pack: { skipGlobals: false } } })
+  expect(packed).not.toContain('JSON[')
+  expect(packed).not.toContain('Math[')
+  expect(traceWith(packed)).toEqual(traceWith(src))
 })
 
 test('pack skipGlobals accepts a custom name set', () => {
-  const src = `log(Math.max(subject, 2));`
+  const src = `log(Math.max(subject, JSON.parse("2")));`
   const skipped = obfuscate(src, { transforms: { pack: { skipGlobals: ['Math'] } } })
   expect(skipped).toContain('Math[')
-  // A name outside the set still routes; only the listed name stays bare.
-  expect(packOnly(src)).not.toContain('Math[')
+  expect(skipped).not.toContain('JSON[')
   expect(traceWith(skipped, { subject: 5 })).toEqual(traceWith(src, { subject: 5 }))
 })
 

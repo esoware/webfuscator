@@ -14,7 +14,8 @@ import { StringGenerator } from '../utils/string-generator'
 // bare. The CommonJS wrapper names (require, module, exports, __dirname,
 // __filename) are left out on purpose. They are function parameters, not
 // properties of the global object, so a Function body cannot see them and pack
-// routes them like any other free name. `skipGlobals: true` opts into this list.
+// routes them like any other free name. Set `skipGlobals: false` to route these
+// names too.
 const STANDARD_GLOBALS: readonly string[] = [
   'globalThis',
   'self',
@@ -115,11 +116,8 @@ const STANDARD_GLOBALS: readonly string[] = [
  * console.log(value);
  *
  * // ▶️ after
- * Function("M", "return M[\"b\"].log(M[\"_\"]);")({
+ * Function("M", "console.log(M[\"b\"]);")({
  *   get "b"() {
- *     return console;
- *   },
- *   get "_"() {
  *     return value;
  *   }
  * });
@@ -207,7 +205,7 @@ function packProgram(programPath: NodePath<t.Program>, ctx: TransformContext): b
       importedNames.add(specifier.local.name)
     }
   }
-  const skipOption = ctx.pack?.skipGlobals ?? false
+  const skipOption = ctx.pack?.skipGlobals ?? true
   let skipNames: readonly string[] = []
   if (skipOption === true) {
     skipNames = STANDARD_GLOBALS

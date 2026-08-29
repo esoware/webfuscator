@@ -101,6 +101,7 @@ test('obfuscateAll with inlineFunctions set to false keeps the function declarat
   const withoutTransform = obfuscateAll(src, {
     transforms: {
       inlineFunctions: false,
+      collapseSingleUseFunctions: false,
       renameIdentifiers: false,
       functionDeclarationToExpression: false,
     },
@@ -188,6 +189,7 @@ test('obfuscateAll with the fixed-point group set to false still produces a vali
       foldBuiltinMethods: false,
       extractObjectProperties: false,
       inlineFunctions: false,
+      collapseSingleUseFunctions: false,
       removeUnreachableCode: false,
       removeUnusedCode: false,
       removeAnonymousFunctionNames: false,
@@ -271,6 +273,7 @@ log(add(first, second));`
 // Keep the fixture's declaration form visible to name-style assertions.
 const NO_INLINE = {
   inlineFunctions: false,
+  collapseSingleUseFunctions: false,
   collapseSingleUseTemps: false,
   foldConstants: false,
   functionDeclarationToExpression: false,
