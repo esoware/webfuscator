@@ -1,17 +1,34 @@
 import generate from '@babel/generator'
 import { parse } from '@babel/parser'
+import type { File } from '@babel/types'
 import { expect, test } from 'vitest'
 
+import type { TransformContext } from '../../src/options'
 import { hoistVariables } from '../../src/transforms/hoist-variables'
 import { defineCases, run, trace } from '../helpers'
 
+const BASE_CONTEXT: TransformContext = { seed: 0, stringGeneratorMode: 'mangled' }
+
+function hoist(ast: File): boolean {
+  return hoistVariables(ast, BASE_CONTEXT)
+}
+
+// The bare declaration list is shuffled, so pin its names as an unordered set.
+function mergedNames(code: string): string[] {
+  const inner = code.match(/var ([^;]+);/)?.[1] ?? ''
+  return inner
+    .split(',')
+    .map((name) => name.trim())
+    .toSorted()
+}
+
 function expectEquivalent(input: string): string {
-  const out = run(input, hoistVariables)
+  const out = run(input, hoist)
   expect(trace(out)).toEqual(trace(input))
   return out
 }
 
-defineCases('hoist-variables', hoistVariables, {
+defineCases('hoist-variables', hoist, {
   acrossBlocks: {
     name: 'hoistVariables raises vars from nested blocks to the function top',
     input: `function f(c) {\n  var x = 1;\n  if (c) {\n    var y = 2;\n  }\n  return x + (c ? y : 0);\n}\nlog(f(true), f(false));`,
@@ -32,12 +49,24 @@ test('merges every eligible var in a function scope into one declaration', () =>
   const out = expectEquivalent(
     `function f() {\n  var a = 1;\n  var b = 2;\n  var c = 3;\n  return a + b + c;\n}\nlog(f());`,
   )
-  expect(out).toMatch(/var a,\s*b,\s*c;/)
+  expect(mergedNames(out)).toEqual(['a', 'b', 'c'])
+})
+
+test('shuffles the merged declaration deterministically per seed', () => {
+  const src = `function f() {\n  var a = 1;\n  var b = 2;\n  var c = 3;\n  var d = 4;\n  var e = 5;\n  return a + b + c + d + e;\n}\nlog(f());`
+  const order = (seed: number): string =>
+    run(src, (ast) => hoistVariables(ast, { ...BASE_CONTEXT, seed })).match(/var ([^;]+);/)?.[1] ??
+    ''
+
+  expect(order(0)).toBe(order(0))
+  const orders = new Set([0, 1, 2, 3, 4, 5, 6, 7].map((seed) => order(seed)))
+  expect(orders.size).toBeGreaterThan(1)
+  expect(mergedNames(`var ${order(3)};`)).toEqual(['a', 'b', 'c', 'd', 'e'])
 })
 
 test('preserves initializer side-effect order', () => {
   const src = `function f() {\n  var order = [];\n  var a = (order.push(1), 1);\n  var b = (order.push(2), 2);\n  return order.join(",") + ":" + (a + b);\n}\nlog(f());`
-  expect(trace(run(src, hoistVariables))).toEqual({ logs: ['1,2:3'], threw: null })
+  expect(trace(run(src, hoist))).toEqual({ logs: ['1,2:3'], threw: null })
 })
 
 test('a hoisted bare declaration does not overwrite a same-named function', () => {
@@ -128,7 +157,7 @@ log(f());`
 test('hoists a destructuring var, keeping the assignment in place', () => {
   const src = `function f(o) {\n  var { a, b } = o;\n  return a + b;\n}\nlog(f({ a: 2, b: 3 }));`
   const out = expectEquivalent(src)
-  expect(out).toMatch(/var a,\s*b;/)
+  expect(mergedNames(out)).toEqual(['a', 'b'])
 })
 
 test('does not emit an empty declaration for a zero-binding object pattern', () => {
@@ -193,14 +222,14 @@ test('drops a bare declaration into the merged top declaration', () => {
 
 test('hoists a var without inspecting enclosing `with` statements', () => {
   const src = `function f(o) {\n  with (o) {\n    var x = 1;\n  }\n  return x;\n}\nlog(f({}));`
-  const out = run(src, hoistVariables)
+  const out = run(src, hoist)
   expect(out).toContain('var x;')
   expect(out).toContain('x = 1;')
 })
 
 test('eval does not block variable hoisting', () => {
   const src = `function f() {\n  var x = 1;\n  return eval("x");\n}\nlog(f());`
-  const out = run(src, hoistVariables)
+  const out = run(src, hoist)
   expect(out).toContain('var x;')
   expect(out).toContain('x = 1;')
 })
@@ -221,7 +250,7 @@ log(outer({})());`
 
 test('leaves an exported var untouched', () => {
   const src = `export var x = 1;\nx;`
-  expect(run(src, hoistVariables)).toEqual(run(src, () => {}))
+  expect(run(src, hoist)).toEqual(run(src, () => {}))
 })
 
 test('hoists bare top-level script vars', () => {
@@ -231,7 +260,8 @@ test('hoists bare top-level script vars', () => {
 var b;
 log(typeof a, typeof b);`
   const out = expectEquivalent(src)
-  expect(out).toMatch(/^var a,\s*b;/)
+  expect(out).toMatch(/^var [^;]+;/)
+  expect(mergedNames(out)).toEqual(['a', 'b'])
 })
 
 test('hoists initialized top-level script vars', () => {
@@ -247,9 +277,10 @@ test('hoists initialized top-level module vars', () => {
     `export {};
 var a = 1;
 var b = 2;`,
-    hoistVariables,
+    hoist,
   )
-  expect(out).toMatch(/^var a,\s*b;/)
+  expect(out).toMatch(/^var [^;]+;/)
+  expect(mergedNames(out)).toEqual(['a', 'b'])
   expect(out).toContain('a = 1;')
   expect(out).toContain('b = 2;')
 })
@@ -282,8 +313,8 @@ test('reports no change after variables reach one leading bare declaration', () 
   var x = 1;
   return x;
 }`)
-  expect(hoistVariables(ast)).toBe(true)
+  expect(hoist(ast)).toBe(true)
   const once = generate(ast).code
-  expect(hoistVariables(ast)).toBe(false)
+  expect(hoist(ast)).toBe(false)
   expect(generate(ast).code).toBe(once)
 })

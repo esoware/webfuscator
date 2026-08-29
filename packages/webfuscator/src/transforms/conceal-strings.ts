@@ -3,6 +3,7 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
+import { isSideEffectFree } from '../analysis/purity'
 import type { ConcealStringsOptions, TransformContext } from '../options'
 import { isNonComputedKey } from '../utils/ast'
 import type { ChangeState } from '../utils/change-tracking'
@@ -50,18 +51,28 @@ export function concealStrings(ast: File, ctx: TransformContext): boolean {
   const rng = mulberry32(ctx.seed)
   const state: State = { changed: false, groups: new Map(), options, program: null }
 
-  if (options.scope === 'function') {
-    normalizeConciseArrows(ast, options)
-  }
-
   traverse(ast, collectVisitor, undefined, state)
-  if (state.groups.size === 0) {
+  const groups = [...state.groups.values()]
+  const work = planVaultWork(groups)
+  const plannedGroups = new Set(work.flatMap((item) => item.groups))
+  const eligibleGroups = groups.filter((group) => plannedGroups.has(group))
+  if (eligibleGroups.length === 0) {
     return false
   }
-  const pool = buildSharedPool(state.groups.values(), options.cover, rng)
+
+  const pool = buildSharedPool(eligibleGroups, options.cover, rng)
   const poolIdentifier = t.identifier(state.program!.scope.generateUid('stringPool'))
-  for (const group of state.groups.values()) {
-    concealGroup(group, options, pool, poolIdentifier, rng)
+  const concealedGroups = new Map(
+    eligibleGroups.map((group) => [group, prepareGroup(group, pool, rng)]),
+  )
+  work.sort((left, right) => pathDepth(right.path) - pathDepth(left.path))
+  for (const item of work) {
+    concealWorkItem(
+      item,
+      item.groups.map((group) => concealedGroups.get(group)!),
+      options.cache,
+      poolIdentifier,
+    )
     state.changed = true
   }
   insertSharedPool(state.program!, poolIdentifier, pool.value)
@@ -97,6 +108,35 @@ interface Entry {
   occurrences: Occurrence[]
   value: string
 }
+
+interface ConcealedGroup {
+  data: VaultData
+  entries: Entry[]
+  group: VaultGroup
+}
+
+interface WrapperWorkItem {
+  groups: VaultGroup[]
+  kind: 'wrapper'
+  path: NodePath<
+    t.ArrowFunctionExpression | t.ClassExpression | t.FunctionExpression | t.ObjectExpression
+  >
+}
+
+interface ClosedWorkItem {
+  groups: VaultGroup[]
+  kind: 'closed'
+  path: NodePath<t.ClassDeclaration | t.FunctionDeclaration>
+  target: NodePath<t.Program | t.BlockStatement>
+}
+
+interface ProgramWorkItem {
+  groups: VaultGroup[]
+  kind: 'program'
+  path: NodePath<t.Program>
+}
+
+type VaultWorkItem = ClosedWorkItem | ProgramWorkItem | WrapperWorkItem
 
 interface VaultData {
   indexMask: number
@@ -155,31 +195,6 @@ function resolveOptions(options: ConcealStringsOptions | undefined): ResolvedOpt
   return { cache, cover, scope }
 }
 
-function normalizeConciseArrows(ast: File, options: ResolvedOptions): void {
-  const marked = new WeakSet<t.ArrowFunctionExpression>()
-  traverse(ast, {
-    StringLiteral(path) {
-      if (!isRuntimeString(path)) {
-        return
-      }
-      const owner = findVaultOwner(path, options.scope)
-      if (owner?.isArrowFunctionExpression() && !t.isBlockStatement(owner.node.body)) {
-        marked.add(owner.node)
-      }
-    },
-    ArrowFunctionExpression: {
-      exit(path) {
-        if (!marked.has(path.node) || t.isBlockStatement(path.node.body)) {
-          return
-        }
-        const expression = path.node.body
-        path.get('body').replaceWith(t.blockStatement([t.returnStatement(expression)]))
-        path.node.expression = false
-      },
-    },
-  })
-}
-
 function findVaultOwner(
   path: NodePath<t.StringLiteral>,
   scope: ResolvedOptions['scope'],
@@ -187,7 +202,11 @@ function findVaultOwner(
   let child: NodePath = path
   let current: NodePath | null = path.parentPath
   while (current) {
-    if (current.isFunction() && child.key === 'body' && scope === 'function') {
+    if (
+      current.isFunction() &&
+      (child.key === 'body' || child.listKey === 'params') &&
+      scope === 'function'
+    ) {
       return current as VaultOwnerPath
     }
     if (current.isProgram()) {
@@ -216,32 +235,202 @@ function isRuntimeString(path: NodePath<t.StringLiteral>): boolean {
   return !isNonComputedKey(path)
 }
 
-function concealGroup(
-  group: VaultGroup,
-  options: ResolvedOptions,
-  pool: SharedPool,
-  poolIdentifier: t.Identifier,
-  rng: () => number,
-): void {
-  const entries = makeEntries(group.occurrences)
-  shuffleInPlace(entries, rng)
-  const data = encodeEntries(entries, pool, rng)
-  const identifiers = insertVault(
-    statementBody(group.owner),
-    entries.length,
-    data,
-    options.cache,
-    poolIdentifier,
-  )
+function planVaultWork(groups: VaultGroup[]): VaultWorkItem[] {
+  const work: VaultWorkItem[] = []
+  const wrappers = new Map<t.Node, WrapperWorkItem>()
+  for (const group of groups) {
+    const owner = group.owner
+    if (isInsideTopLevelModuleFunction(owner)) {
+      continue
+    }
+    if (owner.isProgram()) {
+      work.push({ groups: [group], kind: 'program', path: owner })
+      continue
+    }
 
-  for (let index = 0; index < entries.length; index++) {
-    for (const occurrence of entries[index]!.occurrences) {
-      occurrence.path.replaceWith(
-        t.callExpression(t.identifier(identifiers.decoder.name), [t.numericLiteral(index)]),
-      )
-      occurrence.path.skip()
+    const wrapper = findWrapperPath(owner)
+    if (wrapper && definitionCanBeWrapped(wrapper)) {
+      let item = wrappers.get(wrapper.node)
+      if (!item) {
+        item = { groups: [], kind: 'wrapper', path: wrapper }
+        wrappers.set(wrapper.node, item)
+        work.push(item)
+      }
+      item.groups.push(group)
+      continue
+    }
+
+    const declaration = findDeclarationPath(owner)
+    const target = declaration && declarationTarget(declaration)
+    if (declaration && target) {
+      work.push({ groups: [group], kind: 'closed', path: declaration, target })
     }
   }
+  return work
+}
+
+function isInsideTopLevelModuleFunction(owner: VaultOwnerPath): boolean {
+  for (let current: NodePath | null = owner; current; current = current.parentPath) {
+    if (!current.isFunctionDeclaration()) {
+      continue
+    }
+    const statement = current.parentPath?.isExportDeclaration() ? current.parentPath : current
+    if (statement.parentPath?.isProgram() && statement.parentPath.node.sourceType === 'module') {
+      return true
+    }
+  }
+  return false
+}
+
+function findWrapperPath(owner: VaultOwnerPath): WrapperWorkItem['path'] | null {
+  if (owner.isArrowFunctionExpression() || owner.isFunctionExpression()) {
+    return owner
+  }
+  if (owner.isObjectMethod() && owner.parentPath?.isObjectExpression()) {
+    return owner.parentPath
+  }
+  if (owner.isClassMethod() || owner.isClassPrivateMethod()) {
+    const classPath = owner.parentPath?.parentPath
+    if (classPath?.isClassExpression()) {
+      return classPath
+    }
+  }
+  return null
+}
+
+function findDeclarationPath(
+  owner: VaultOwnerPath,
+): NodePath<t.ClassDeclaration | t.FunctionDeclaration> | null {
+  if (owner.isFunctionDeclaration()) {
+    return owner
+  }
+  if (owner.isClassMethod() || owner.isClassPrivateMethod()) {
+    const classPath = owner.parentPath?.parentPath
+    if (classPath?.isClassDeclaration()) {
+      return classPath
+    }
+  }
+  return null
+}
+
+function declarationTarget(
+  declaration: NodePath<t.ClassDeclaration | t.FunctionDeclaration>,
+): NodePath<t.Program | t.BlockStatement> | null {
+  const parent = containingStatement(declaration).parentPath
+  return parent?.isProgram() || parent?.isBlockStatement() ? parent : null
+}
+
+function containingStatement(
+  declaration: NodePath<t.ClassDeclaration | t.FunctionDeclaration>,
+): NodePath<t.Statement> {
+  let statement: NodePath = declaration
+  if (
+    statement.parentPath?.isExportDefaultDeclaration() ||
+    statement.parentPath?.isExportNamedDeclaration()
+  ) {
+    statement = statement.parentPath
+  }
+  while (statement.parentPath?.isLabeledStatement()) {
+    statement = statement.parentPath
+  }
+  return statement as NodePath<t.Statement>
+}
+
+function definitionCanBeWrapped(path: WrapperWorkItem['path']): boolean {
+  return (
+    path.isArrowFunctionExpression() ||
+    path.isFunctionExpression() ||
+    isSideEffectFree(path.node, path.scope)
+  )
+}
+
+function prepareGroup(group: VaultGroup, pool: SharedPool, rng: () => number): ConcealedGroup {
+  const entries = makeEntries(group.occurrences)
+  shuffleInPlace(entries, rng)
+  return { data: encodeEntries(entries, pool, rng), entries, group }
+}
+
+function concealWorkItem(
+  work: VaultWorkItem,
+  groups: ConcealedGroup[],
+  cache: boolean,
+  pool: t.Identifier,
+): void {
+  if (work.kind === 'program') {
+    const group = groups[0]!
+    const identifiers = insertVault(work.path, group.entries.length, group.data, cache, pool)
+    replaceOccurrences(work.path, group, identifiers.decoder)
+    return
+  }
+
+  if (work.kind === 'closed') {
+    const group = groups[0]!
+    const decoder = insertClosedVault(
+      work.target,
+      work.path.isClassDeclaration() ? containingStatement(work.path) : null,
+      group.entries.length,
+      group.data,
+      cache,
+      pool,
+    )
+    replaceOccurrences(group.group.owner, group, decoder)
+    return
+  }
+
+  concealWrappedGroups(work.path, groups, cache, pool)
+}
+
+function concealWrappedGroups(
+  path: WrapperWorkItem['path'],
+  groups: ConcealedGroup[],
+  cache: boolean,
+  pool: t.Identifier,
+): void {
+  const original = path.node
+  const body = t.blockStatement([t.returnStatement(original)])
+  const wrapper = path.isFunctionExpression()
+    ? t.functionExpression(null, [], body)
+    : t.arrowFunctionExpression([], body)
+  path.replaceWith(t.callExpression(wrapper, []))
+
+  const callPath = path as unknown as NodePath<t.CallExpression>
+  const wrapperPath = callPath.get('callee') as NodePath<
+    t.ArrowFunctionExpression | t.FunctionExpression
+  >
+  const wrapperBody = wrapperPath.get('body') as NodePath<t.BlockStatement>
+  for (const group of groups) {
+    const identifiers = insertVault(wrapperBody, group.entries.length, group.data, cache, pool)
+    replaceOccurrences(callPath, group, identifiers.decoder)
+  }
+}
+
+function replaceOccurrences(root: NodePath, group: ConcealedGroup, decoder: t.Identifier): void {
+  const indexes = new Map<t.StringLiteral, number>()
+  for (let index = 0; index < group.entries.length; index++) {
+    for (const occurrence of group.entries[index]!.occurrences) {
+      indexes.set(occurrence.path.node, index)
+    }
+  }
+  root.traverse({
+    StringLiteral(path) {
+      const index = indexes.get(path.node)
+      if (index === undefined) {
+        return
+      }
+      path.replaceWith(t.callExpression(t.cloneNode(decoder), [t.numericLiteral(index)]))
+      path.skip()
+    },
+  })
+}
+
+function pathDepth(path: NodePath): number {
+  let depth = 0
+  let current = path.parentPath
+  while (current) {
+    depth++
+    current = current.parentPath
+  }
+  return depth
 }
 
 function makeEntries(occurrences: Occurrence[]): Entry[] {
@@ -356,15 +545,33 @@ function maskPosition(position: number, key: number, step: number, indexMask: nu
   return (key + position * step) & indexMask
 }
 
-function statementBody(owner: VaultOwnerPath): NodePath<t.Program | t.BlockStatement> {
-  if (owner.isProgram()) {
-    return owner
-  }
-  const body = owner.get('body') as NodePath
-  if (!body.isBlockStatement()) {
-    throw new Error('concealStrings expected a normalized function body')
-  }
-  return body
+function insertClosedVault(
+  body: NodePath<t.Program | t.BlockStatement>,
+  before: NodePath<t.Statement> | null,
+  entryCount: number,
+  data: VaultData,
+  cache: boolean,
+  pool: t.Identifier,
+): t.Identifier {
+  const closedDecoder = t.identifier(body.scope.generateUid('stringDecoder'))
+  const factory = t.functionExpression(null, [], t.blockStatement([]))
+  // Re-entered ordinary blocks need a distinct decoder binding for every function instance.
+  const kind = body.isProgram() || body.parentPath?.isFunction() ? 'var' : 'let'
+  const declaration = t.variableDeclaration(kind, [
+    t.variableDeclarator(t.cloneNode(closedDecoder), t.callExpression(factory, [])),
+  ])
+  const [insertedDeclarationPath] = before
+    ? before.insertBefore(declaration)
+    : body.unshiftContainer('body', declaration)
+  const [declaratorPath] = insertedDeclarationPath!.get(
+    'declarations',
+  ) as NodePath<t.VariableDeclarator>[]
+  const callPath = declaratorPath!.get('init') as NodePath<t.CallExpression>
+  const factoryPath = callPath.get('callee') as NodePath<t.FunctionExpression>
+  const factoryBody = factoryPath.get('body') as NodePath<t.BlockStatement>
+  const vault = insertVault(factoryBody, entryCount, data, cache, pool)
+  factoryBody.pushContainer('body', t.returnStatement(t.cloneNode(vault.decoder)))
+  return closedDecoder
 }
 
 function insertVault(
@@ -398,8 +605,10 @@ function insertVault(
   declarations.push(t.variableDeclarator(identifiers.decoder, decoder))
 
   const declaration = t.variableDeclaration('var', declarations)
-  const [declarationPath] = body.unshiftContainer('body', declaration)
-  const declaratorPaths = declarationPath!.get('declarations') as NodePath<t.VariableDeclarator>[]
+  const [vaultDeclarationPath] = body.unshiftContainer('body', declaration)
+  const declaratorPaths = vaultDeclarationPath!.get(
+    'declarations',
+  ) as NodePath<t.VariableDeclarator>[]
   const decoderPath = declaratorPaths
     .find((path) => path.node.init === decoder)!
     .get('init') as NodePath<t.FunctionExpression>

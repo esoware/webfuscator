@@ -1,3 +1,4 @@
+import generate from '@babel/generator'
 import { parse } from '@babel/parser'
 import traverse from '@babel/traverse'
 import * as t from '@babel/types'
@@ -9,6 +10,7 @@ import { concealStrings } from '../../src/transforms/conceal-strings'
 import { defineCases, run, trace } from '../helpers'
 
 const BASE_CONTEXT: TransformContext = { seed: 0, stringGeneratorMode: 'mangled' }
+const CACHE_MISS_MARKER = 8675309
 
 function apply(options: ConcealStringsOptions = {}, seed = 0) {
   return (ast: File): boolean =>
@@ -135,18 +137,105 @@ log(first(), second());`
   expect(pools[0]!).toContain('\u1234')
 })
 
-test('concealStrings keeps the shared pool visible through nested binding scopes', () => {
-  const input = `function reveal() {
-  var _stringPool = "local value";
-  return "protected value" + _stringPool;
+test('concealStrings function caches survive calls without becoming program-shared', () => {
+  const input = `function first() { return "shared value"; }
+function second() { return "shared value"; }
+log(first(), first(), second(), second());`
+  const out = instrumentCacheMisses(transform(input, { cover: 'used', scope: 'function' }))
+  expect(trace(out).logs.filter((value) => value === CACHE_MISS_MARKER)).toHaveLength(2)
+})
+
+test('concealStrings creates one private vault per evaluated function expression', () => {
+  const input = `function make() {
+  return function reveal() { return "shared value"; };
 }
-log(reveal());`
+var first = make();
+var second = make();
+log(first(), first(), second(), second());`
+  const out = instrumentCacheMisses(transform(input, { cover: 'used', scope: 'function' }))
+  expect(trace(out).logs.filter((value) => value === CACHE_MISS_MARKER)).toHaveLength(2)
+})
+
+test('concealStrings creates one private vault per block function instance', () => {
+  const input = `"use strict";
+var functions = [];
+for (var index = 0; index < 2; index++) {
+  function reveal() { return "shared value"; }
+  functions.push(reveal);
+}
+log(functions[0](), functions[0](), functions[1](), functions[1]());`
+  const out = instrumentCacheMisses(transform(input, { cover: 'used', scope: 'function' }))
+  expect(trace(out).logs.filter((value) => value === CACHE_MISS_MARKER)).toHaveLength(2)
+})
+
+test('concealStrings function closures preserve invocation and binding semantics', () => {
+  const input = `log(hoisted(3));
+function hoisted(count) {
+  "use strict";
+  if (count === 0) return this === undefined ? "done" : "wrong";
+  return hoisted(count - 1);
+}
+function Receiver(prefix) {
+  this.value = prefix + arguments[1] + (new.target === Receiver ? " constructed" : " called");
+  this.read = () => this.value + " arrow";
+}
+var instance = new Receiver("a", "b");
+function make(prefix) {
+  return function nested(suffix) { return prefix + " nested " + suffix; };
+}
+var before;
+try { lexical(); } catch (error) { before = error.name; }
+let lexical = function named() { return "ready"; };
+log(instance.read(), make("x")("y"), before, lexical());`
+  expect(trace(transform(input, { cover: 'used', scope: 'function' }))).toEqual(trace(input))
+})
+
+test('concealStrings preserves home objects and class method semantics', () => {
+  const input = `function makeObject() {
+  return {
+    __proto__: { read() { return "base"; } },
+    read() { return super.read() + " object"; }
+  };
+}
+class Base { read() { return "base"; } }
+class Derived extends Base {
+  constructor(value) { super(); this.value = value; }
+  read() { return super.read() + this.value + " class"; }
+}
+log(makeObject().read(), new Derived(" derived").read());`
+  expect(trace(transform(input, { cover: 'used', scope: 'function' }))).toEqual(trace(input))
+})
+
+test('concealStrings does not wrap method hosts with observable definition effects', () => {
+  const input = `function probe() { return probe.caller === make; }
+function make() {
+  return {
+    seen: probe(),
+    read() { return "protected value"; }
+  };
+}
+log(make().seen);`
+  const out = transform(input, { cover: 'used', scope: 'function' })
+  expect(trace(out)).toEqual(trace(input))
+  expect(out).toContain('protected value')
+})
+
+test('concealStrings keeps generated vault bindings visible through nested scopes', () => {
+  const input = `function declared(_stringDecoder) {
+  return "declared value" + _stringDecoder;
+}
+var reveal = function () {
+  var _stringPool = "local pool";
+  var _stringDecoder = function () { return "local decoder"; };
+  return "protected value" + _stringPool + _stringDecoder();
+};
+log(declared(" argument"), reveal());`
   const out = transform(input, { scope: 'function' })
   expect(trace(out)).toEqual(trace(input))
   expect(emittedPools(out)).toHaveLength(1)
 })
 
-test('concealStrings function scope normalizes concise arrows for local vaults', () => {
+test('concealStrings function scope preserves concise arrows with local vaults', () => {
   const input = `var suffix = (value) => value + "-suffix";
 log(suffix("prefix"));`
   const out = transform(input, { cover: 'used', scope: 'function' })
@@ -155,7 +244,7 @@ log(suffix("prefix"));`
   expect(emittedVaultCount(out)).toBe(2)
 })
 
-test('concealStrings keeps parameter-default strings in the surrounding vault', () => {
+test('concealStrings keeps parameter-default strings in the function closure vault', () => {
   const input = `function outer(prefix) {
   return function inner(value = "default value") {
     return value + " body value" + prefix;
@@ -166,7 +255,7 @@ log(inner());`
   const out = transform(input, { scope: 'function' })
   expect(trace(out)).toEqual(trace(input))
   expect(emittedPools(out)).toHaveLength(1)
-  expect(emittedVaultCount(out)).toBe(3)
+  expect(emittedVaultCount(out)).toBe(2)
 })
 
 test('concealStrings keeps a strict directive first in its function body', () => {
@@ -177,7 +266,7 @@ test('concealStrings keeps a strict directive first in its function body', () =>
 log(strictThis());`
   const out = transform(input, { scope: 'function' })
   expect(trace(out)).toEqual(trace(input))
-  expect(out).toMatch(/function strictThis\(\) \{\s*["']use strict["'];\s*var/u)
+  expect(out).toMatch(/function strictThis\(\) \{\s*["']use strict["'];\s*return/u)
 })
 
 test('concealStrings can initialize a function vault before super without reading this', () => {
@@ -215,6 +304,18 @@ log(reads('"evaluated value"'), plain());`
   expect(trace(out)).toEqual(trace(input))
   expect(out).not.toContain('visible value')
   expect(out).not.toContain('concealed value')
+})
+
+test('concealStrings leaves top-level module function subtrees unchanged for cyclic calls', () => {
+  const input = `export function reveal(value = "default value") {
+  function nested() { return "nested value"; }
+  return value + " body value" + nested();
+}`
+  const out = transform(input, { cover: 'used', scope: 'function' })
+  expect(out).toContain('default value')
+  expect(out).toContain('nested value')
+  expect(out).toContain('body value')
+  expect(emittedPools(out)).toHaveLength(0)
 })
 
 test('concealStrings leaves grammar-only module strings and directives unchanged', () => {
@@ -299,6 +400,35 @@ test('concealStrings rejects malformed options at the caller boundary', () => {
     /scope must be/u,
   )
 })
+
+function instrumentCacheMisses(code: string): string {
+  const ast = parse(code, { sourceType: 'unambiguous' })
+  traverse(ast, {
+    VariableDeclarator(path) {
+      if (
+        !t.isIdentifier(path.node.id) ||
+        !path.node.id.name.includes('stringDecoder') ||
+        !t.isFunctionExpression(path.node.init)
+      ) {
+        return
+      }
+      const guardIndex = path.node.init.body.body.findIndex((statement) =>
+        t.isIfStatement(statement),
+      )
+      if (guardIndex === -1) {
+        return
+      }
+      path.node.init.body.body.splice(
+        guardIndex + 1,
+        0,
+        t.expressionStatement(
+          t.callExpression(t.identifier('log'), [t.numericLiteral(CACHE_MISS_MARKER)]),
+        ),
+      )
+    },
+  })
+  return generate(ast, { comments: false, shouldPrintComment: () => false }).code
+}
 
 function decoderIndexes(code: string): number[] {
   const ast = parse(code, { sourceType: 'unambiguous' })

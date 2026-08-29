@@ -3,7 +3,9 @@ import type { NodePath } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
+import type { TransformContext } from '../options'
 import type { ChangeState } from '../utils/change-tracking'
+import { mulberry32, shuffleInPlace } from '../utils/random'
 
 /**
  * Moves `var` declarations to the beginning of their containing function or
@@ -21,7 +23,7 @@ import type { ChangeState } from '../utils/change-tracking'
  *
  * // ▶️ after
  * function f() {
- *   var x, y;
+ *   var y, x;
  *   x = 1;
  *   if (c) {
  *     y = g();
@@ -29,7 +31,8 @@ import type { ChangeState } from '../utils/change-tracking'
  *   return x + y;
  * }
  */
-export function hoistVariables(ast: File): boolean {
+export function hoistVariables(ast: File, ctx: TransformContext): boolean {
+  const rng = mulberry32(ctx.seed)
   const state: HoistState = {
     changed: false,
     scopes: new Map(),
@@ -58,7 +61,7 @@ export function hoistVariables(ast: File): boolean {
 
   for (const scope of state.scopes.values()) {
     if (scope.changed) {
-      finishDeclaration(scope)
+      finishDeclaration(scope, rng)
     }
   }
 
@@ -216,16 +219,19 @@ function addNames(
   }
 }
 
-function finishDeclaration(scope: HoistedScope): void {
+function finishDeclaration(scope: HoistedScope, rng: () => number): void {
   const existingNames = new Set<string>()
   if (scope.declaration) {
     for (const name of Object.keys(scope.declaration.getBindingIdentifiers())) {
       existingNames.add(name)
     }
   }
-  const declarators = [...scope.names]
-    .filter(([name]) => !existingNames.has(name))
-    .map(([, identifier]) => t.variableDeclarator(t.cloneNode(identifier)))
+  // Bare `var` names carry no initializer, TDZ, or order-dependent effect, so
+  // their listed order is behavior-neutral. Shuffle it for output variety.
+  const declarators = shuffleInPlace(
+    [...scope.names].filter(([name]) => !existingNames.has(name)),
+    rng,
+  ).map(([, identifier]) => t.variableDeclarator(t.cloneNode(identifier)))
 
   if (scope.declaration) {
     if (declarators.length > 0) {

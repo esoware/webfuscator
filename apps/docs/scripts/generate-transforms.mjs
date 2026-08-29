@@ -107,7 +107,7 @@ function readTransform(fileName) {
 
 function configurationNote(transformName) {
   if (transformName === 'concealStrings') {
-    return `Pass \`{ cache, cover, scope }\` instead of \`true\`. The string pool is shared by the whole program. Program scope is the default and uses one vault. Function scope keeps encoded entries, decoders, and caches in separate function vaults. Equal strings share one entry within their vault. The default \`regional\` cover fills U+0000-00FF plus every 256-unit page touched anywhere in the program. Use \`used\` for compact output or \`full\` for all 65,536 UTF-16 units. Disable \`cache\` to decode on every evaluation.`
+    return `Pass \`{ cache, cover, scope }\` instead of \`true\`. The string pool is shared by the whole program. Program scope is the default and uses one vault. Function scope gives each function its own closure-backed vault, created every time the function definition is evaluated. Its cache survives later calls and is never shared with other functions. Equal strings share one entry within their vault. The default \`regional\` cover fills U+0000-00FF plus every 256-unit page touched anywhere in the program. Use \`used\` for compact output or \`full\` for all 65,536 UTF-16 units. Disable \`cache\` to decode on every evaluation.`
   }
 
   if (transformName === 'mangleProperties') {

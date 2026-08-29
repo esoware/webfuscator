@@ -13,7 +13,7 @@ Do not add guards, scans, or bailouts for anything in this list:
 - The extra outer alias that sloppy Annex B creates for a block-level function declaration.
 - Errors from accessing a lexical binding before initialization or assigning to `const`, including code that catches those errors.
 - The final value returned by evaluating an entire script or eval, including the return value of `pack`'s generated `Function` call.
-- Whether a top-level script declaration pollutes the global lexical environment (eg. var x = 1 at the top level of a script creates globalThis.x).
+- Anything that follows from how a top-level script or module declaration interacts with the global environment, whatever form that interaction takes (eg. var x = 1 at the top level of a script creates globalThis.x).
 - Generated text, comments, source locations, identifier and label spellings, the `.name` of a transformed function or class, `Function.prototype.toString()`, stack text, or the wording of an engine-generated error.
 - Standard built-ins patched by code that runs before the obfuscated input. Patches made by the input itself still matter.
 

@@ -107,7 +107,7 @@ export interface ConcealStringsOptions {
   cache?: boolean
   /** Choose how much of the UTF-16 range pads each pool. Default `'regional'`. */
   cover?: 'full' | 'regional' | 'used'
-  /** Use one program vault or a separate vault per function. Default `'program'`. */
+  /** Use one program vault or a persistent private vault per function. Default `'program'`. */
   scope?: 'function' | 'program'
 }
 
