@@ -23,7 +23,7 @@ a?.b?.c;
 ```
 
 ```js title="After" lines
-(obj === null ? true : obj === void 0) ? void 0 : (_m = obj.m).call(obj, arg);
+(obj === null ? true : obj === void 0) ? void 0 : obj.m(arg);
 (obj === null ? true : obj === void 0) ? true : delete obj.x;
 (a === null ? true : a === void 0) ? void 0 :
   ((_b = a.b) === null ? true : _b === void 0) ? void 0 : _b.c;

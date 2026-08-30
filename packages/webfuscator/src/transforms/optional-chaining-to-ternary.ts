@@ -17,7 +17,7 @@ import { buildNullishCheck } from '../utils/nullish'
  * a?.b?.c;
  *
  * // ▶️ after
- * (obj === null ? true : obj === void 0) ? void 0 : (_m = obj.m).call(obj, arg);
+ * (obj === null ? true : obj === void 0) ? void 0 : obj.m(arg);
  * (obj === null ? true : obj === void 0) ? true : delete obj.x;
  * (a === null ? true : a === void 0) ? void 0 :
  *   ((_b = a.b) === null ? true : _b === void 0) ? void 0 : _b.c;
@@ -186,24 +186,6 @@ function transformChain(path: OptionalPath): boolean {
         ;(node as t.CallExpression).callee = t.cloneNode(tmp)
       } else {
         ;(node as t.MemberExpression).object = t.cloneNode(tmp)
-      }
-    }
-
-    // A cached member call needs its original receiver as `this`.
-    if (isCall && t.isMemberExpression(chain)) {
-      const callNode = node as t.CallExpression
-      const object = chain.object
-      if (!t.isSuper(object)) {
-        let context: t.Expression
-        const memoized = path.scope.maybeGenerateMemoised(object)
-        if (memoized) {
-          context = t.cloneNode(memoized)
-          chain.object = t.assignmentExpression('=', memoized, object)
-        } else {
-          context = t.cloneNode(object) as t.Expression
-        }
-        callNode.arguments.unshift(t.cloneNode(context))
-        callNode.callee = t.memberExpression(callNode.callee as t.Expression, t.identifier('call'))
       }
     }
 
