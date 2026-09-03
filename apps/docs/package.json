@@ -13,6 +13,6 @@
     "validate": "mint --telemetry=false validate"
   },
   "devDependencies": {
-    "mint": "4.2.810"
+    "mint": "4.2.850"
   }
 }
