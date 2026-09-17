@@ -24,9 +24,9 @@
     "typecheck": "pnpm --recursive --if-present run typecheck"
   },
   "devDependencies": {
-    "knip": "^6.32.2",
-    "oxfmt": "^0.64.0",
-    "oxlint": "^1.79.0"
+    "knip": "^6.35.1",
+    "oxfmt": "^0.67.0",
+    "oxlint": "^1.82.0"
   },
   "engines": {
     "node": "^22.18.0 || >=24.11.0"
