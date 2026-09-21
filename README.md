@@ -1,5 +1,7 @@
 `webfuscator` is a Babel-based JavaScript obfuscator. It parses a JavaScript source string, applies configurable transforms, and returns JavaScript source.
 
+⚠️ This is an experimental obfuscator with no serious transforms, don't expect it to be useful yet!
+
 [Read the documentation](https://docs.webfuscator.dev) for the quickstart, configuration guides, API details, and a reference page for every transform. To try it without installing anything, open the [playground](https://playground.webfuscator.dev) and obfuscate a file in your browser.
 
 ## Install
