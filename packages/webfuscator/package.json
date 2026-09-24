@@ -55,16 +55,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@babel/generator": "^8.0.0",
-    "@babel/parser": "^8.0.4",
-    "@babel/traverse": "^8.0.4",
-    "@babel/types": "^8.0.4"
+    "@babel/generator": "^8.0.6",
+    "@babel/parser": "^8.0.6",
+    "@babel/traverse": "^8.0.6",
+    "@babel/types": "^8.0.6"
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "tsc-alias": "^1.9.2",
+    "tsc-alias": "^1.9.5",
     "typescript": "catalog:",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.1"
   },
   "engines": {
     "node": "^22.18.0 || >=24.11.0"
