@@ -219,7 +219,7 @@ function identifierReadIsSafe(node: t.Identifier, scope: Scope | undefined): boo
 }
 
 // Only `null` and plain function expressions are known-valid superclass values.
-function isConstructableSuperClass(node: t.Node): boolean {
+export function isConstructableSuperClass(node: t.Node): boolean {
   if (t.isNullLiteral(node)) {
     return true
   }
