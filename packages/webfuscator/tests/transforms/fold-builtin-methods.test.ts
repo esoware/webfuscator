@@ -1010,6 +1010,48 @@ test('foldBuiltinMethods does not fold an intrinsic the program patches indirect
   )
 })
 
+test('foldBuiltinMethods does not fold an intrinsic passed to input code', () => {
+  expectFoldPreservesBehavior(`
+    function run(m) {
+      var old = m.abs;
+      m.abs = function () { return 99; };
+      var value = Math.abs(-1);
+      m.abs = old;
+      return value;
+    }
+    log(run(Math));
+  `)
+  expectFoldPreservesBehavior(`
+    function run(prototype) {
+      var old = prototype.toUpperCase;
+      prototype.toUpperCase = function () { return "patched"; };
+      var value = "abc".toUpperCase();
+      prototype.toUpperCase = old;
+      return value;
+    }
+    log(run(String.prototype));
+  `)
+})
+
+test('foldBuiltinMethods does not fold an intrinsic returned or stored by input code', () => {
+  expectFoldPreservesBehavior(`
+    function expose() { return Math; }
+    var m = expose();
+    var old = m.round;
+    m.round = function () { return 99; };
+    log(Math.round(1.5));
+    m.round = old;
+  `)
+  expectFoldPreservesBehavior(`
+    var holder = { values: [Math] };
+    var m = holder.values[0];
+    var old = m.floor;
+    m.floor = function () { return 99; };
+    log(Math.floor(1.5));
+    m.floor = old;
+  `)
+})
+
 test('foldBuiltinMethods folds array literal lengths without materializing holes', () => {
   const literal = expectFoldPreservesBehavior(
     'var n = 0; log([,,].length, [1,,3].length, [n++, {}].length, n);',

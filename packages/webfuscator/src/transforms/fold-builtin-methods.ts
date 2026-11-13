@@ -61,6 +61,17 @@ const INTRINSIC_ROOTS = new Set([
   'decodeURIComponent',
 ])
 
+const INTRINSIC_OBJECT_ROOTS = new Set([
+  'Math',
+  'String',
+  'Number',
+  'Array',
+  'Boolean',
+  'BigInt',
+  'Object',
+  'Reflect',
+])
+
 // These global objects expose intrinsic roots as writable properties.
 const GLOBAL_OBJECT_NAMES = new Set(['globalThis', 'window', 'self', 'global'])
 
@@ -104,6 +115,8 @@ function collectPatchedIntrinsics(ast: File): Set<string> {
       markMutationCall(path, poison)
     },
     Identifier(path) {
+      markEscapedIntrinsic(path, poison)
+
       const name = path.node.name
       if (name !== 'Function') {
         return
@@ -128,6 +141,84 @@ type PoisonSink = (roots: Iterable<string>) => void
 
 // A global-object handle reaches every root. A local binding reaches none.
 const NO_ROOTS: readonly string[] = []
+
+interface IntrinsicObjectReference {
+  roots: Iterable<string>
+  valuePath: NodePath
+}
+
+function markEscapedIntrinsic(path: NodePath<t.Identifier>, poison: PoisonSink): void {
+  if (!path.isReferencedIdentifier() || path.scope.getBinding(path.node.name)) {
+    return
+  }
+  const reference = intrinsicObjectReference(path)
+  if (!reference || intrinsicObjectStaysInView(reference.valuePath)) {
+    return
+  }
+  poison(reference.roots)
+}
+
+function intrinsicObjectReference(path: NodePath<t.Identifier>): IntrinsicObjectReference | null {
+  const name = path.node.name
+  if (INTRINSIC_OBJECT_ROOTS.has(name)) {
+    return {
+      roots: [name],
+      valuePath: prototypeValuePath(path),
+    }
+  }
+  if (!GLOBAL_OBJECT_NAMES.has(name)) {
+    return null
+  }
+
+  const parent = path.parentPath
+  if (!parent || !parent.isMemberExpression() || parent.node.object !== path.node) {
+    return { roots: INTRINSIC_ROOTS, valuePath: path }
+  }
+  const propertyName = staticPropertyName(parent.node)
+  if (propertyName === null) {
+    return { roots: INTRINSIC_ROOTS, valuePath: parent }
+  }
+  if (!INTRINSIC_ROOTS.has(propertyName)) {
+    return null
+  }
+  return {
+    roots: [propertyName],
+    valuePath: prototypeValuePath(parent),
+  }
+}
+
+function prototypeValuePath(path: NodePath): NodePath {
+  const parent = path.parentPath
+  if (
+    parent &&
+    parent.isMemberExpression() &&
+    parent.node.object === path.node &&
+    staticPropertyName(parent.node) === 'prototype'
+  ) {
+    return parent
+  }
+  return path
+}
+
+function intrinsicObjectStaysInView(path: NodePath): boolean {
+  const parent = path.parentPath
+  if (!parent) {
+    return false
+  }
+  if (
+    (parent.isMemberExpression() || parent.isOptionalMemberExpression()) &&
+    parent.node.object === path.node
+  ) {
+    return true
+  }
+  if (
+    (parent.isCallExpression() || parent.isOptionalCallExpression() || parent.isNewExpression()) &&
+    parent.node.callee === path.node
+  ) {
+    return true
+  }
+  return parent.isTaggedTemplateExpression() && parent.node.tag === path.node
+}
 
 // Destructuring writes recurse to each leaf target.
 function markWriteTarget(target: t.Node, scope: NodePath['scope'], poison: PoisonSink): void {

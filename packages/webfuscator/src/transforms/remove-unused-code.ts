@@ -3,7 +3,7 @@ import type { NodePath, Visitor } from '@babel/traverse'
 import * as t from '@babel/types'
 import type { File } from '@babel/types'
 
-import { isSideEffectFree } from '../analysis/purity'
+import { isConstructableSuperClass, isSideEffectFree } from '../analysis/purity'
 import type { ChangeState } from '../utils/change-tracking'
 
 /**
@@ -178,7 +178,11 @@ function tryRemoveClassDecl(path: NodePath<t.ClassDeclaration>): boolean {
   }
 
   // `extends`, computed keys, static fields, and static blocks run on evaluation.
-  if (path.node.superClass && !isSideEffectFree(path.node.superClass, path.scope)) {
+  if (
+    path.node.superClass &&
+    (!isSideEffectFree(path.node.superClass, path.scope) ||
+      !isConstructableSuperClass(path.node.superClass))
+  ) {
     return false
   }
   for (const member of path.node.body.body) {

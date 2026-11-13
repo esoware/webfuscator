@@ -409,6 +409,40 @@ test('removeUnusedCode keeps a class with a computed key or side-effecting exten
   )
 })
 
+test('removeUnusedCode keeps an unused class when extends can throw', () => {
+  for (const superClass of ['1', '"base"', 'true', '(() => {})']) {
+    const source = `
+      var result = "before";
+      try {
+        class Unused extends ${superClass} {}
+        result = "after";
+      } catch (error) {
+        result = "threw";
+      }
+      log(result);
+    `
+    const out = run(source, removeUnusedCode)
+    expect(out).toContain('class Unused')
+    expect(trace(out)).toEqual(trace(source))
+  }
+
+  preservesUnused(`
+    var reads = 0;
+    var holder = { get base() { reads++; return function () {}; } };
+    class Unused extends holder.base {}
+    log(reads);
+  `)
+})
+
+test('removeUnusedCode removes unused classes with proven superclasses', () => {
+  for (const source of [
+    'class Unused extends null {}',
+    'class Unused extends (function () {}) {}',
+  ]) {
+    expect(run(source, removeUnusedCode).trim()).toBe('')
+  }
+})
+
 test('removeUnusedCode removes a pre-initialization read used only for its error', () => {
   const out = run(
     "function f() { var r = 'no-throw'; try { g() } catch (e) { r = 'threw' } let a = 1; function g() { var u = a; } return r; } log(f());",

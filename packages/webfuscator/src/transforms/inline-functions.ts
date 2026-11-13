@@ -443,10 +443,14 @@ function inlineCallSite(
   // A finalizer runs before the call publishes its return value. Direct writes
   // inside its `try` would expose the value too early.
   const returnObservableByFinally = returnPattern === 'complex' && bodyHasTryFinally(body)
+  // A call-site name spliced under a same-named inner binding resolves to that
+  // binding. A return inside `catch (x)` would assign the catch parameter.
+  const innerBindingNames = collectInnerBindingNames(body)
   const directTarget =
     rawTarget == null ||
     returnObservableByFinally ||
-    (rawTarget.kind === 'assign' && !trailingReturnHasArgument)
+    (rawTarget.kind === 'assign' && !trailingReturnHasArgument) ||
+    innerBindingNames.has(rawTarget.name)
       ? null
       : rawTarget
   const retVarName = directTarget ? directTarget.name : scope.generateUid('returnValue')
@@ -460,6 +464,7 @@ function inlineCallSite(
       argPath &&
       argEligibleForElision(argPath, callPath.scope) &&
       !freeVars.has((argPath.node as t.Identifier).name) &&
+      !innerBindingNames.has((argPath.node as t.Identifier).name) &&
       isParamReadOnly(candidate, param) &&
       // An elided parameter must not alias the target that receives return writes.
       (argPath.node as t.Identifier).name !== retVarName
@@ -723,6 +728,24 @@ function collectOwnScopeBindings(fn: t.Function): Set<string> {
     }
   }
   return declared
+}
+
+// Nested functions and catch clauses keep their binding names in the clone.
+// Other inner binders already count as free names in `computeLiveFreeVars`.
+function collectInnerBindingNames(body: t.BlockStatement): Set<string> {
+  const names = new Set<string>()
+  t.traverseFast(body, (node) => {
+    if (t.isFunction(node)) {
+      for (const name of collectOwnScopeBindings(node)) {
+        names.add(name)
+      }
+    } else if (t.isCatchClause(node)) {
+      for (const name of catchParamNames(node)) {
+        names.add(name)
+      }
+    }
+  })
+  return names
 }
 
 // Recompute free names from the live body after earlier inlining. Conservative

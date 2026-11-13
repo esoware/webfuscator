@@ -957,6 +957,43 @@ f();`,
   expect(out).not.toMatch(/function f\(/)
 })
 
+test('inlineFunctions does not elide an argument into a same-named arrow parameter', () => {
+  const out = preservesInline(
+    `function changed(e, t) { return e.refs.length !== t.length || e.refs.some((e, n) => e !== t[n]); }
+function check(e) { var t = state; return changed(t, e); }
+var state = { refs: [1, 2] };
+log(check([1, 2]), check([1, 3]), check([undefined, 2]));`,
+  )
+  expect(out).not.toMatch(/function changed\(/)
+})
+
+test('inlineFunctions does not elide an argument into a same-named arrow local', () => {
+  const out = preservesInline(
+    `function f(t) { return [0, 1].map((n) => { var e = 5; return t[n] + e; }); }
+function g(e) { return f(e); }
+log(g([10, 20]));`,
+  )
+  expect(out).not.toMatch(/function f\(/)
+})
+
+test('inlineFunctions does not elide an argument into a same-named catch parameter', () => {
+  const out = preservesInline(
+    `function f(t) { try { throw 1; } catch (e) { return t + e; } }
+function g(e) { return f(e); }
+log(g(10));`,
+  )
+  expect(out).not.toMatch(/function f\(/)
+})
+
+test('inlineFunctions does not write returns into a target shadowed by a catch parameter', () => {
+  const out = preservesInline(
+    `function f(a) { try { throw a; } catch (x) { return x + 1; } }
+var x = f(1);
+log(x);`,
+  )
+  expect(out).not.toMatch(/function f\(/)
+})
+
 test('inlineFunctions does not inline a reassigned function declaration (A01-04)', () => {
   const out = preservesInline(
     `function f() { return 1; }
