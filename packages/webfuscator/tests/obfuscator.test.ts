@@ -368,6 +368,20 @@ log(reads);`)
   expect(observed).toEqual([7, 1])
 })
 
+test('obfuscate of a for initializer keeps a later declarator after the destructuring it reads', () => {
+  const out = obfuscateAll(`function walk(tree, dir) {
+  var seen = [];
+  for (let { children, positions } = tree, end = dir > 0 ? children.length : -1, i = 0; i != end; i += dir) {
+    seen.push(children[i] + positions[i]);
+  }
+  return seen.join();
+}
+log(walk({ children: [1, 2], positions: [10, 20] }, 1));`)
+  const observed: unknown[] = []
+  evalProgram(out, { log: (v: unknown) => observed.push(v) })
+  expect(observed).toEqual(['11,22'])
+})
+
 test('obfuscate of a switch case containing a function declaration keeps it visible across cases', () => {
   const out = obfuscateAll(`function go(x) {
   switch (x) {

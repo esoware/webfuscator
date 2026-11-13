@@ -49,7 +49,9 @@ export function reorderableToStatement(path: NodePath, stmtPath: NodePath): bool
     cur = parent
     parent = cur.parentPath
   }
-  return true
+  // A multi-declarator statement left by a later pass, such as `forToWhile`
+  // moving a `for` initializer out, still runs its earlier declarators first.
+  return !stmtPath.isVariableDeclaration() || !precedingEvaluationHasSideEffect(stmtPath, cur)
 }
 
 // Unknown parent shapes are unsafe. Known operands use `isPure` with their live
@@ -70,8 +72,12 @@ function precedingEvaluationHasSideEffect(parentPath: NodePath, curPath: NodePat
     return false
   }
   if (t.isVariableDeclaration(parent)) {
-    const declarators = precedingSiblings(parentPath, 'declarations', cur)
-    return impure(declarators.map((decl) => decl.get('init') as NodePath))
+    const declarators = precedingSiblings<NodePath<t.VariableDeclarator>>(
+      parentPath,
+      'declarations',
+      cur,
+    )
+    return declarators.some((declarator) => crossingDeclaratorIsUnsafe(declarator, curPath))
   }
   if (t.isAssignmentExpression(parent) && parent.right === cur) {
     const target = parentPath.get('left') as NodePath
@@ -130,6 +136,33 @@ function precedingSiblings<T extends NodePath>(
     0,
     siblings.findIndex((sibling) => sibling.node === cur),
   )
+}
+
+// A hoist lands before the whole declaration. Patterns run getters, iterators,
+// and defaults, and a later initializer that reads the binding would see it
+// uninitialized.
+function crossingDeclaratorIsUnsafe(
+  declarator: NodePath<t.VariableDeclarator>,
+  later: NodePath,
+): boolean {
+  const id = declarator.node.id
+  return (
+    !t.isIdentifier(id) || impure([declarator.get('init') as NodePath]) || readsName(later, id.name)
+  )
+}
+
+// Matching by name also refuses a shadowed reference, which only costs a rewrite.
+function readsName(path: NodePath, name: string): boolean {
+  let isRead = false
+  path.traverse({
+    ReferencedIdentifier(reference) {
+      if (reference.node.name === name) {
+        isRead = true
+        reference.stop()
+      }
+    },
+  })
+  return isRead
 }
 
 function isPurePath(path: NodePath): boolean {
