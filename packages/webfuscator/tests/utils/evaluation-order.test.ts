@@ -79,6 +79,36 @@ test('reorderableToStatement refuses reordering past a preceding side effect', (
   expect(reorderable('function rec() {} var o = 1; rec(o + 1, marker);', 'marker')).toBe(false)
 })
 
+test('reorderableToStatement allows crossing an independent identifier declarator', () => {
+  expect(reorderable('for (let a = 1, b = marker; ; ) {}', 'marker')).toBe(true)
+  expect(reorderable('var c = 0; for (var a = c, b = marker; ; ) {}', 'marker')).toBe(true)
+  expect(reorderable('for (let a = 1, b = (marker, x.a); ; ) {}', 'marker')).toBe(true)
+})
+
+test('reorderableToStatement refuses crossing a declarator the later initializer reads', () => {
+  expect(reorderable('for (let a = 1, b = marker + a; ; ) {}', 'marker')).toBe(false)
+  expect(reorderable('for (var a = 1, b = marker + a; ; ) {}', 'marker')).toBe(false)
+  expect(reorderable('for (let a = 0, b = marker, c = a; ; ) {}', 'marker')).toBe(true)
+  // A closure in the hoisted initializer would capture the outer scope instead.
+  expect(reorderable('for (let i = 0, g = marker ? () => i : null; ; ) {}', 'marker')).toBe(false)
+  // Reads under a shadowing name are refused too, since matching is by name.
+  expect(reorderable('for (let a = 1, b = marker ? (a) => a : 0; ; ) {}', 'marker')).toBe(false)
+})
+
+test('reorderableToStatement checks earlier declarators when the declaration is the statement', () => {
+  expect(reorderable('var a = 1, b = marker;', 'marker')).toBe(true)
+  expect(reorderable('var a = 1, b = marker + a;', 'marker')).toBe(false)
+  expect(reorderable('var a = missingFn(), b = marker;', 'marker')).toBe(false)
+  expect(reorderable('var o = {}; var { a } = o, b = marker;', 'marker')).toBe(false)
+})
+
+test('reorderableToStatement refuses crossing a destructuring declarator', () => {
+  // Object patterns run getters and array patterns run the iterator.
+  expect(reorderable('var o = {}; for (let { a } = o, b = marker; ; ) {}', 'marker')).toBe(false)
+  expect(reorderable('var o = []; for (let [a] = o, b = marker; ; ) {}', 'marker')).toBe(false)
+  expect(reorderable('for (let { a = 1 } = {}, b = marker; ; ) {}', 'marker')).toBe(false)
+})
+
 test('reorderableToStatement refuses a compound-assign RHS (target GetValue precedes it)', () => {
   // A02-07: Compound assignment may read a global accessor before its right side.
   expect(reorderable('gx += marker;', 'marker')).toBe(false)

@@ -383,6 +383,43 @@ test('ternaryToIf does not hoist a short-circuited ternary (F5)', () => {
   ternaryPreserves("function s(t){log(t);return t} log(s(0) && (s(1) && (s('r') ? 'x' : 'y')));")
 })
 
+test('ternaryToIf does not hoist a for-init ternary above a binding it reads', () => {
+  ternaryPreserves(
+    `function sum(list, d) {
+  let n = 0;
+  for (let c = list, e = d > 0 ? c.length : -1; e > 0; e--) { n += c[e - 1]; }
+  return n;
+}
+log(sum([1, 2], 1));`,
+  )
+})
+
+test('ternaryToIf does not hoist a for-init ternary above a destructuring getter', () => {
+  ternaryPreserves(
+    `function s(v) { log(v); return v; }
+var o = { get a() { log('get'); return 1; } };
+for (let { a } = o, e = s('tern') ? 1 : 2; ; ) { log(a, e); break; }`,
+  )
+})
+
+test('ternaryToIf does not hoist a later declarator above the destructuring it reads', () => {
+  ternaryPreserves(
+    `function size(tree, d) {
+  var { children } = tree, e = d > 0 ? children.length : -1;
+  return e;
+}
+log(size({ children: [1, 2] }, 1));`,
+  )
+})
+
+test('ternaryToIf keeps a for-init closure on the loop binding', () => {
+  ternaryPreserves(
+    `const fs = [];
+for (let i = 0, g = true ? () => i : null; i < 2; i++) { fs.push(g); }
+log(fs.map((h) => h()).join());`,
+  )
+})
+
 test('ternaryToIf does not duplicate a hoisted sequence element (A07-01)', () => {
   ternaryPreserves(
     `function s(v) { log(v); return v; }
