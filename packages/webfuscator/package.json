@@ -1,6 +1,6 @@
 {
   "name": "webfuscator",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "JavaScript obfuscator built on Babel",
   "keywords": [
     "babel",
